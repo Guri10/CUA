@@ -1,0 +1,61 @@
+# --- Secrets -----------------------------------------------------------------
+# The brief's ground rules: "Keep secrets out of the repo." Model API keys and
+# target-app credentials live in .env; .env.example is tracked so the README can
+# document what config is needed without leaking values.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# --- Agent working notes -------------------------------------------------------
+# Scratch state for the coding agent, not part of the submission.
+.agent/
+.scratch/
+flow.md
+.claude/settings.local.json
+
+# --- Node ----------------------------------------------------------------------
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.npm/
+.yarn/
+.pnp.*
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Python --------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Playwright / browser automation --------------------------------------------
+# Transient run output. NOTE: this does not cover /evidence/ — see below.
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+playwright/.cache/
+
+# --- OS / editor -----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# --- Deliberately NOT ignored -----------------------------------------------------
+# /evidence/ is a required deliverable (Section 6.3): the saved capability
+# artifact plus logs from a discovery run and a replay run. Screenshots, traces
+# and DOM snapshots under it must be committed. Do not add an /evidence rule here.
+# Redact sensitive values before committing rather than ignoring the files.
