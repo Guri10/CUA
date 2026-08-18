@@ -11,7 +11,7 @@
  *
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
-import { logInToParabank } from "./surface/parabank/login.js";
+import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
 import { PlaywrightSurface } from "./surface/playwright-surface.js";
 import { capabilitiesDir, loadCapabilityRef } from "./capability/storage.js";
 import { coerceTextValues, parseContractValues } from "./replay/contract-values.js";
@@ -57,10 +57,14 @@ async function main(argv: string[]): Promise<number> {
     );
   }
 
-  const baseUrl =
+  // Normalised once, here. `absoluteUrl` strips a trailing slash and
+  // `logInToParabank` concatenates raw, so a base URL ending in one would sign
+  // in at `//index.htm` and replay Steps at `/overview.htm`.
+  const baseUrl = (
     single(args, "base-url") ??
     process.env["PARABANK_BASE_URL"] ??
-    "http://localhost:8080/parabank";
+    "http://localhost:8080/parabank"
+  ).replace(/\/+$/, "");
   const ident = `${capability.id}@${capability.version}`;
   const inputs = coerceTextValues(
     capability.contract.inputs,
@@ -74,10 +78,17 @@ async function main(argv: string[]): Promise<number> {
   parseContractValues(capability.contract.inputs, inputs, `This run's inputs for ${ident}`);
 
   const variant = single(args, "variant");
+  // Read before the browser launches, for the same reason the inputs are
+  // checked there: a missing `.env` should cost a sentence, not a Chromium.
+  const credentials = {
+    username: required("PARABANK_USERNAME"),
+    // ADR 0006 classes this a Secret: handed in at run time, never written.
+    password: required("PARABANK_PASSWORD"),
+  };
 
   const surface = await PlaywrightSurface.launch({ headless: !args.has("headed") });
   try {
-    await establishSession(surface, baseUrl);
+    await establishSession(surface, baseUrl, credentials);
 
     const result = await replayCapability(surface, capability, inputs, {
       baseUrl,
@@ -112,13 +123,11 @@ async function main(argv: string[]): Promise<number> {
  * The executor is handed a Surface that already has a session and knows nothing
  * about how it got one — which is what keeps login out of every Recording.
  */
-async function establishSession(surface: PlaywrightSurface, baseUrl: string): Promise<void> {
-  const credentials = {
-    username: required("PARABANK_USERNAME"),
-    // ADR 0006 classes this a Secret: handed in at run time, never written.
-    password: required("PARABANK_PASSWORD"),
-  };
-
+async function establishSession(
+  surface: PlaywrightSurface,
+  baseUrl: string,
+  credentials: ParabankCredentials,
+): Promise<void> {
   for (const action of logInToParabank(baseUrl, credentials)) {
     const result = await surface.perform(action);
     if (result.kind === "ok") continue;
@@ -137,8 +146,28 @@ function required(name: string): string {
 }
 
 /**
- * `--name value` and `--flag`, collected so that a repeated option keeps every
- * occurrence — `--input` is given once per declared input.
+ * Every option there is, and whether it takes a value.
+ *
+ * Named rather than inferred, so that a misspelled option is refused instead of
+ * collected and ignored. `--baseurl http://elsewhere` silently dropped is a run
+ * against the wrong installation that reports success, which is worse than any
+ * error message.
+ */
+const OPTIONS = {
+  capability: "value",
+  input: "value",
+  variant: "value",
+  "base-url": "value",
+  headed: "flag",
+} as const;
+
+/**
+ * `--name value`, `--name=value`, and `--flag`, collected so that a repeated
+ * option keeps every occurrence — `--input` is given once per declared input.
+ *
+ * Both value forms, because `--input` intrinsically contains an `=` and the
+ * joined form is the one a reader reaches for. Splitting at the first `=` only
+ * is what keeps `--input=accountId=12345` meaning what it looks like.
  */
 function parseArguments(argv: string[]): Map<string, string[]> {
   const args = new Map<string, string[]>();
@@ -147,15 +176,23 @@ function parseArguments(argv: string[]): Map<string, string[]> {
     const token = argv[index]!;
     if (!token.startsWith("--")) throw new Error(`Unexpected argument "${token}".\n\n${USAGE}`);
 
-    const name = token.slice(2);
-    // A flag standing on its own — `--headed` — is recorded as an empty value
-    // rather than being missing, so `has` answers it and `single` does not
-    // mistake it for an option that was given a value.
-    const next = argv[index + 1];
-    const takesValue = next !== undefined && !next.startsWith("--");
-    if (takesValue) index += 1;
+    const joined = token.indexOf("=");
+    const name = joined === -1 ? token.slice(2) : token.slice(2, joined);
+    const takes = OPTIONS[name as keyof typeof OPTIONS];
+    if (takes === undefined) throw new Error(`Unknown option "--${name}".\n\n${USAGE}`);
 
-    args.set(name, [...(args.get(name) ?? []), takesValue ? next : ""]);
+    if (takes === "flag") {
+      if (joined !== -1) throw new Error(`--${name} takes no value.`);
+      // Recorded as an empty value rather than as missing, so `has` answers it.
+      args.set(name, [...(args.get(name) ?? []), ""]);
+      continue;
+    }
+
+    const value = joined === -1 ? argv[++index] : token.slice(joined + 1);
+    if (value === undefined || value.startsWith("--")) {
+      throw new Error(`--${name} needs a value.`);
+    }
+    args.set(name, [...(args.get(name) ?? []), value]);
   }
 
   return args;
@@ -165,7 +202,7 @@ function single(args: Map<string, string[]>, name: string): string | undefined {
   const values = args.get(name);
   if (values === undefined) return undefined;
   if (values.length > 1) throw new Error(`--${name} was given more than once.`);
-  return values[0] === "" ? undefined : values[0];
+  return values[0];
 }
 
 /** `--input accountId=12345`, split at the first `=` so a value may contain one. */

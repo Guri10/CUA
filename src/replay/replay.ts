@@ -15,6 +15,7 @@
  * ticket 7's Surface profile will eventually supply one.
  */
 import { resolveRecording } from "../capability/resolve-recording.js";
+import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import type { Capability, TerminalState } from "../capability/schema.js";
 import type { ActionResult, Surface } from "../surface/surface.js";
 import { describeAction, describePredicate } from "./describe.js";
@@ -50,7 +51,12 @@ export type ReplayResult =
       readonly step: string;
       readonly expected: string;
       readonly observed: string;
-      /** Where the Surface was when it stopped. */
+      /**
+       * Where the Surface was when it stopped, with any session token masked.
+       * ParaBank carries one in the URL, ADR 0006 classes it a Secret, and a
+       * failure report is the one value on this path that gets printed and
+       * logged.
+       */
       readonly url: string;
     };
 
@@ -84,7 +90,7 @@ export async function replayCapability(
         step: step.id,
         expected: describeAction(action),
         observed: describeMiss(result),
-        url: (await surface.snapshot()).url,
+        url: redactSessionIds((await surface.snapshot()).url),
       };
     }
 
@@ -107,8 +113,12 @@ export async function replayCapability(
       // standing when it found itself somewhere it could not name.
       step: steps.at(-1)?.id ?? "",
       expected: describePredicate(success.when, values),
-      observed: "no declared Terminal State matched the screen",
-      url: snapshot.url,
+      // Precisely what was checked. Only the success state is evaluated here —
+      // #6 is what matches the declared Business Outcomes — and claiming that
+      // none of them matched would send a reader hunting for a Locator problem
+      // on a screen the Capability can in fact name.
+      observed: "the success Terminal State did not match",
+      url: redactSessionIds(snapshot.url),
     };
   }
 

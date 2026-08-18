@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
 import { BASE_VARIANT, capabilitySchema, type Capability } from "../capability/schema.js";
-import { FakeSurface } from "../surface/fake-surface.js";
+import { FakeSurface, type Script } from "../surface/fake-surface.js";
 import { parabankScript, PARABANK_CAPTURED_BASE_URL } from "../surface/parabank/fake-script.js";
 import { replayCapability } from "./replay.js";
 
@@ -70,9 +70,16 @@ describe("replaying a Capability", () => {
   });
 
   it("refuses an input the Contract does not declare", async () => {
+    // Every declared input supplied, plus one that is not. A misspelled input
+    // that was quietly dropped would run the Recording with the blank unfilled.
     await expect(
-      replayCapability(parabank(), accountLookupCapability(), { account: "12345" }, options),
-    ).rejects.toThrow(/account/);
+      replayCapability(
+        parabank(),
+        accountLookupCapability(),
+        { accountId: "12345", acountId: "12345" },
+        options,
+      ),
+    ).rejects.toThrow(/acountId/);
   });
 
   it("verifies the success Terminal State rather than assuming the last Step meant success", async () => {
@@ -85,7 +92,7 @@ describe("replaying a Capability", () => {
       kind: "hard-failure",
       step: "open-overview",
       expected: `heading "Account Details" present`,
-      observed: "no declared Terminal State matched the screen",
+      observed: "the success Terminal State did not match",
       url: `${PARABANK_CAPTURED_BASE_URL}/overview.htm`,
     });
   });
@@ -113,6 +120,24 @@ describe("replaying a Capability", () => {
       observed: "no control matched",
       url: `${PARABANK_CAPTURED_BASE_URL}/overview.htm`,
     });
+  });
+
+  it("masks the session token in the screen it reports", async () => {
+    // ParaBank carries its session token in the URL, and ADR 0006 classes one a
+    // Secret: never written, with no flag to disable it. A failure report is
+    // the one value on this path that gets printed to a terminal and a CI log,
+    // so it is exactly where a live token would escape.
+    const result = await replayCapability(
+      new FakeSurface(sessionInTheUrl()),
+      readsAMissingRowCapability(),
+      { accountId: CAPTURED_ACCOUNT },
+      options,
+    );
+
+    expect(result).toMatchObject({ kind: "hard-failure" });
+    if (result.kind !== "hard-failure") return;
+    expect(result.url).toContain("jsessionid=[REDACTED]");
+    expect(result.url).not.toContain("ABC123");
   });
 
   it("reports a Step whose Locator matches more than one control", async () => {
@@ -286,6 +311,72 @@ function ambiguousCapability(): Capability {
           {
             id: "read-a-cell",
             action: { kind: "read", locator: { role: "cell" }, bind: "anything" },
+          },
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * The same captured screens, with the account detail reached at a URL carrying
+ * a session token — which is what real ParaBank serves.
+ */
+function sessionInTheUrl(): Script {
+  return {
+    screens: parabankScript().screens.map((screen) =>
+      screen.name === "account-detail" ? { ...screen, url: `${screen.url};jsessionid=ABC123` } : screen,
+    ),
+  };
+}
+
+/** Clicks through to the account detail, then reads a row it does not have. */
+function readsAMissingRowCapability(): Capability {
+  return capabilitySchema.parse({
+    id: "reads-a-missing-row",
+    version: 1,
+    surface: "parabank",
+    contract: {
+      summary: "Reach the account detail and read a field ParaBank does not show.",
+      inputs: { type: "object", properties: { accountId: { type: "string" } }, required: ["accountId"] },
+      outputs: { type: "object", properties: { sortCode: { type: "string" } }, required: ["sortCode"] },
+      effects: "read-only",
+      terminalStates: [
+        {
+          kind: "success",
+          when: {
+            kind: "present",
+            locator: { role: "heading", name: { kind: "literal", value: "Account Details" } },
+          },
+        },
+      ],
+    },
+    recordings: [
+      {
+        variant: BASE_VARIANT,
+        steps: [
+          {
+            id: "open-overview",
+            action: { kind: "navigate", url: { kind: "literal", value: "/overview.htm" } },
+          },
+          {
+            id: "open-account",
+            action: {
+              kind: "click",
+              locator: { role: "link", name: { kind: "input", input: "accountId" }, exact: true },
+            },
+          },
+          {
+            id: "read-sort-code",
+            action: {
+              kind: "read",
+              locator: {
+                role: "cell",
+                ordinal: 1,
+                within: { role: "row", name: { kind: "literal", value: "Sort Code:" } },
+              },
+              bind: "sortCode",
+            },
           },
         ],
       },
