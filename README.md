@@ -8,8 +8,9 @@ behind the shape of the system.
 
 ## Status
 
-Early. The scaffold, the ParaBank target, and the verification of ADR 0001's targeting assumption
-are in place. The `discover`, `replay`, and `serve` commands are not built yet.
+Early. The scaffold, the ParaBank target, the verification of ADR 0001's targeting assumption, the
+Capability schema, and the replay path are in place: a hand-written Capability replays against real
+ParaBank and returns typed outputs. The `discover` and `serve` commands are not built yet.
 
 ## Requirements
 
@@ -58,9 +59,36 @@ real credentials or PII are involved anywhere in this project.
 | `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. |
 | `npm run typecheck` | Type check without emitting. |
 | `npm run build` | Compile to `dist/`. |
+| `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |
 | `npm run parabank:start` | Start the target application. |
 | `npm run parabank:stop` | Stop and remove it. |
+
+## Replay a Capability
+
+With ParaBank running and `.env` filled in:
+
+```sh
+npm run replay -- --capability account-lookup@1 --input accountId=12345
+```
+
+It signs in, drives the accounts overview and the account detail screen, checks that the screen it
+reached is the one the Capability calls success, and prints the outputs its Contract declares:
+
+```json
+{
+  "accountType": "CHECKING",
+  "balance": "-$2300.00"
+}
+```
+
+No model runs on this path — not to pick a control, not to decide it worked. A run that cannot
+reach its declared success state prints the Step it stopped at, what it expected, and what it saw,
+and exits non-zero.
+
+A bare id (`--capability account-lookup`) runs the highest version there is. `--variant <name>`
+runs a Tenant's corrected Recording, `--base-url` points at an installation other than
+`$PARABANK_BASE_URL`, and `--headed` shows the browser window.
 
 ## Is the accessibility tree good enough to target?
 

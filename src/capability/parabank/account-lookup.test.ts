@@ -3,10 +3,11 @@ import { readAriaSnapshot, type AriaNode } from "../../surface/aria-snapshot.js"
 import { readControlValue } from "../../surface/read-value.js";
 import { resolveLocator, resolveLocatorIndices } from "../../surface/resolve-locator.js";
 import type { Locator } from "../../surface/surface.js";
-import { capabilitySchema, type Expression, type StepLocator } from "../schema.js";
+import { capabilitySchema, type StepLocator } from "../schema.js";
 import { jsonSchemaFor } from "../json-schema.js";
 import { capabilitiesDir, loadCapability } from "../storage.js";
 import { capturedTree } from "../../surface/parabank/fake-script.js";
+import { substituteLocator } from "../../replay/substitute.js";
 import {
   accountLookupCapability,
   accountLookupInputs,
@@ -117,20 +118,10 @@ function valueAt(nodes: AriaNode[], locator: Locator): string {
 }
 
 /**
- * Filling an input reference in, the way #5's executor will at run time. It is
- * here rather than imported because the executor does not exist yet, and a
- * Recording whose Locators have never been resolved against a real tree is not
- * worth committing.
+ * Filling an input reference in, the way the executor does at run time — and
+ * with the executor's own function, so that what is checked here against the
+ * captured trees is what a real run will actually address.
  */
 function substitute(locator: StepLocator, accountId: string): Locator {
-  const value = (expression: Expression): string =>
-    expression.kind === "literal" ? expression.value : accountId;
-
-  return {
-    role: locator.role,
-    ...(locator.name === undefined ? {} : { name: value(locator.name) }),
-    ...(locator.exact === undefined ? {} : { exact: locator.exact }),
-    ...(locator.ordinal === undefined ? {} : { ordinal: locator.ordinal }),
-    ...(locator.within === undefined ? {} : { within: substitute(locator.within, accountId) }),
-  };
+  return substituteLocator(locator, { accountId });
 }

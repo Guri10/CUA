@@ -32,7 +32,7 @@ recorded here so it doesn't get reinvented; it will not run until its ticket lan
   committed files under `capabilities/` from their modules)
 - Capture accessibility trees: `npm run capture:a11y` — **exists** (refreshes the evidence under
   `evidence/accessibility-tree/`)
-- Replay a Capability: `npm run replay -- --capability <id>@<v>` — **planned**, #5
+- Replay a Capability: `npm run replay -- --capability <id>@<v> --input <name>=<value>` — **exists**
 - Discovery run: `npm run discover -- --goal "..."` — **planned**, #9
 - Serve the Capability catalog: `npm run serve` — **planned**, #13
 - Run lint: not configured, and no ticket asks for it

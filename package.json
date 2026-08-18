@@ -12,6 +12,7 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "replay": "tsx --env-file-if-exists=.env src/cli.ts replay",
     "test:e2e": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
     "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
     "capability:write": "tsx scripts/write-capabilities.ts",
