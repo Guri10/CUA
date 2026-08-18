@@ -226,6 +226,16 @@ const capabilityShape = z.object({
   version: z.int().positive(),
   /** Which Surface profile this runs against — the origin, login, and route classes. */
   surface: z.string().regex(SLUG),
+  /**
+   * Whether a human has reviewed this Capability and signed it off.
+   *
+   * Draft unless the file says otherwise, so that a Capability the recorder
+   * wrote unattended cannot be approved by omission. ADR 0007 makes this
+   * load-bearing for a mutating Capability only: a read-only one is safe to
+   * replay in either state, and a mutating one runs unattended only once
+   * somebody has put their name to it.
+   */
+  approval: z.enum(["draft", "approved"]).default("draft"),
   contract: contractSchema,
   recordings: z.array(recordingSchema).min(1),
 });

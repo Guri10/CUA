@@ -1,0 +1,31 @@
+{
+  "id": "parabank",
+  "baseUrl": "http://localhost:8080/parabank",
+  "allowedOrigins": ["http://localhost:8080"],
+  "actions": ["navigate", "click", "fill", "select", "read", "waitFor"],
+  "routes": {
+    "read-only": [
+      "/index.htm",
+      "/overview.htm",
+      "/activity.htm",
+      "/transaction.htm",
+      "/findtrans.htm",
+      "/lookup.htm",
+      "/logout.htm",
+      "/about.htm",
+      "/services.htm",
+      "/news.htm",
+      "/sitemap.htm"
+    ],
+    "mutating": [
+      "/transfer.htm",
+      "/openaccount.htm",
+      "/billpay.htm",
+      "/requestloan.htm",
+      "/updateprofile.htm",
+      "/register.htm",
+      "/contact.htm",
+      "/admin.htm"
+    ]
+  }
+}

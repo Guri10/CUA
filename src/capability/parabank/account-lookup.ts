@@ -81,6 +81,10 @@ export function accountLookupCapability(): Capability {
     id: "account-lookup",
     version: 1,
     surface: "parabank",
+    // Read-only, so approval decides nothing here — it is stated rather than
+    // defaulted because a reviewer reading the file should not have to know
+    // what the schema fills in.
+    approval: "draft",
     contract: {
       summary: "Look up one account's type and balance by account number.",
       inputs: jsonSchemaFor(accountLookupInputs),

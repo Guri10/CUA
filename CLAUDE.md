@@ -11,7 +11,7 @@
   excluded from the default test command.
 - Main entry point: `src/cli.ts`
 - Config: `.env` for `ANTHROPIC_API_KEY`. The Surface profile and the policy allowlist are
-  checked-in config, not environment.
+  checked-in config, not environment — `surfaces/<id>.json`, named by a Capability's `surface` field.
 
 Read `CONTEXT.md` for the domain vocabulary and `docs/adr/` for the decisions behind the shape
 above. ADR 0001 in particular bans CSS and XPath selectors — that is deliberate, not an oversight.

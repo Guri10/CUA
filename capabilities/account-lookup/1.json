@@ -2,6 +2,7 @@
   "id": "account-lookup",
   "version": 1,
   "surface": "parabank",
+  "approval": "draft",
   "contract": {
     "summary": "Look up one account's type and balance by account number.",
     "inputs": {

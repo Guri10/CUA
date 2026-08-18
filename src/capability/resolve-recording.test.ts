@@ -49,6 +49,7 @@ function capabilityWithVariant(): Capability {
     id: "account-lookup",
     version: 1,
     surface: "parabank",
+    approval: "draft",
     contract: {
       summary: "Look up an account's balance.",
       inputs: { type: "object", properties: { accountId: { type: "string" } } },

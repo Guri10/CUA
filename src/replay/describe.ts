@@ -7,7 +7,7 @@
  * other: role, accessible name, scope, ordinal. Nothing here is parsed back.
  */
 import type { Predicate } from "../capability/schema.js";
-import type { Action, Locator } from "../surface/surface.js";
+import type { Action, ActionResult, Locator } from "../surface/surface.js";
 import { substituteLocator, type ReplayInputs } from "./substitute.js";
 
 export function describeLocator(locator: Locator): string {
@@ -54,5 +54,24 @@ export function describePredicate(predicate: Predicate, inputs: ReplayInputs): s
       return `${predicate.kind} of [${predicate.of
         .map((branch) => describePredicate(branch, inputs))
         .join(", ")}]`;
+  }
+}
+
+/**
+ * Why an Action did not happen, as one phrase.
+ *
+ * All three are returned values rather than thrown errors, and all three end a
+ * Replay: a Recording that cannot find its control has nothing left to try, one
+ * that finds several has no way to know which the recorder meant, and one the
+ * policy gate refused is not going to be allowed on a second attempt either.
+ */
+export function describeMiss(result: Exclude<ActionResult, { kind: "ok" }>): string {
+  switch (result.kind) {
+    case "not-found":
+      return "no control matched";
+    case "ambiguous":
+      return `${result.matches} controls matched`;
+    case "refused":
+      return result.reason;
   }
 }

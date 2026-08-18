@@ -100,7 +100,14 @@ export type ActionResult =
       readonly value?: string;
     }
   | { readonly kind: "not-found"; readonly locator: Locator }
-  | { readonly kind: "ambiguous"; readonly locator: Locator; readonly matches: number };
+  | { readonly kind: "ambiguous"; readonly locator: Locator; readonly matches: number }
+  /**
+   * The policy gate would not let this happen. A returned value for the same
+   * reason the two misses above are: the discovery loop has to read a refusal
+   * and try something else rather than die on it, and ADR 0007 turns a refused
+   * risky Step into an Intervention Request rather than a stack trace.
+   */
+  | { readonly kind: "refused"; readonly reason: string };
 
 /** What the Surface can see, in the one vocabulary ADR 0001 allows. */
 export interface Snapshot {

@@ -17,8 +17,8 @@
 import { resolveRecording } from "../capability/resolve-recording.js";
 import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import type { Capability, TerminalState } from "../capability/schema.js";
-import type { ActionResult, Surface } from "../surface/surface.js";
-import { describeAction, describePredicate } from "./describe.js";
+import type { Surface } from "../surface/surface.js";
+import { describeAction, describeMiss, describePredicate } from "./describe.js";
 import { coerceTextValues, parseContractValues } from "./contract-values.js";
 import { matchesPredicate } from "./predicate.js";
 import { substituteAction, type ReplayInputs } from "./substitute.js";
@@ -143,16 +143,4 @@ function successStateOf(capability: Capability): Extract<TerminalState, { kind: 
     throw new Error(`Capability "${capability.id}@${capability.version}" declares no success state.`);
   }
   return success;
-}
-
-/**
- * A missed control as one phrase. Both misses are returned values rather than
- * thrown errors, and both are Hard Failures here: a Recording that cannot find
- * its control has nothing left to try, and one that finds several has no way to
- * know which the recorder meant.
- */
-function describeMiss(result: Exclude<ActionResult, { kind: "ok" }>): string {
-  return result.kind === "not-found"
-    ? "no control matched"
-    : `${result.matches} controls matched`;
 }

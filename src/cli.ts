@@ -12,9 +12,13 @@
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
 import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
-import { PlaywrightSurface } from "./surface/playwright-surface.js";
+import type { Surface } from "./surface/surface.js";
 import { capabilitiesDir, loadCapabilityRef } from "./capability/storage.js";
+import { mandateFor } from "./policy/mandate.js";
+import { openBrowserSurface } from "./policy/open-surface.js";
+import { loadSurfaceProfile, surfacesDir } from "./policy/profile.js";
 import { coerceTextValues, parseContractValues } from "./replay/contract-values.js";
+import { describeMiss } from "./replay/describe.js";
 import { replayCapability } from "./replay/replay.js";
 
 const USAGE = `Usage:
@@ -24,16 +28,10 @@ Options:
   --capability <ref>     Which Capability to replay. A bare id means its highest version.
   --input <name>=<value> One of the Contract's declared inputs. Repeatable.
   --variant <name>       Which Tenant's Recording to run. Defaults to the shared one.
-  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL.
+  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
+                         Surface profile's own. The profile's allowlist still governs it.
   --headed               Show the browser window.
 `;
-
-/**
- * The only Surface profile there is. Ticket 7 replaces this with a described
- * one; naming it here rather than assuming it means a Capability recorded
- * against something else fails with a sentence instead of a wrong login.
- */
-const PARABANK = "parabank";
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
@@ -51,21 +49,29 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const capability = await loadCapabilityRef(capabilitiesDir(), ref);
-  if (capability.surface !== PARABANK) {
-    throw new Error(
-      `Capability "${ref}" runs against the "${capability.surface}" Surface, and only "${PARABANK}" is described so far.`,
-    );
-  }
+  // The Capability names its Surface profile; the profile is what says where
+  // that installation is and which of its routes may be touched.
+  const profile = await loadSurfaceProfile(surfacesDir(), capability.surface);
 
   // Normalised once, here. `absoluteUrl` strips a trailing slash and
   // `logInToParabank` concatenates raw, so a base URL ending in one would sign
-  // in at `//index.htm` and replay Steps at `/overview.htm`.
+  // in at `//index.htm` and replay Steps at `/overview.htm`. An override still
+  // answers to the profile's allowed origins — the gate refuses it otherwise,
+  // which is the point of the allowlist being checked-in rather than passed in.
   const baseUrl = (
     single(args, "base-url") ??
     process.env["PARABANK_BASE_URL"] ??
-    "http://localhost:8080/parabank"
+    profile.baseUrl
   ).replace(/\/+$/, "");
   const ident = `${capability.id}@${capability.version}`;
+
+  // Decided before a browser exists, from two declared fields (ADR 0007). A
+  // mutating Capability nobody has signed off does not get as far as a screen.
+  const mandate = mandateFor(capability);
+  if (!mandate.allowed) {
+    process.stderr.write(`${mandate.reason}\n`);
+    return 1;
+  }
   const inputs = coerceTextValues(
     capability.contract.inputs,
     inputPairs(args.get("input") ?? []),
@@ -86,7 +92,11 @@ async function main(argv: string[]): Promise<number> {
     password: required("PARABANK_PASSWORD"),
   };
 
-  const surface = await PlaywrightSurface.launch({ headless: !args.has("headed") });
+  // Already gated. There is no unwrapped Surface to reach for, here or anywhere
+  // else — `no-ungated-surface.test.ts` is what keeps that true.
+  const { surface, close } = await openBrowserSurface(profile, mandate, {
+    headless: !args.has("headed"),
+  });
   try {
     await establishSession(surface, baseUrl, credentials);
 
@@ -113,7 +123,7 @@ async function main(argv: string[]): Promise<number> {
     );
     return 1;
   } finally {
-    await surface.close();
+    await close();
   }
 }
 
@@ -124,16 +134,14 @@ async function main(argv: string[]): Promise<number> {
  * about how it got one — which is what keeps login out of every Recording.
  */
 async function establishSession(
-  surface: PlaywrightSurface,
+  surface: Surface,
   baseUrl: string,
   credentials: ParabankCredentials,
 ): Promise<void> {
   for (const action of logInToParabank(baseUrl, credentials)) {
     const result = await surface.perform(action);
     if (result.kind === "ok") continue;
-    throw new Error(
-      `Could not sign in to ${baseUrl}: ${result.kind} for ${result.locator.role} control.`,
-    );
+    throw new Error(`Could not sign in to ${baseUrl}: ${describeMiss(result)}`);
   }
 }
 

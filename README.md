@@ -9,8 +9,9 @@ behind the shape of the system.
 ## Status
 
 Early. The scaffold, the ParaBank target, the verification of ADR 0001's targeting assumption, the
-Capability schema, and the replay path are in place: a hand-written Capability replays against real
-ParaBank and returns typed outputs. The `discover` and `serve` commands are not built yet.
+Capability schema, the replay path, and the policy gate are in place: a hand-written Capability
+replays against real ParaBank through an allowlist and returns typed outputs. The `discover` and
+`serve` commands are not built yet.
 
 ## Requirements
 
@@ -89,6 +90,33 @@ and exits non-zero.
 A bare id (`--capability account-lookup`) runs the highest version there is. `--variant <name>`
 runs a Tenant's corrected Recording, `--base-url` points at an installation other than
 `$PARABANK_BASE_URL`, and `--headed` shows the browser window.
+
+## What automation is allowed to touch
+
+Every action — during replay today, during discovery when it lands — passes through one policy gate,
+a decorator over the `Surface` interface. Both phases receive an already-wrapped Surface and there is
+no unwrapped one to reach for, which is checked by a test rather than left to review
+([ADR 0007](docs/adr/0007-risk-is-classified-statically-not-by-the-model.md)).
+
+The rule it enforces is a checked-in file, [`surfaces/parabank.json`](surfaces/parabank.json) — the
+**Surface profile**. It names the installation, the origins automation may reach at all, the Action
+verbs permitted, and every route split by whether reaching it can change anything. A route in
+neither list is refused: this is an allowlist, not a blocklist with gaps.
+
+```sh
+$ npm run replay -- --capability account-lookup@1 --input accountId=12345 \
+    --base-url http://127.0.0.1:8080/parabank
+Could not sign in to http://127.0.0.1:8080/parabank: The origin http://127.0.0.1:8080 is not
+allowed by the "parabank" Surface profile.
+```
+
+ParaBank is running and reachable at that address. The only thing refusing it is the profile.
+
+A Capability declares its own effects as read-only or mutating, and carries a `draft` or `approved`
+state — draft unless the file says otherwise, so nothing the recorder writes unattended is approved
+by omission. A mutating Capability that nobody has signed off does not reach a browser at all. The
+model never classifies its own actions as safe or risky; the rule is a static list a reviewer can
+check in ten seconds.
 
 ## Is the accessibility tree good enough to target?
 
