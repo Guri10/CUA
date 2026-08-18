@@ -1,0 +1,246 @@
+{
+  "capturedAt": "2026-08-18T02:31:18.680Z",
+  "surface": "parabank",
+  "screens": [
+    {
+      "screen": "Customer Login",
+      "url": "http://localhost:8080/parabank/index.htm",
+      "snapshot": "01-login.aria.yaml",
+      "addressable": [
+        "link \"ParaBank\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Admin Page\"",
+        "link \"home\"",
+        "link \"about\"",
+        "link \"contact\"",
+        "button \"Log In\"",
+        "link \"Forgot login info?\"",
+        "link \"Register\"",
+        "link \"Withdraw Funds\"",
+        "link \"Transfer Funds\"",
+        "link \"Check Balances\"",
+        "link \"Make Deposits\"",
+        "link \"Bill Pay\"",
+        "link \"Account History\"",
+        "link \"Transfer Funds\"",
+        "link \"Read More\"",
+        "link \"ParaBank Is Now Re-Opened\"",
+        "link \"New! Online Bill Pay\"",
+        "link \"New! Online Account Transfers\"",
+        "link \"Read More\"",
+        "link \"Home\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Forum\"",
+        "link \"Site Map\"",
+        "link \"Contact Us\"",
+        "link \"www.parasoft.com\""
+      ],
+      "unaddressable": [
+        "link",
+        "textbox",
+        "textbox"
+      ],
+      "ambiguous": [
+        {
+          "role": "link",
+          "name": "About Us",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Services",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Products",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Locations",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Transfer Funds",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Read More",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "screen": "Accounts Overview",
+      "url": "http://localhost:8080/parabank/overview.htm",
+      "snapshot": "02-accounts-overview.aria.yaml",
+      "addressable": [
+        "link \"ParaBank\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Admin Page\"",
+        "link \"home\"",
+        "link \"about\"",
+        "link \"contact\"",
+        "link \"Open New Account\"",
+        "link \"Accounts Overview\"",
+        "link \"Transfer Funds\"",
+        "link \"Bill Pay\"",
+        "link \"Find Transactions\"",
+        "link \"Update Contact Info\"",
+        "link \"Request Loan\"",
+        "link \"Log Out\"",
+        "link \"12345\"",
+        "link \"12456\"",
+        "link \"12567\"",
+        "link \"12678\"",
+        "link \"12789\"",
+        "link \"12900\"",
+        "link \"13011\"",
+        "link \"13122\"",
+        "link \"13233\"",
+        "link \"13344\"",
+        "link \"54321\"",
+        "link \"Home\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Forum\"",
+        "link \"Site Map\"",
+        "link \"Contact Us\"",
+        "link \"www.parasoft.com\""
+      ],
+      "unaddressable": [
+        "link"
+      ],
+      "ambiguous": [
+        {
+          "role": "link",
+          "name": "About Us",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Services",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Products",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Locations",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "screen": "Account Details",
+      "url": "http://localhost:8080/parabank/activity.htm?id=12345",
+      "snapshot": "03-account-detail.aria.yaml",
+      "addressable": [
+        "link \"ParaBank\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Admin Page\"",
+        "link \"home\"",
+        "link \"about\"",
+        "link \"contact\"",
+        "link \"Open New Account\"",
+        "link \"Accounts Overview\"",
+        "link \"Transfer Funds\"",
+        "link \"Bill Pay\"",
+        "link \"Find Transactions\"",
+        "link \"Update Contact Info\"",
+        "link \"Request Loan\"",
+        "link \"Log Out\"",
+        "option \"All\"",
+        "option \"January\"",
+        "option \"February\"",
+        "option \"March\"",
+        "option \"April\"",
+        "option \"May\"",
+        "option \"June\"",
+        "option \"July\"",
+        "option \"August\"",
+        "option \"September\"",
+        "option \"October\"",
+        "option \"November\"",
+        "option \"December\"",
+        "option \"All\"",
+        "option \"Credit\"",
+        "option \"Debit\"",
+        "button \"Go\"",
+        "link \"Check # 1111\"",
+        "link \"Check # 1211\"",
+        "link \"Funds Transfer Sent\"",
+        "link \"Funds Transfer Sent\"",
+        "link \"Funds Transfer Sent\"",
+        "link \"Funds Transfer Sent\"",
+        "link \"Bill Payment to Bank of America Visa\"",
+        "link \"Home\"",
+        "link \"About Us\"",
+        "link \"Services\"",
+        "link \"Products\"",
+        "link \"Locations\"",
+        "link \"Forum\"",
+        "link \"Site Map\"",
+        "link \"Contact Us\"",
+        "link \"www.parasoft.com\""
+      ],
+      "unaddressable": [
+        "link",
+        "combobox",
+        "combobox"
+      ],
+      "ambiguous": [
+        {
+          "role": "link",
+          "name": "About Us",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Services",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Products",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Locations",
+          "count": 2
+        },
+        {
+          "role": "option",
+          "name": "All",
+          "count": 2
+        },
+        {
+          "role": "link",
+          "name": "Funds Transfer Sent",
+          "count": 4
+        }
+      ]
+    }
+  ]
+}

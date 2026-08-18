@@ -18,6 +18,13 @@ point of the Capability, so masking it in the result would defeat the feature.
 
 ## Consequences
 
+"Never written anywhere" is a rule about what the running system writes — evidence, logs,
+transcripts, run directories. It is not a rule against a README naming the demo user that the local
+container seeds, which a reviewer needs in order to run anything at all. The line is drawn at
+defaulting: no credential value appears in `.env.example` or in any source file, and code that needs
+one fails rather than falling back to a literal. Nothing in the repo's runtime carries a credential
+it was not handed at run time.
+
 The committed `/evidence/` contains one run with redaction on and one with it off, so a reviewer
 can both verify real values and see the mechanism working. Anyone finding visible balances in
 evidence should read this file before concluding redaction is broken.

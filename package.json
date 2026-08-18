@@ -1,0 +1,28 @@
+{
+  "name": "cua",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Discover how to drive a legacy web app with an LLM once, then replay it deterministically.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
+    "parabank:start": "docker run -d -p 8080:8080 --name parabank parasoft/parabank",
+    "parabank:stop": "docker rm -f parabank"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.7"
+  },
+  "dependencies": {
+    "playwright": "^1.49.1"
+  }
+}

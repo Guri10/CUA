@@ -20,3 +20,14 @@ design for — whereas a CSS selector is meaningless outside a DOM.
 Seeing Playwright in the dependency list, a reader will reasonably assume CSS selectors are
 available and may add one to fix a flaky Locator. That would silently destroy the portability claim
 this project's §3.7 answer rests on. The ban is deliberate — enforce it in review.
+
+## Verified
+
+This decision assumed ParaBank's accessibility tree was rich enough to carry it. That was checked
+before anything was built on top of it, and the decision holds: see
+[`evidence/accessibility-tree/GO-NO-GO.md`](../../evidence/accessibility-tree/GO-NO-GO.md).
+
+Two things the check turned from assumptions into facts. ParaBank's login inputs have no accessible
+name at all, so ordinal disambiguation is load-bearing from the first Recording rather than a later
+refinement. And the account detail page fills its value cells after load, so a Step that reads a
+value must wait on the value rather than on the screen.
