@@ -3,23 +3,34 @@
 
 ## Project shape
 
-- App type / stack: TODO
-- Frontend: TODO
-- Backend: TODO
-- Tests: TODO
-- Main entry point: TODO
-- Config: TODO
+- App type / stack: TypeScript on Node, single CLI. An LLM discovers how to drive a legacy web app,
+  then the flow is replayed deterministically with no model in the loop.
+- Frontend: none. The UI we drive is ParaBank's, not ours.
+- Backend: one process, three commands (`discover`, `replay`, `serve`). No services, no queue.
+- Tests: Vitest. Unit and integration against a fake Surface; one real-browser end-to-end run
+  excluded from the default test command.
+- Main entry point: `src/cli.ts`
+- Config: `.env` for `ANTHROPIC_API_KEY`. The Surface profile and the policy allowlist are
+  checked-in config, not environment.
+
+Read `CONTEXT.md` for the domain vocabulary and `docs/adr/` for the decisions behind the shape
+above. ADR 0001 in particular bans CSS and XPath selectors — that is deliberate, not an oversight.
 
 ## Commands
 
-- Install dependencies: `TODO`
-- Run app: `TODO`
-- Run tests: `TODO`
-- Run lint: `TODO`
-- Run typecheck: `TODO`
-- Build: `TODO`
+**The project is not scaffolded yet.** These are the intended commands, decided during grilling and
+recorded here so they don't get reinvented. They will not run until the first ticket lands.
 
-If any command is `TODO`, inspect the project first and propose the correct command before using it.
+- Install dependencies: `npm install` (npm deliberately — reviewers must be able to run this
+  without installing another package manager first)
+- Start the target app: `docker run -d -p 8080:8080 parasoft/parabank`
+- Run app: `npm run discover -- --goal "..."`, `npm run replay -- --capability <id>@<v>`,
+  `npm run serve`
+- Run tests: `npm test` (fast, no browser)
+- Run end-to-end: `npm run test:e2e` (real browser against ParaBank)
+- Run typecheck: `npm run typecheck`
+- Run lint: not configured yet
+- Build: `npm run build`
 
 ## Planning style
 
