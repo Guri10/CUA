@@ -1,0 +1,244 @@
+import { describe, expect, it } from "vitest";
+import { FakeSurface, type Script } from "./fake-surface.js";
+import type { Locator } from "./surface.js";
+
+/**
+ * A deliberately tiny script. This file is about the fake's own machinery; the
+ * fake driving the real captured ParaBank trees is `parabank/login.test.ts`.
+ */
+const SCRIPT: Script = {
+  screens: [
+    {
+      name: "login",
+      url: "https://example.test/index.htm",
+      tree: [`- heading "Customer Login"`, `- textbox`, `- textbox`, `- button "Log In"`].join(
+        "\n",
+      ),
+      transitions: [
+        { when: { kind: "click", locator: { role: "button", name: "Log In" } }, to: "overview" },
+      ],
+    },
+    {
+      name: "overview",
+      url: "https://example.test/overview.htm",
+      tree: [
+        `- heading "Accounts Overview"`,
+        `- link "Home"`,
+        `- link "Home"`,
+        `- 'row "Balance: -$2300.00"':`,
+        `  - cell "Balance:"`,
+        `  - cell "-$2300.00"`,
+        `- 'row "Type: All"':`,
+        `  - cell "Type:"`,
+        `  - cell "All":`,
+        `    - combobox:`,
+        `      - option "All" [selected]`,
+        `      - option "Credit"`,
+      ].join("\n"),
+    },
+  ],
+};
+
+describe("FakeSurface", () => {
+  it("starts on a blank screen, so an interaction has to navigate like the real one does", async () => {
+    const surface = new FakeSurface(SCRIPT);
+
+    const snapshot = await surface.snapshot();
+
+    expect(snapshot.url).toBe("about:blank");
+    expect(snapshot.nodes).toEqual([]);
+  });
+
+  it("navigates to a scripted screen and reports its tree", async () => {
+    const surface = new FakeSurface(SCRIPT);
+
+    const result = await surface.perform({
+      kind: "navigate",
+      url: "https://example.test/index.htm",
+    });
+    const snapshot = await surface.snapshot();
+
+    expect(result).toEqual({ kind: "ok" });
+    expect(snapshot.url).toBe("https://example.test/index.htm");
+    expect(snapshot.tree).toContain(`- button "Log In"`);
+    expect(snapshot.nodes).toContainEqual({ role: "button", name: "Log In", depth: 0 });
+  });
+
+  it("refuses to guess at a screen the script does not describe", async () => {
+    const surface = new FakeSurface(SCRIPT);
+
+    await expect(
+      surface.perform({ kind: "navigate", url: "https://example.test/transfer.htm" }),
+    ).rejects.toThrow(/transfer\.htm/);
+  });
+
+  it("moves to the next screen when the scripted control is clicked", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/index.htm" });
+
+    const result = await surface.perform({
+      kind: "click",
+      locator: { role: "button", name: "Log In" },
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect((await surface.snapshot()).url).toBe("https://example.test/overview.htm");
+  });
+
+  it("stays put when a click matches no transition", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    const result = await surface.perform({
+      kind: "click",
+      locator: { role: "link", name: "Home", ordinal: 0 },
+    });
+
+    expect(result).toEqual({ kind: "ok" });
+    expect((await surface.snapshot()).url).toBe("https://example.test/overview.htm");
+  });
+
+  it("reports a Locator that matches nothing, rather than throwing", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/index.htm" });
+
+    const locator: Locator = { role: "link", name: "Log Out" };
+
+    expect(await surface.perform({ kind: "click", locator })).toEqual({
+      kind: "not-found",
+      locator,
+    });
+  });
+
+  it("reports a Locator that matches several controls, rather than taking the first", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    const locator: Locator = { role: "link", name: "Home" };
+
+    expect(await surface.perform({ kind: "click", locator })).toEqual({
+      kind: "ambiguous",
+      locator,
+      matches: 2,
+    });
+  });
+
+  it("remembers what was typed, so a mistargeted ordinal is visible", async () => {
+    // The point of the fake is not that fills succeed — it is that they land
+    // where the Locator said. ParaBank's two login inputs are unnamed and told
+    // apart by ordinal alone, so this is the check that ordinal means what the
+    // real browser means by it.
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/index.htm" });
+
+    await surface.perform({ kind: "fill", locator: { role: "textbox", ordinal: 0 }, value: "typed-value" });
+
+    expect(await surface.perform({ kind: "read", locator: { role: "textbox", ordinal: 0 } })).toEqual(
+      { kind: "ok", value: "typed-value" },
+    );
+    expect(await surface.perform({ kind: "read", locator: { role: "textbox", ordinal: 1 } })).toEqual(
+      { kind: "ok", value: "" },
+    );
+  });
+
+  it("forgets what was typed once the page is left and come back to", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/index.htm" });
+    await surface.perform({ kind: "fill", locator: { role: "textbox", ordinal: 0 }, value: "typed-value" });
+
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+    await surface.perform({ kind: "navigate", url: "https://example.test/index.htm" });
+
+    expect(await surface.perform({ kind: "read", locator: { role: "textbox", ordinal: 0 } })).toEqual(
+      { kind: "ok", value: "" },
+    );
+  });
+
+  it("reads the accessible name of a control nobody typed into", async () => {
+    // The flagship Capability's whole job: the value cell scoped by the row
+    // that names the field, because both cells are named for their contents.
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    const result = await surface.perform({
+      kind: "read",
+      locator: { role: "cell", ordinal: 1, within: { role: "row", name: "Balance:" } },
+    });
+
+    expect(result).toEqual({ kind: "ok", value: "-$2300.00" });
+  });
+
+  it("chooses an option and reads it back", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    const chosen = await surface.perform({
+      kind: "select",
+      locator: { role: "combobox" },
+      option: "Credit",
+    });
+
+    expect(chosen).toEqual({ kind: "ok" });
+    expect(await surface.perform({ kind: "read", locator: { role: "combobox" } })).toEqual({
+      kind: "ok",
+      value: "Credit",
+    });
+  });
+
+  it("reports an option the control does not offer", async () => {
+    // A browser refuses this outright. A fake that shrugged and accepted it
+    // would pass interactions the real Surface fails, which is the one thing a
+    // fake must never do.
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    const result = await surface.perform({
+      kind: "select",
+      locator: { role: "combobox" },
+      option: "Wire",
+    });
+
+    expect(result).toEqual({
+      kind: "not-found",
+      locator: { role: "option", name: "Wire", exact: true, within: { role: "combobox" } },
+    });
+  });
+
+  it("waits for a control that is there, and reports one that is not", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    expect(
+      await surface.perform({
+        kind: "waitFor",
+        locator: { role: "heading", name: "Accounts Overview" },
+      }),
+    ).toEqual({ kind: "ok" });
+
+    const missing: Locator = { role: "heading", name: "Account Details" };
+    expect(await surface.perform({ kind: "waitFor", locator: missing })).toEqual({
+      kind: "not-found",
+      locator: missing,
+    });
+  });
+
+  it("takes a screenshot that names the screen, without pretending to be an image", async () => {
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    expect((await surface.screenshot()).toString("utf8")).toContain("overview");
+  });
+
+  it("reads the option a control already holds, with nothing chosen in this run", async () => {
+    // The browser answers this from the `[selected]` marker in the tree, and so
+    // does the fake. Getting it from a DOM property instead is what would make
+    // the two disagree the moment nobody had touched the control.
+    const surface = new FakeSurface(SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });
+
+    expect(await surface.perform({ kind: "read", locator: { role: "combobox" } })).toEqual({
+      kind: "ok",
+      value: "All",
+    });
+  });
+});

@@ -12,6 +12,7 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
     "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
     "parabank:start": "docker run -d -p 8080:8080 --name parabank parasoft/parabank",
     "parabank:stop": "docker rm -f parabank"

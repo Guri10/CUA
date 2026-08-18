@@ -41,14 +41,33 @@ describe("readAriaSnapshot", () => {
     ]);
   });
 
-  it("reads a node that carries a trailing state suffix", () => {
+  it("reads a node's trailing state, keeping the chosen option apart from the rest", () => {
+    // Which option is selected is the only thing distinguishing a combobox's
+    // current value from the list of values it offers, so a read of a combobox
+    // has nothing to go on without it.
     const nodes = readAriaSnapshot(
-      [`- heading "Customer Login" [level=2]`, `- option "All" [selected]`].join("\n"),
+      [
+        `- heading "Customer Login" [level=2]`,
+        `- option "All"`,
+        `- option "Credit" [selected]`,
+      ].join("\n"),
     );
 
     expect(nodes).toEqual([
       { role: "heading", name: "Customer Login", depth: 0 },
       { role: "option", name: "All", depth: 0 },
+      { role: "option", name: "Credit", depth: 0, selected: true },
+    ]);
+  });
+
+  it("reads what has been typed into a field, which its accessible name never carries", () => {
+    // ParaBank's login inputs, before and after something is typed. The value
+    // arrives as inline content; the node stays unnamed either way.
+    const nodes = readAriaSnapshot([`- textbox: some-user`, `- textbox`].join("\n"));
+
+    expect(nodes).toEqual([
+      { role: "textbox", name: undefined, depth: 0, text: "some-user" },
+      { role: "textbox", name: undefined, depth: 0 },
     ]);
   });
 
@@ -67,7 +86,7 @@ describe("readAriaSnapshot", () => {
 
     expect(nodes).toEqual([
       { role: "link", name: "Register", depth: 0 },
-      { role: "paragraph", name: undefined, depth: 0 },
+      { role: "paragraph", name: undefined, depth: 0, text: "Username" },
       { role: "textbox", name: undefined, depth: 0 },
     ]);
   });

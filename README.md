@@ -55,6 +55,7 @@ real credentials or PII are involved anywhere in this project.
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit and integration tests. Fast, no browser. |
+| `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. |
 | `npm run typecheck` | Type check without emitting. |
 | `npm run build` | Compile to `dist/`. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |

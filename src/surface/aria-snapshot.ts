@@ -7,16 +7,29 @@ export interface AriaNode {
   readonly role: string;
   readonly name: string | undefined;
   readonly depth: number;
+  /**
+   * The content the snapshot carries inline after the colon. For a form field
+   * this is its current value — `- textbox: some-user` — which is what a read
+   * of that control wants, and which its accessible name does not carry.
+   */
+  readonly text?: string;
+  /** Whether the node is marked `[selected]`, as a chosen option is. */
+  readonly selected?: boolean;
 }
 
 /**
- * `  - cell "12345":` → indent, role, optional quoted accessible name. A node
- * may also carry inline text after the colon (`- paragraph: Username`); that is
- * the element's content, not its accessible name, so it is not read as one. A
- * trailing `[level=2]` or `[selected]` is state, and is not read either.
+ * `  - cell "12345":` → indent, role, optional quoted accessible name, any
+ * state in brackets, and any inline content after the colon.
+ *
+ * Content and state are kept separate from the accessible name rather than
+ * folded into it, because they answer a different question. A name is how a
+ * Locator finds a control; the content of `- textbox: some-user` and the
+ * `[selected]` on an option are how a read gets its current value. Both
+ * Surfaces answer a read from these fields, which is what stops the browser and
+ * the fake disagreeing about what a control currently holds.
  */
 const NODE_LINE =
-  /^(?<indent> *)- (?<role>[a-zA-Z]+)(?: "(?<name>[^"]*)")?(?: \[[^\]]*\])*(?::.*)?$/;
+  /^(?<indent> *)- (?<role>[a-zA-Z]+)(?: "(?<name>[^"]*)")?(?<states>(?: \[[^\]]*\])*)(?::(?<text>.*))?$/;
 
 /**
  * When an accessible name contains a colon — `row "Balance: -$2300.00"`, the
@@ -40,10 +53,13 @@ export function readAriaSnapshot(snapshot: string): AriaNode[] {
     if (groups === undefined) continue;
     if (NOT_A_ROLE.has(groups["role"]!)) continue;
 
+    const text = groups["text"]?.trim();
     nodes.push({
       role: groups["role"]!,
       name: groups["name"],
       depth: groups["indent"]!.length / 2,
+      ...(text === undefined || text === "" ? {} : { text }),
+      ...(groups["states"]?.includes("[selected]") === true ? { selected: true } : {}),
     });
   }
 
@@ -54,6 +70,25 @@ function unwrapQuotedKey(line: string): string {
   const groups = QUOTED_KEY.exec(line)?.groups;
   if (groups === undefined) return line;
   return `${groups["indent"]!}- ${groups["key"]!.replaceAll("''", "'")}`;
+}
+
+/**
+ * The run of nodes nested under one node.
+ *
+ * The tree arrives flat, carrying indentation depth, so a node's descendants
+ * are the run that follows it while the depth stays greater than its own. Both
+ * scoping a Locator and reading a chosen option are questions about that run,
+ * so the walk lives here with the shape it depends on.
+ */
+export function descendantsOf(nodes: readonly AriaNode[], parent: number): number[] {
+  const depth = nodes[parent]?.depth;
+  if (depth === undefined) return [];
+
+  const descendants: number[] = [];
+  for (let index = parent + 1; index < nodes.length && nodes[index]!.depth > depth; index += 1) {
+    descendants.push(index);
+  }
+  return descendants;
 }
 
 /**
