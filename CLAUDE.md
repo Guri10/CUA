@@ -18,19 +18,24 @@ above. ADR 0001 in particular bans CSS and XPath selectors — that is deliberat
 
 ## Commands
 
-**The project is not scaffolded yet.** These are the intended commands, decided during grilling and
-recorded here so they don't get reinvented. They will not run until the first ticket lands.
+Each is marked **exists** or **planned**. A planned command was decided during grilling and is
+recorded here so it doesn't get reinvented; it will not run until its ticket lands.
 
-- Install dependencies: `npm install` (npm deliberately — reviewers must be able to run this
-  without installing another package manager first)
-- Start the target app: `docker run -d -p 8080:8080 parasoft/parabank`
-- Run app: `npm run discover -- --goal "..."`, `npm run replay -- --capability <id>@<v>`,
-  `npm run serve`
-- Run tests: `npm test` (fast, no browser)
-- Run end-to-end: `npm run test:e2e` (real browser against ParaBank)
-- Run typecheck: `npm run typecheck`
-- Run lint: not configured yet
-- Build: `npm run build`
+- Install dependencies: `npm install` — **exists** (npm deliberately — reviewers must be able to
+  run this without installing another package manager first)
+- Run tests: `npm test` — **exists** (fast, no browser)
+- Run end-to-end: `npm run test:e2e` — **exists** (real browser against ParaBank)
+- Run typecheck: `npm run typecheck` — **exists**
+- Build: `npm run build` — **exists**
+- Start / stop the target app: `npm run parabank:start` / `npm run parabank:stop` — **exists**
+- Write hand-written Capabilities: `npm run capability:write` — **exists** (regenerates the
+  committed files under `capabilities/` from their modules)
+- Capture accessibility trees: `npm run capture:a11y` — **exists** (refreshes the evidence under
+  `evidence/accessibility-tree/`)
+- Replay a Capability: `npm run replay -- --capability <id>@<v>` — **planned**, #5
+- Discovery run: `npm run discover -- --goal "..."` — **planned**, #9
+- Serve the Capability catalog: `npm run serve` — **planned**, #13
+- Run lint: not configured, and no ticket asks for it
 
 ## Planning style
 
