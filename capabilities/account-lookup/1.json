@@ -1,0 +1,211 @@
+{
+  "id": "account-lookup",
+  "version": 1,
+  "surface": "parabank",
+  "contract": {
+    "summary": "Look up one account's type and balance by account number.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The account number, as it appears on the accounts overview."
+        }
+      },
+      "required": [
+        "accountId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "accountType": {
+          "type": "string",
+          "description": "The account's type, as displayed — \"CHECKING\" or \"SAVINGS\"."
+        },
+        "balance": {
+          "type": "string",
+          "description": "The account's balance, as displayed — for example \"-$2300.00\"."
+        }
+      },
+      "required": [
+        "accountType",
+        "balance"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "Account Details"
+                }
+              }
+            },
+            {
+              "kind": "present",
+              "locator": {
+                "role": "cell",
+                "name": {
+                  "kind": "literal",
+                  "value": "$"
+                },
+                "within": {
+                  "role": "row",
+                  "name": {
+                    "kind": "literal",
+                    "value": "Balance:"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "ACCOUNT_NOT_FOUND",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "Accounts Overview"
+                }
+              }
+            },
+            {
+              "kind": "absent",
+              "locator": {
+                "role": "link",
+                "name": {
+                  "kind": "input",
+                  "input": "accountId"
+                },
+                "exact": true
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-overview",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/overview.htm"
+            }
+          }
+        },
+        {
+          "id": "wait-for-accounts",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "row",
+              "name": {
+                "kind": "literal",
+                "value": "$"
+              },
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "open-account",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "input",
+                "input": "accountId"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-balance",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "$"
+              },
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Balance:"
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "read-account-type",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Account Type:"
+                }
+              }
+            },
+            "bind": "accountType"
+          }
+        },
+        {
+          "id": "read-balance",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Balance:"
+                }
+              }
+            },
+            "bind": "balance"
+          }
+        }
+      ]
+    }
+  ]
+}

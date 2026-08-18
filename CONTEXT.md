@@ -22,6 +22,12 @@ One action within a Recording, addressing one control on the Surface. Carries a 
 variant overrides and failure reports can reference it independently of its position.
 _Avoid_: instruction, command, node
 
+**Expression**:
+What a Step stores where a concrete value would otherwise sit — either a literal or a reference
+into the Capability's inputs. Resolved at Replay time, which is what lets one Recording serve any
+account rather than the one it was recorded against.
+_Avoid_: parameter, placeholder, template, binding
+
 **Contract**:
 A Capability's declared interface — what a caller must supply, what it gets back, and which
 terminal states are possible. The part a calling agent reads; the Recording is the part it doesn't.

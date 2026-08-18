@@ -7,9 +7,9 @@
  * served, ambiguities and unnamed inputs and all. A hand-written tree would
  * quietly describe the application we wish we had.
  */
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { packageRootFrom } from "../../package-root.js";
 import type { Script } from "../fake-surface.js";
 
 /**
@@ -60,26 +60,18 @@ export function parabankScript(): Script {
   };
 }
 
-function capturedTree(slug: string): string {
+/**
+ * One committed accessibility snapshot, by slug.
+ *
+ * Exported because the fake is not the only thing that has to be checked
+ * against the screens ParaBank actually served: the hand-written Capability's
+ * Locators are resolved against these same trees before anyone claims they
+ * address a real control.
+ */
+export function capturedTree(slug: string): string {
   return readFileSync(join(evidenceDir(), `${slug}.aria.yaml`), "utf8");
 }
 
-/**
- * Walks up to the package root rather than counting `..` segments, because the
- * number of them differs between running from `src/` and running from a build
- * in `dist/`, and getting it wrong fails only at run time.
- */
 function evidenceDir(): string {
-  let directory = dirname(fileURLToPath(import.meta.url));
-
-  for (;;) {
-    if (existsSync(join(directory, "package.json"))) {
-      return join(directory, "evidence", "accessibility-tree");
-    }
-    const parent = dirname(directory);
-    if (parent === directory) {
-      throw new Error(`Could not find the package root from ${import.meta.url}`);
-    }
-    directory = parent;
-  }
+  return join(packageRootFrom(import.meta.url), "evidence", "accessibility-tree");
 }
