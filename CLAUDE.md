@@ -57,6 +57,12 @@ recorded here so it doesn't get reinvented; it will not run until its ticket lan
 
 ## Workflow
 
+### Picking the next ticket
+
+When a ticket number is given, work that one. When `/implement` is invoked with no ticket, do not
+ask which — run the frontier query in `docs/agents/issue-tracker.md`, take the lowest-numbered
+ready ticket, and say which one was picked and what it unblocks before starting.
+
 For small tasks:
 1. Inspect relevant files.
 2. Give a short plain-English plan.
