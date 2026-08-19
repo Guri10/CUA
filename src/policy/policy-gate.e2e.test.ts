@@ -91,8 +91,10 @@ describe("the policy gate, over a real browser", () => {
   });
 
   it("refuses a route the profile does not list at all", async () => {
-    // ParaBank's admin page can wipe the database. It is absent from both lists
-    // and refused for that reason alone — deny by default, not a special case.
+    // Not a route the profile classifies either way, and refused for that reason
+    // alone — deny by default, rather than a rule about this particular page.
+    // (ParaBank's real danger page, /admin.htm, is listed: it is mutating, and
+    // so refused by the mandate above instead.)
     const result = await surface.perform({
       kind: "navigate",
       url: `${profile.baseUrl}/nowhere.htm`,

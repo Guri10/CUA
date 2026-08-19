@@ -73,6 +73,14 @@ export class PolicyGatedSurface implements Surface {
     // The cost is one snapshot per non-navigating action. That is the price of
     // the interface staying at three methods; a cheaper `url()` would be a
     // fourth every decorator then has to forward correctly.
+    //
+    // The known limit: this reads the screen as it is *now*, so an action
+    // issued while a click's navigation is still in flight can be judged
+    // against the page being left rather than the one being arrived at. Every
+    // ParaBank route a Recording clicks between is read-only, so it does not
+    // bite here — but a flow that clicked straight from a read-only screen onto
+    // a mutating one could have that first action judged against the wrong
+    // page. Closing it needs a load barrier the Surface does not expose.
     const url = action.kind === "navigate" ? action.url : (await this.#inner.snapshot()).url;
     const verdict = routeOf(this.#profile, url);
     if (!verdict.allowed) return verdict.reason;
