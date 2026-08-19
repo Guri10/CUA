@@ -74,10 +74,26 @@ describe("the ParaBank account lookup Capability", () => {
     // What makes ACCOUNT_NOT_FOUND a Business Outcome rather than a caught
     // error: on the overview screen it is a predicate over the tree.
     const overview = readAriaSnapshot(capturedTree("02-accounts-overview"));
-    const [onOverview, accountLink] = terminalStateLocators("ACCOUNT_NOT_FOUND", "99999");
+    const [onOverview, tableArrived, accountLink] = terminalStateLocators(
+      "ACCOUNT_NOT_FOUND",
+      "99999",
+    );
 
     expect(resolveLocator(overview, onOverview!)).toHaveLength(1);
+    // The settled-screen conjunct, and the reason the outcome cannot be read
+    // off an overview whose rows never arrived.
+    expect(resolveLocator(overview, tableArrived!)).toHaveLength(1);
     expect(resolveLocator(overview, accountLink!)).toHaveLength(0);
+  });
+
+  it("does not answer ACCOUNT_NOT_FOUND on an overview that has not loaded", () => {
+    // The false negative this Capability most has to avoid: a table whose rows
+    // are still on their way looks exactly like a customer who holds nothing.
+    const heading = `- heading "Accounts Overview" [level=1]\n- table\n`;
+    const empty = readAriaSnapshot(heading);
+    const [, tableArrived] = terminalStateLocators("ACCOUNT_NOT_FOUND", "99999");
+
+    expect(resolveLocator(empty, tableArrived!)).toHaveLength(0);
   });
 });
 

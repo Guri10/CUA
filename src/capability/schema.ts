@@ -446,7 +446,14 @@ function inputReferencesInAction(action: StepAction): string[] {
   }
 }
 
-function inputReferencesInPredicate(predicate: Predicate): string[] {
+/**
+ * Every input a predicate refers to.
+ *
+ * Exported because the Surface profile needs the opposite check: a Terminal
+ * State may name a run's inputs, and a Recoverable Condition may not — nothing
+ * at profile scope knows what any one Capability's inputs are.
+ */
+export function inputReferencesInPredicate(predicate: Predicate): string[] {
   switch (predicate.kind) {
     case "present":
     case "absent":

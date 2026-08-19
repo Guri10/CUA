@@ -1,17 +1,21 @@
 # Committed runs
 
-Five runs against a running ParaBank — three replays and two Discovery Runs — kept so that the
+Six runs against a running ParaBank — four replays and two Discovery Runs — kept so that the
 evidence trail and its redaction can be read rather than taken on trust. Every run writes its own
-directory here; these five are committed and the rest are yours to delete.
+directory here; these six are committed and the rest are yours to delete.
 
 Each holds `run.jsonl` — one JSON record per line, in the order things happened — and, when the run
-ended anywhere other than success, `failure.png`: the screen it ended on.
+ended anywhere other than success, `failure.png`: the screen it ended on. The picture is captured at
+the Action that missed rather than at the run's ending, so it is named for the miss and not for what
+the miss turned out to mean — a run that ended in a Business Outcome has one too, and what it shows
+is the screen the outcome was read off.
 
 | Run | What it shows |
 | --- | --- |
 | `2026-08-19T17-34-18.103Z-…` | A successful lookup with redaction **on**, which is the default. |
 | `2026-08-19T17-34-23.512Z-…` | The same lookup with `--evidence-redaction=off`. |
-| `2026-08-19T17-34-27.269Z-…` | A lookup that stops rather than succeeding, with the screen it stopped on. Redaction on. |
+| `2026-08-19T17-34-27.269Z-…` | An account the customer does not hold, before #6: a Hard Failure, with the screen it stopped on. |
+| `2026-08-19T22-44-14.631Z-…` | The same request after #6: the declared `ACCOUNT_NOT_FOUND` Business Outcome. |
 | `2026-08-19T22-21-55.385Z-discover` | A Discovery Run that reached its goal: `claude-opus-5` driving ParaBank. |
 | `2026-08-19T22-22-32.856Z-discover` | A Discovery Run told to move money, refused by the policy gate. |
 
@@ -28,15 +32,20 @@ same reason.
 `$1231.10` to the caller. Redaction is a rule about what is stored, never about what is returned —
 masking the balance in the result would defeat the Capability.
 
-**The failed run stops with its reasons attached.** `seq 8` records the `not-found`, the next record
-names the screenshot, and `run-finished` carries the Step, what was expected, what was observed, and
-the route it was on.
+**A run that stops stops with its reasons attached.** In the third run, `seq 8` records the
+`not-found`, the next record names the screenshot, and `run-finished` carries the Step, what was
+expected, what was observed, and the route it was on. That is the shape of every **Hard Failure**:
+the run says which Step, what it was aiming at, and what it saw instead.
 
-That run asks for an account the customer does not hold, and today it ends as a **Hard Failure**:
-replay matches only the success Terminal State so far. The Capability already declares
-`ACCOUNT_NOT_FOUND`, and #6 is where this same real ParaBank response is matched as that Business
-Outcome instead. Read the run as evidence that a run which did not succeed says so loudly — not yet
-as evidence of the Business Outcome path.
+**The last two replays are the same request either side of #6.** Both ask for an account the customer
+does not hold, and both get the same screen from ParaBank: the accounts overview, rows arrived, no
+link carrying that number. The earlier one ends `"outcome":"hard-failure"`, because replay matched
+only the success Terminal State and an unfound link was all it could say. The later one ends
+`"outcome":"business-outcome"` with `ACCOUNT_NOT_FOUND`, because the Capability declares that screen
+and replay now recognises it —
+[ADR 0005](../../docs/adr/0005-error-taxonomy-split-by-scope.md)'s split, made visible in two logs
+of the same question. Nothing about the application changed between them; what changed is what the
+system is able to call the answer.
 
 **`failure.png` shows real balances, and that is deliberate.** It is a picture, so nothing can mask a
 value inside it, and a reviewer needs to see the state the system could not interpret. It is the one

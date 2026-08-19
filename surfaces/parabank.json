@@ -27,5 +27,24 @@
       "/contact.htm",
       "/admin.htm"
     ]
-  }
+  },
+  "recoverableConditions": [
+    {
+      "name": "SESSION_EXPIRED",
+      "when": {
+        "kind": "all",
+        "of": [
+          {
+            "kind": "present",
+            "locator": { "role": "heading", "name": { "kind": "literal", "value": "Customer Login" } }
+          },
+          {
+            "kind": "present",
+            "locator": { "role": "button", "name": { "kind": "literal", "value": "Log In" } }
+          }
+        ]
+      },
+      "recover": "re-establish-session"
+    }
+  ]
 }

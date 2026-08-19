@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
 import { BASE_VARIANT, capabilitySchema, type Capability } from "../capability/schema.js";
+import { PolicyGatedSurface } from "../policy/policy-gated-surface.js";
+import { surfaceProfileSchema } from "../policy/profile.js";
 import { FakeSurface, type Script } from "../surface/fake-surface.js";
 import { parabankScript, PARABANK_CAPTURED_BASE_URL } from "../surface/parabank/fake-script.js";
 import { replayCapability } from "./replay.js";
@@ -39,14 +41,15 @@ describe("replaying a Capability", () => {
     });
   });
 
-  it("substitutes the run's inputs into the Steps that carry blanks", async () => {
-    // The same Recording, an account the customer does not hold. The Step that
-    // stops the run names the number this run supplied rather than the one the
-    // Recording was written against, which is the blank having been filled in.
+  it("answers a Business Outcome for an account the customer does not hold", async () => {
+    // The same Recording, an account the customer does not hold, and the blank
+    // filled in with the number this run supplied rather than the one the
+    // Recording was written against.
     //
-    // Today that is a Hard Failure. #6 is where the Capability's declared
-    // ACCOUNT_NOT_FOUND is matched instead, against a real ParaBank response —
-    // this is the seam it changes.
+    // The Step that cannot find its link is where ADR 0005's split shows: the
+    // screen it missed on is one the Capability declares and can name, so the
+    // run returns a named answer rather than an error. `replay.e2e.test.ts`
+    // fires the same outcome against ParaBank's own response.
     const result = await replayCapability(
       parabank(),
       accountLookupCapability(),
@@ -55,11 +58,9 @@ describe("replaying a Capability", () => {
     );
 
     expect(result).toEqual({
-      kind: "hard-failure",
+      kind: "business-outcome",
+      name: "ACCOUNT_NOT_FOUND",
       step: "open-account",
-      expected: `click on link "99999" (exact)`,
-      observed: "no control matched",
-      url: `${PARABANK_CAPTURED_BASE_URL}/overview.htm`,
     });
   });
 
@@ -92,7 +93,7 @@ describe("replaying a Capability", () => {
       kind: "hard-failure",
       step: "open-overview",
       expected: `heading "Account Details" present`,
-      observed: "the success Terminal State did not match",
+      observed: "no declared Terminal State matched",
       url: `${PARABANK_CAPTURED_BASE_URL}/overview.htm`,
     });
   });
@@ -140,6 +141,48 @@ describe("replaying a Capability", () => {
     expect(result.url).not.toContain("ABC123");
   });
 
+  it("answers a Business Outcome the last screen matches rather than failing", async () => {
+    // The other place a Terminal State is recognised: every Step succeeded and
+    // the screen is not success, but it is a screen the Contract declares. A
+    // run that only looked for its Business Outcomes when a Step missed would
+    // report this as a Hard Failure.
+    const result = await replayCapability(parabank(), holdsNothingCapability(), {}, options);
+
+    expect(result).toEqual({
+      kind: "business-outcome",
+      name: "NO_ACCOUNTS_HELD",
+      step: "open-overview",
+    });
+  });
+
+  it("does not read a Terminal State off a screen the gate refused on", async () => {
+    // The refusal happens on the overview, with an account number the customer
+    // does not hold — so ACCOUNT_NOT_FOUND would match the screen the run is
+    // standing on. It must not: the click never reached the application, so
+    // nothing on display is an answer to it, and calling this a Business
+    // Outcome would report exit code 0 for a run the gate stopped.
+    const profile = surfaceProfileSchema.parse({
+      id: "parabank",
+      baseUrl: PARABANK_CAPTURED_BASE_URL,
+      allowedOrigins: ["http://localhost:8080"],
+      // Every verb the Recording uses except the one that opens the account.
+      actions: ["navigate", "waitFor", "read"],
+      routes: { "read-only": ["/overview.htm", "/activity.htm"], mutating: [] },
+    });
+
+    const result = await replayCapability(
+      new PolicyGatedSurface(parabank(), profile, { mayMutate: false }),
+      accountLookupCapability(),
+      { accountId: "99999" },
+      options,
+    );
+
+    expect(result).toMatchObject({ kind: "hard-failure", step: "open-account" });
+    expect(result.kind === "hard-failure" && result.observed).toContain(
+      `"click" is not an action the "parabank" Surface profile permits`,
+    );
+  });
+
   it("reports a Step whose Locator matches more than one control", async () => {
     // Taking the first match is how a Replay reads the wrong row and reports
     // success, so an ambiguous Locator stops the run.
@@ -149,6 +192,49 @@ describe("replaying a Capability", () => {
     expect(result.kind === "hard-failure" && result.observed).toMatch(/^\d+ controls matched$/);
   });
 });
+
+/** A Capability whose last screen is a Business Outcome rather than success. */
+function holdsNothingCapability(): Capability {
+  return capabilitySchema.parse({
+    id: "holds-nothing",
+    version: 1,
+    surface: "parabank",
+    contract: {
+      summary: "Call the account detail screen success and the overview an answer.",
+      inputs: { type: "object", properties: {} },
+      outputs: { type: "object", properties: {} },
+      effects: "read-only",
+      terminalStates: [
+        {
+          kind: "success",
+          when: {
+            kind: "present",
+            locator: { role: "heading", name: { kind: "literal", value: "Account Details" } },
+          },
+        },
+        {
+          kind: "business-outcome",
+          name: "NO_ACCOUNTS_HELD",
+          when: {
+            kind: "present",
+            locator: { role: "heading", name: { kind: "literal", value: "Accounts Overview" } },
+          },
+        },
+      ],
+    },
+    recordings: [
+      {
+        variant: BASE_VARIANT,
+        steps: [
+          {
+            id: "open-overview",
+            action: { kind: "navigate", url: { kind: "literal", value: "/overview.htm" } },
+          },
+        ],
+      },
+    ],
+  });
+}
 
 /** A Capability whose Steps all succeed on a screen its Contract does not call success. */
 function stopsShortCapability(): Capability {

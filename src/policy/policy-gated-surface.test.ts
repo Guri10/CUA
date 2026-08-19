@@ -11,6 +11,8 @@ const profile: SurfaceProfile = {
   allowedOrigins: ["http://localhost:8080"],
   actions: ["navigate", "click", "fill", "read", "waitFor"],
   routes: { "read-only": ["/overview.htm"], mutating: ["/transfer.htm"] },
+  // The gate reads none of these; they are ADR 0005's business, not ADR 0007's.
+  recoverableConditions: [],
 };
 
 /**

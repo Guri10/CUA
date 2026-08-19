@@ -222,6 +222,37 @@ describe("FakeSurface", () => {
     });
   });
 
+  it("fires a once-only transition once, and then the one it was shadowing", async () => {
+    // How a script says "transient". Without this the fake can describe an
+    // application that is always broken or never broken and nothing in
+    // between — and a Recoverable Condition is exactly the state in between.
+    const surface = new FakeSurface({
+      screens: [
+        {
+          name: "overview",
+          url: "https://example.test/overview.htm",
+          tree: `- link "Account"\n`,
+          transitions: [
+            { when: { kind: "click", locator: { role: "link", name: "Account" } }, to: "login", once: true },
+            { when: { kind: "click", locator: { role: "link", name: "Account" } }, to: "detail" },
+          ],
+        },
+        { name: "login", url: "https://example.test/index.htm", tree: `- button "Log In"\n` },
+        { name: "detail", url: "https://example.test/activity.htm", tree: `- heading "Detail"\n` },
+      ],
+    });
+    const goToOverview = { kind: "navigate", url: "https://example.test/overview.htm" } as const;
+    const openAccount = { kind: "click", locator: { role: "link", name: "Account" } } as const;
+
+    await surface.perform(goToOverview);
+    await surface.perform(openAccount);
+    expect((await surface.snapshot()).url).toBe("https://example.test/index.htm");
+
+    await surface.perform(goToOverview);
+    await surface.perform(openAccount);
+    expect((await surface.snapshot()).url).toBe("https://example.test/activity.htm");
+  });
+
   it("takes a screenshot that names the screen, without pretending to be an image", async () => {
     const surface = new FakeSurface(SCRIPT);
     await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });

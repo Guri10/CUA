@@ -110,10 +110,11 @@ describe("replaying the lookup Capability against real ParaBank", () => {
     ).rejects.toThrow(/accountId/);
   });
 
-  it("stops rather than reporting success for an account the customer does not hold", async () => {
-    // #6 is where this becomes the Capability's declared ACCOUNT_NOT_FOUND
-    // Business Outcome, matched against this same real response. What matters
-    // here is that it does not quietly succeed.
+  it("answers ACCOUNT_NOT_FOUND for an account the customer does not hold", async () => {
+    // The Business Outcome against ParaBank's own response rather than a
+    // simulated one: the overview the application really served, with its rows
+    // really arrived, and no link carrying this number. ADR 0005 makes that a
+    // legitimate answer — not a failure, and not an exception.
     const result = await replayCapability(
       surface,
       accountLookupCapability(),
@@ -121,10 +122,10 @@ describe("replaying the lookup Capability against real ParaBank", () => {
       { baseUrl: BASE_URL },
     );
 
-    expect(result).toMatchObject({
-      kind: "hard-failure",
+    expect(result).toEqual({
+      kind: "business-outcome",
+      name: "ACCOUNT_NOT_FOUND",
       step: "open-account",
-      observed: "no control matched",
     });
   });
 });

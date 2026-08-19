@@ -16,11 +16,14 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { inputReferencesInPredicate, predicateSchema } from "../capability/schema.js";
 import { packageRootFrom } from "../package-root.js";
 
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** A route as the profile lists it: rooted, and relative to the base URL. */
 const ROUTE = /^\/[^\s?#;]*$/;
+/** A Recoverable Condition reads as a constant where it is reported: `SESSION_EXPIRED`. */
+const CONDITION_NAME = /^[A-Z][A-Z0-9_]*$/;
 
 /**
  * The Action verbs this installation permits at all.
@@ -30,6 +33,36 @@ const ROUTE = /^\/[^\s?#;]*$/;
  * done to *this* application.
  */
 export const ACTION_KINDS = ["navigate", "click", "fill", "select", "read", "waitFor"] as const;
+
+/**
+ * A Recoverable Condition: a state of the application that Replay absorbs and
+ * continues through, rather than an answer to anything or a reason to stop.
+ *
+ * Recognised the same way a Terminal State is — a predicate over the
+ * accessibility tree — so that "the application is showing its login screen
+ * instead of what was asked for" is written in the one vocabulary ADR 0001
+ * allows, and matched by the same resolver.
+ *
+ * `recover` has one value today, and the reason is worth writing down rather
+ * than leaving as an apparent oversight. ADR 0005 names three kinds of
+ * Recoverable Condition; the other two need no entry here. A slow load is
+ * waited out by the Step that is waiting for the control, which is where a wait
+ * belongs and where its timeout is already declared. An interstitial to dismiss
+ * would be a list of Actions — and ParaBank has none, so writing the variant
+ * now would be writing config nothing serves. Adding either is additive.
+ */
+export const recoverableConditionSchema = z.object({
+  name: z.string().regex(CONDITION_NAME),
+  when: predicateSchema,
+  /**
+   * How to absorb it. Re-establishing a session needs credentials, which ADR
+   * 0006 classes a Secret and no checked-in file holds — so the profile says
+   * that this is what the condition needs, and the caller supplies the doing.
+   */
+  recover: z.enum(["re-establish-session"]),
+});
+
+export type RecoverableCondition = z.infer<typeof recoverableConditionSchema>;
 
 export const surfaceProfileSchema = z
   .object({
@@ -53,6 +86,19 @@ export const surfaceProfileSchema = z
       "read-only": z.array(z.string().regex(ROUTE)),
       mutating: z.array(z.string().regex(ROUTE)),
     }),
+    /**
+     * The states this installation gets into that are nobody's answer and
+     * nobody's fault — ADR 0005 puts them here rather than on each Capability,
+     * because session expiry is a property of ParaBank shared by every
+     * Capability driving it. Declared once, they cannot drift between copies,
+     * and a new Tenant gets them by writing a profile rather than by
+     * re-recording anything.
+     *
+     * Empty by default: an installation nobody has studied yet declares no
+     * condition, and every unrecognised screen is a Hard Failure. That is the
+     * safe direction to be wrong in.
+     */
+    recoverableConditions: z.array(recoverableConditionSchema).default([]),
   })
   .superRefine((profile, ctx) => {
     // A path in both lists has no answer to "may this run touch it", and which
@@ -65,6 +111,31 @@ export const surfaceProfileSchema = z
         path: ["routes"],
         message: `Route "${route}" is listed as both read-only and mutating.`,
       });
+    }
+
+    // A condition nobody can tell from another one in a report, and a run that
+    // absorbed "one of the two SESSION_EXPIREDs" tells a reader nothing.
+    const names = new Set<string>();
+    for (const condition of profile.recoverableConditions) {
+      if (names.has(condition.name)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["recoverableConditions"],
+          message: `Recoverable Condition "${condition.name}" is declared more than once.`,
+        });
+      }
+      names.add(condition.name);
+
+      // The profile describes the installation, and nothing at that scope knows
+      // what any one Capability's inputs are. A predicate reaching for one
+      // would be a condition that could only be matched during some runs.
+      for (const reference of inputReferencesInPredicate(condition.when)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["recoverableConditions"],
+          message: `Recoverable Condition "${condition.name}" refers to input "${reference}"; a Surface profile describes the installation, not any one Capability's inputs.`,
+        });
+      }
     }
 
     // The one contradiction that would make every run fail at Step one.

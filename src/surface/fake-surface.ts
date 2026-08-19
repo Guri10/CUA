@@ -37,6 +37,14 @@ export interface ScriptedTransition {
   readonly when: ActionPattern;
   /** The `name` of the screen to move to. */
   readonly to: string;
+  /**
+   * Fires the first time only, and then the next matching transition takes
+   * over. This is how a script says "transient": a session that expires once,
+   * an interstitial shown on first visit. Without it the fake can describe an
+   * application that is always broken or never broken and nothing in between,
+   * which is exactly the shape of every Recoverable Condition.
+   */
+  readonly once?: boolean;
 }
 
 /**
@@ -86,6 +94,8 @@ export class FakeSurface implements Surface {
    * loading a page loses whatever was in its boxes.
    */
   #entered = new Map<number, string>();
+  /** Which once-only transitions have already had their turn. */
+  #fired = new Set<ScriptedTransition>();
 
   constructor(script: Script) {
     this.#screens = new Map(script.screens.map((screen) => [screen.name, screen]));
@@ -172,10 +182,14 @@ export class FakeSurface implements Surface {
 
   /** Moves to whichever screen this Action was scripted to lead to, if any. */
   #follow(action: Action): void {
-    const transition = this.#current.transitions?.find((candidate) =>
-      matchesPattern(candidate.when, action),
+    const transition = this.#current.transitions?.find(
+      (candidate) =>
+        matchesPattern(candidate.when, action) &&
+        !(candidate.once === true && this.#fired.has(candidate)),
     );
-    if (transition !== undefined) this.#goTo(this.#screen(transition.to));
+    if (transition === undefined) return;
+    if (transition.once === true) this.#fired.add(transition);
+    this.#goTo(this.#screen(transition.to));
   }
 
   #screen(name: string): ScriptedScreen {

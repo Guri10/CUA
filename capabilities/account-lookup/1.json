@@ -93,6 +93,17 @@
               }
             },
             {
+              "kind": "present",
+              "locator": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "$"
+                },
+                "ordinal": 0
+              }
+            },
+            {
               "kind": "absent",
               "locator": {
                 "role": "link",

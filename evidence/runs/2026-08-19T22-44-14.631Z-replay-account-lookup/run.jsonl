@@ -1,0 +1,12 @@
+{"at":"2026-08-19T22:44:14.632Z","kind":"run-started","redaction":"on","about":{"capability":"account-lookup@1","baseUrl":"http://localhost:8080/parabank","input.accountId":"[SENSITIVE]"}}
+{"at":"2026-08-19T22:44:16.836Z","kind":"action","seq":0,"ms":421,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:16.934Z","kind":"action","seq":1,"ms":47,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:16.971Z","kind":"action","seq":2,"ms":29,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:17.113Z","kind":"action","seq":3,"ms":137,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:17.173Z","kind":"action","seq":4,"ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:17.210Z","kind":"action","seq":5,"ms":34,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:17.237Z","kind":"action","seq":6,"ms":25,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:17.270Z","kind":"action","seq":7,"ms":5,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:44:27.288Z","kind":"action","seq":8,"ms":10011,"action":{"kind":"click","locator":{"role":"link","name":"[SENSITIVE]","exact":true}},"result":{"kind":"not-found","locator":{"role":"link","name":"[SENSITIVE]","exact":true}}}
+{"at":"2026-08-19T22:44:27.370Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-08-19T22:44:27.377Z","kind":"run-finished","outcome":"business-outcome","about":{"outcome":"ACCOUNT_NOT_FOUND","step":"open-account"}}

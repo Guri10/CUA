@@ -8,6 +8,7 @@ const profile: SurfaceProfile = {
   allowedOrigins: ["http://localhost:8080"],
   actions: ["navigate", "click", "fill", "select", "read", "waitFor"],
   routes: { "read-only": ["/overview.htm", "/activity.htm"], mutating: ["/transfer.htm"] },
+  recoverableConditions: [],
 };
 
 /**

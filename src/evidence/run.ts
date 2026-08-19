@@ -60,10 +60,14 @@ export type EvidenceRecord =
  *
  * A free string here would let each caller invent its own word for the same
  * ending, and a log whose outcomes cannot be counted is not a log anybody
- * queries. #6 adds the named Business Outcome, which is the one ending a
- * Capability declares for itself rather than the system declaring for it.
+ * queries.
  *
  * - `success` — the goal was met, or the Capability reached its success state.
+ * - `business-outcome` — ADR 0005: a legitimate answer the application gave,
+ *   named by the Capability that declared it. The one ending a Capability
+ *   declares for itself rather than the system declaring for it, and counted
+ *   apart from success because "no such account" and "here is the balance" are
+ *   different things to have happened.
  * - `hard-failure` — ADR 0005: a state the run could not interpret or continue
  *   from.
  * - `intervention-request` — ADR 0007: the gate refused, and a person decides.
@@ -71,7 +75,12 @@ export type EvidenceRecord =
  * - `stopped` — a Discovery Run that ran out of steps, time, or ideas. It did
  *   not fail to understand anything; it simply did not get there.
  */
-export type RunOutcome = "success" | "hard-failure" | "intervention-request" | "stopped";
+export type RunOutcome =
+  | "success"
+  | "business-outcome"
+  | "hard-failure"
+  | "intervention-request"
+  | "stopped";
 
 export interface EvidenceRunOptions {
   /** The directory runs are kept under. `evidenceRunsDir()` in the command. */

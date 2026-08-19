@@ -63,9 +63,12 @@ export class EvidenceSurface implements Surface {
       result: this.#loggedResult(result),
     });
 
-    // The screen the run could not interpret, captured at the Action that
-    // missed rather than at the end — by then the run has moved on, and the
-    // useful picture is of the state that stopped it.
+    // The screen an Action missed on, captured here rather than at the end — by
+    // then the run has moved on, and the useful picture is of the state that
+    // stopped it. What that state turns out to mean is decided above this
+    // layer: since #6 a miss can be how a declared Business Outcome is
+    // recognised, so the picture is named for the miss and the run's outcome
+    // line says what the miss amounted to.
     if (result.kind !== "ok") await this.#run.captureFailure(await this.#inner.screenshot());
 
     return result;

@@ -6,8 +6,10 @@
  * executor. Logging in is a property of the application, not of any one
  * Capability: the day ParaBank's form gains a field, one description changes
  * instead of every Recording. ADR 0005 puts the same event mid-run — an expired
- * session, a login interstitial — in the Surface profile for the same reason,
- * and ticket 7 is where this wiring moves when that profile exists.
+ * session — in the Surface profile, which is where it is now declared; what
+ * stays here is the one part a checked-in file cannot hold, the credentials.
+ * So this command hands the executor both a signed-in Surface and the means of
+ * signing in again.
  *
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
@@ -133,6 +135,11 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
     const result = await replayCapability(surface, capability, inputs, {
       baseUrl,
       ...(variant === undefined ? {} : { variant }),
+      // ADR 0005's middle class, wired the way the ADR splits it: the profile
+      // says which screens are interruptions, and this command — the one place
+      // holding credentials — says how to answer the one that needs a session.
+      recoverableConditions: profile.recoverableConditions,
+      reestablishSession: () => establishSession(surface, baseUrl, credentials),
     });
 
     if (result.kind === "success") {
@@ -142,6 +149,24 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
       // read returned is already in the log, masked, so it is not repeated
       // here — one copy, classified once.
       process.stdout.write(`${JSON.stringify(result.outputs, null, 2)}\n`);
+      return 0;
+    }
+
+    if (result.kind === "business-outcome") {
+      // Not a failure, and so no error text: the application worked correctly
+      // and this is the answer it gave. ADR 0005 keeps it out of `catch` on the
+      // calling side, and the exit code keeps it out of the failure column on
+      // this one.
+      //
+      // The screen is captured all the same, and by this branch rather than
+      // only by the decorator underneath. An outcome recognised because a Step
+      // missed already has a picture; one recognised at the end of the
+      // Recording never missed anything, so without this the two kinds of
+      // Business Outcome would leave different amounts of evidence behind. The
+      // capture is idempotent, so the decorator's wins when there was one.
+      await evidence.captureFailure(await surface.screenshot());
+      await evidence.finish("business-outcome", { outcome: result.name, step: result.step });
+      process.stdout.write(`${JSON.stringify({ outcome: result.name }, null, 2)}\n`);
       return 0;
     }
 

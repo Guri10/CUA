@@ -76,6 +76,26 @@ function detailRowValueArrived(label: string) {
   } as const;
 }
 
+/**
+ * The accounts table, once its rows have actually arrived.
+ *
+ * ParaBank renders the table's structure immediately and fills it from a
+ * request that finishes later, so "the overview is on screen" and "the overview
+ * is readable" are different claims. A row whose accessible name has picked up
+ * a currency symbol is the accessibility-vocabulary way to tell them apart; the
+ * ordinal asks for one such row rather than all eleven.
+ *
+ * One function because the checkpoint Step and the ACCOUNT_NOT_FOUND Terminal
+ * State must agree exactly. Without this in the Terminal State, an overview
+ * whose rows never arrived would satisfy "no link with that number" and a
+ * broken screen would be reported as a customer not holding the account —
+ * a Hard Failure quietly answered as a Business Outcome, which is the worst
+ * direction for this system to be wrong in.
+ */
+function accountsTableArrived() {
+  return { role: "row", name: { kind: "literal", value: "$" }, ordinal: 0 } as const;
+}
+
 export function accountLookupCapability(): Capability {
   return {
     id: "account-lookup",
@@ -118,6 +138,7 @@ export function accountLookupCapability(): Capability {
                 kind: "present",
                 locator: { role: "heading", name: { kind: "literal", value: "Accounts Overview" } },
               },
+              { kind: "present", locator: accountsTableArrived() },
               {
                 kind: "absent",
                 locator: {
@@ -143,15 +164,8 @@ export function accountLookupCapability(): Capability {
             action: { kind: "navigate", url: { kind: "literal", value: "/overview.htm" } },
           },
           {
-            // The accounts table renders before its rows arrive. A row whose
-            // accessible name has picked up a currency symbol is the
-            // accessibility-vocabulary way to know it has settled; the ordinal
-            // asks for one such row rather than all eleven.
             id: "wait-for-accounts",
-            action: {
-              kind: "waitFor",
-              locator: { role: "row", name: { kind: "literal", value: "$" }, ordinal: 0 },
-            },
+            action: { kind: "waitFor", locator: accountsTableArrived() },
           },
           {
             // `exact`, because account numbers are prefixes of one another:
