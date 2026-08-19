@@ -161,7 +161,24 @@ export class EvidenceRun {
   }
 }
 
-/** Where this repository keeps its committed run evidence. */
+/**
+ * Where this repository keeps its committed run evidence.
+ *
+ * Fixed rather than configurable, and `evidence/` is deliberately outside
+ * `.gitignore` because it is a required deliverable. The cost is that every run
+ * anybody makes lands in a tracked directory: replay the demo four times and
+ * `git status` shows four run directories beside the three curated ones, which
+ * is noise and is one `git add -A` away from committing a throwaway.
+ *
+ * Left that way on purpose for now — `evidence/runs/README.md` says which runs
+ * are the committed ones, and deleting the rest is cheaper than an option every
+ * reader has to understand. If it starts to bite, the fix is a `--evidence-dir`
+ * on the command rather than the two tempting alternatives: `EvidenceRun.start`
+ * already takes a `root` (the end-to-end tests pass a temporary one), so it is
+ * a passthrough. An environment variable would hide the setting from the usage
+ * text, and a `.gitignore` rule with exceptions would contradict the note in
+ * that file asking for no `/evidence` rule at all.
+ */
 export function evidenceRunsDir(): string {
   return join(packageRootFrom(import.meta.url), "evidence", "runs");
 }
