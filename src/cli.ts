@@ -14,6 +14,7 @@
 import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
 import type { Surface } from "./surface/surface.js";
 import { capabilitiesDir, loadCapabilityRef } from "./capability/storage.js";
+import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { mandateFor } from "./policy/mandate.js";
 import { openBrowserSurface } from "./policy/open-surface.js";
 import { loadSurfaceProfile, surfacesDir } from "./policy/profile.js";
@@ -31,6 +32,9 @@ Options:
   --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
                          Surface profile's own. The profile's allowlist still governs it.
   --headed               Show the browser window.
+  --evidence-redaction <on|off>
+                         Whether to mask Sensitive values in this run's evidence. On by
+                         default. Secrets are never written under either setting.
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -72,11 +76,11 @@ async function main(argv: string[]): Promise<number> {
     process.stderr.write(`${mandate.reason}\n`);
     return 1;
   }
-  const inputs = coerceTextValues(
-    capability.contract.inputs,
-    inputPairs(args.get("input") ?? []),
-    `Input to ${ident}`,
-  );
+  // Kept as typed, before the Contract coerces them: these are the strings that
+  // get substituted into Locators and so are the strings evidence has to
+  // recognise as this run's own Sensitive values.
+  const given = inputPairs(args.get("input") ?? []);
+  const inputs = coerceTextValues(capability.contract.inputs, given, `Input to ${ident}`);
   // Checked here as well as inside the executor, and deliberately before a
   // browser exists: a mistyped input should cost a sentence, not a browser
   // launch and a sign-in. The executor keeps its own check because it is a
@@ -84,6 +88,7 @@ async function main(argv: string[]): Promise<number> {
   parseContractValues(capability.contract.inputs, inputs, `This run's inputs for ${ident}`);
 
   const variant = single(args, "variant");
+  const masking = maskingSetting(single(args, "evidence-redaction"));
   // Read before the browser launches, for the same reason the inputs are
   // checked there: a missing `.env` should cost a sentence, not a Chromium.
   const credentials = {
@@ -92,9 +97,35 @@ async function main(argv: string[]): Promise<number> {
     password: required("PARABANK_PASSWORD"),
   };
 
-  // Already gated. There is no unwrapped Surface to reach for, here or anywhere
-  // else — `no-ungated-surface.test.ts` is what keeps that true.
-  const { surface, close } = await openBrowserSurface(profile, mandate, {
+  // Opened before the browser is, so that signing in is logged too. The login
+  // form is the one place this run types the application password, which makes
+  // it the case ADR 0006's "no flag reaches a Secret" is really about.
+  const evidence = await EvidenceRun.start({
+    root: evidenceRunsDir(),
+    label: `replay-${capability.id}`,
+    about: {
+      capability: ident,
+      baseUrl,
+      ...(variant === undefined ? {} : { variant }),
+      // Prefixed rather than merged, so an input named `capability` cannot
+      // quietly overwrite which Capability the log says ran.
+      ...Object.fromEntries(Object.entries(given).map(([name, value]) => [`input.${name}`, value])),
+    },
+    redaction: {
+      // ADR 0006's Secrets, in the only two forms this run holds them: the
+      // password it was handed, and the session token ParaBank puts in its URLs
+      // — which `stripSecrets` matches by pattern rather than by value.
+      secrets: [credentials.password],
+      // This run's own inputs. They are substituted into Locators, so they turn
+      // up in fields that are Plain by position.
+      sensitive: Object.values(given),
+      masking,
+    },
+  });
+
+  // Already gated, and already logged. There is no unwrapped Surface to reach
+  // for, here or anywhere else — `no-ungated-surface.test.ts` keeps that true.
+  const { surface, close } = await openBrowserSurface(profile, mandate, evidence, {
     headless: !args.has("headed"),
   });
   try {
@@ -106,11 +137,26 @@ async function main(argv: string[]): Promise<number> {
     });
 
     if (result.kind === "success") {
+      await evidence.finish("success", {});
       // The declared outputs, in full. ADR 0006 masks a Sensitive value in
-      // persisted evidence and never in what the caller asked for.
+      // persisted evidence and never in what the caller asked for. What each
+      // read returned is already in the log, masked, so it is not repeated
+      // here — one copy, classified once.
       process.stdout.write(`${JSON.stringify(result.outputs, null, 2)}\n`);
       return 0;
     }
+
+    // The backstop to the decorator's own capture. A run that took every Step
+    // without ever missing and then found itself on a screen it could not name
+    // has no failed Action to have triggered one; the decorator's capture wins
+    // when there was one, because that is the screen that explains the run.
+    await evidence.captureFailure(await surface.screenshot());
+    await evidence.finish("hard-failure", {
+      step: result.step,
+      expected: result.expected,
+      observed: result.observed,
+      screen: result.url,
+    });
 
     process.stderr.write(
       [
@@ -122,8 +168,20 @@ async function main(argv: string[]): Promise<number> {
       ].join("\n"),
     );
     return 1;
+  } catch (thrown) {
+    // A Hard Failure by ADR 0005's definition — a state the run cannot
+    // interpret or continue from — reached by something neither the Contract
+    // nor the application accounted for: a browser that closed, a host that
+    // went away. Recorded under the same name as any other, because a trail
+    // that stops mid-sentence cannot be told apart from one never written.
+    await evidence.finish("hard-failure", {
+      observed: thrown instanceof Error ? thrown.message : String(thrown),
+    });
+    throw thrown;
   } finally {
     await close();
+    // On stderr, because stdout is the caller's result and nothing else.
+    process.stderr.write(`Evidence: ${evidence.directory}\n`);
   }
 }
 
@@ -143,6 +201,18 @@ async function establishSession(
     if (result.kind === "ok") continue;
     throw new Error(`Could not sign in to ${baseUrl}: ${describeMiss(result)}`);
   }
+}
+
+/**
+ * `--evidence-redaction`, which is the only thing that moves ADR 0006's middle
+ * kind. On unless told otherwise, and a value that is neither is refused rather
+ * than read as "off" — the setting that writes real balances to disk is not one
+ * to arrive at by typo.
+ */
+function maskingSetting(value: string | undefined): "on" | "off" {
+  if (value === undefined || value === "on") return "on";
+  if (value === "off") return "off";
+  throw new Error(`--evidence-redaction takes "on" or "off", not "${value}".`);
 }
 
 function required(name: string): string {
@@ -167,6 +237,7 @@ const OPTIONS = {
   variant: "value",
   "base-url": "value",
   headed: "flag",
+  "evidence-redaction": "value",
 } as const;
 
 /**

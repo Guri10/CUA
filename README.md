@@ -57,7 +57,7 @@ real credentials or PII are involved anywhere in this project.
 | Command | What it does |
 | --- | --- |
 | `npm test` | Unit and integration tests. Fast, no browser. |
-| `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. |
+| `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. `HEADED=1` shows the window. |
 | `npm run typecheck` | Type check without emitting. |
 | `npm run build` | Compile to `dist/`. |
 | `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
@@ -89,7 +89,8 @@ and exits non-zero.
 
 A bare id (`--capability account-lookup`) runs the highest version there is. `--variant <name>`
 runs a Tenant's corrected Recording, `--base-url` points at an installation other than
-`$PARABANK_BASE_URL`, and `--headed` shows the browser window.
+`$PARABANK_BASE_URL`, `--headed` shows the browser window, and `--evidence-redaction=off` writes
+the run's evidence unmasked — see below.
 
 ## What automation is allowed to touch
 
@@ -117,6 +118,36 @@ state — draft unless the file says otherwise, so nothing the recorder writes u
 by omission. A mutating Capability that nobody has signed off does not reach a browser at all. The
 model never classifies its own actions as safe or risky; the rule is a static list a reviewer can
 check in ten seconds.
+
+## What gets written down
+
+Every run opens a directory under [`evidence/runs/`](evidence/runs/) and logs every Action it
+dispatched and what that Action returned, one JSON record per line. The log is written by a second
+decorator over the same `Surface` interface the policy gate wraps, composed as
+`PolicyGated(Evidence(Playwright | Fake))`, so there is no way to reach a screen without being
+recorded on the way. When a run stops somewhere it cannot interpret, the screen it stopped on is saved beside the
+log as `failure.png`.
+
+What lands in that log is sorted into three kinds
+([ADR 0006](docs/adr/0006-redaction-classifies-data-and-never-touches-the-return-value.md)):
+
+- **Secret** — the application password, and the session token ParaBank carries in its URLs. Never
+  written, under any setting. There is no flag that reaches these.
+- **Sensitive** — account numbers, balances, names. Masked in the log by default, and written in
+  full with `--evidence-redaction=off`. Always returned to the caller intact either way: reading the
+  balance is the point of the Capability, so masking the result would defeat the feature.
+- **Plain** — routes, Step ids, roles, timings. Always written.
+
+```sh
+# masked, which is the default
+npm run replay -- --capability account-lookup@1 --input accountId=13344
+
+# the same run, unmasked
+npm run replay -- --capability account-lookup@1 --input accountId=13344 --evidence-redaction=off
+```
+
+One run of each is committed, plus one that fails, so the mechanism can be read rather than taken on
+trust. [`evidence/runs/README.md`](evidence/runs/README.md) says which is which.
 
 ## Is the accessibility tree good enough to target?
 

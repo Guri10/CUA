@@ -1,6 +1,11 @@
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
+import { EvidenceRun } from "../evidence/run.js";
 import { replayCapability } from "../replay/replay.js";
+import { headless } from "../surface/headless.js";
 import { logInToParabank } from "../surface/parabank/login.js";
 import type { Surface } from "../surface/surface.js";
 import { mandateFor } from "./mandate.js";
@@ -42,7 +47,18 @@ describe("the policy gate, over a real browser", () => {
     if (!mandate.allowed) throw new Error(mandate.reason);
     expect(mandate.mayMutate).toBe(false);
 
-    ({ surface, close } = await openBrowserSurface(profile, mandate));
+    // Into a temporary directory: `evidence/` is a committed deliverable, and a
+    // test run is not evidence of anything a reviewer asked for.
+    const evidence = await EvidenceRun.start({
+      root: await mkdtemp(join(tmpdir(), "cua-evidence-")),
+      label: "policy-gate",
+      about: {},
+      redaction: { secrets: [PASSWORD], sensitive: [], masking: "on" },
+    });
+
+    ({ surface, close } = await openBrowserSurface(profile, mandate, evidence, {
+      headless: headless(),
+    }));
     for (const action of logInToParabank(profile.baseUrl, {
       username: USERNAME,
       password: PASSWORD,

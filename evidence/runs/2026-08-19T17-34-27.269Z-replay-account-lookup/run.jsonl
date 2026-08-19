@@ -1,0 +1,12 @@
+{"at":"2026-08-19T17:34:27.269Z","kind":"run-started","redaction":"on","about":{"capability":"account-lookup@1","baseUrl":"http://localhost:8080/parabank","input.accountId":"[SENSITIVE]"}}
+{"at":"2026-08-19T17:34:28.669Z","kind":"action","seq":0,"ms":442,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:28.774Z","kind":"action","seq":1,"ms":32,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:28.797Z","kind":"action","seq":2,"ms":12,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:28.935Z","kind":"action","seq":3,"ms":133,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:29.025Z","kind":"action","seq":4,"ms":15,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:29.052Z","kind":"action","seq":5,"ms":14,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:29.180Z","kind":"action","seq":6,"ms":124,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:29.253Z","kind":"action","seq":7,"ms":12,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T17:34:39.284Z","kind":"action","seq":8,"ms":10010,"action":{"kind":"click","locator":{"role":"link","name":"[SENSITIVE]","exact":true}},"result":{"kind":"not-found","locator":{"role":"link","name":"[SENSITIVE]","exact":true}}}
+{"at":"2026-08-19T17:34:39.376Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-08-19T17:34:39.466Z","kind":"run-finished","outcome":"hard-failure","about":{"step":"open-account","expected":"click on link \"[SENSITIVE]\" (exact)","observed":"no control matched","screen":"http://localhost:8080/parabank/overview.htm"}}

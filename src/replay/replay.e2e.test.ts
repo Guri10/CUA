@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
+import { headless } from "../surface/headless.js";
 import { logInToParabank } from "../surface/parabank/login.js";
 import { PlaywrightSurface } from "../surface/playwright-surface.js";
 import { replayCapability } from "./replay.js";
@@ -38,7 +39,7 @@ describe("replaying the lookup Capability against real ParaBank", () => {
   let accountId: string;
 
   beforeAll(async () => {
-    surface = await PlaywrightSurface.launch();
+    surface = await PlaywrightSurface.launch({ headless: headless() });
 
     // Signing in is the caller's job, exactly as it is in the CLI. The executor
     // is handed a Surface that already has a session and knows nothing about
