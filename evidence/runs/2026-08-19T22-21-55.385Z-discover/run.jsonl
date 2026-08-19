@@ -1,0 +1,13 @@
+{"at":"2026-08-19T22:21:55.385Z","kind":"run-started","redaction":"on","about":{"goal":"Find the type and balance of account 13344, then stop.","entry":"/overview.htm","baseUrl":"http://localhost:8080/parabank","surface":"parabank","maxSteps":"15"}}
+{"at":"2026-08-19T22:22:02.601Z","kind":"action","seq":0,"ms":1495,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:02.686Z","kind":"action","seq":1,"ms":17,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:02.702Z","kind":"action","seq":2,"ms":8,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:02.938Z","kind":"action","seq":3,"ms":231,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:03.994Z","kind":"action","seq":4,"ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:04.007Z","kind":"action","seq":5,"ms":4,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:04.230Z","kind":"action","seq":6,"ms":75,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:08.633Z","kind":"action","seq":7,"ms":9,"action":{"kind":"waitFor","locator":{"role":"link","name":"13344"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:12.595Z","kind":"action","seq":8,"ms":209,"action":{"kind":"click","locator":{"role":"link","name":"13344","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:17.118Z","kind":"action","seq":9,"ms":11,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Account Type:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-19T22:22:20.979Z","kind":"action","seq":10,"ms":10,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Balance:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-19T22:22:24.483Z","kind":"run-finished","outcome":"success","about":{"steps":"5"}}

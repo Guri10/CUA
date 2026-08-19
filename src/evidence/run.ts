@@ -56,14 +56,22 @@ export type EvidenceRecord =
     };
 
 /**
- * How a run ended, in ADR 0004's and ADR 0005's vocabulary and no other.
+ * How a run ended, in the vocabulary of CONTEXT.md and the ADRs and no other.
  *
  * A free string here would let each caller invent its own word for the same
  * ending, and a log whose outcomes cannot be counted is not a log anybody
- * queries. #6 adds the third member — a named Business Outcome — which is why
- * this is two today rather than a string with two usual values.
+ * queries. #6 adds the named Business Outcome, which is the one ending a
+ * Capability declares for itself rather than the system declaring for it.
+ *
+ * - `success` — the goal was met, or the Capability reached its success state.
+ * - `hard-failure` — ADR 0005: a state the run could not interpret or continue
+ *   from.
+ * - `intervention-request` — ADR 0007: the gate refused, and a person decides.
+ *   Not a failure; the run stopped exactly as it was supposed to.
+ * - `stopped` — a Discovery Run that ran out of steps, time, or ideas. It did
+ *   not fail to understand anything; it simply did not get there.
  */
-export type RunOutcome = "success" | "hard-failure";
+export type RunOutcome = "success" | "hard-failure" | "intervention-request" | "stopped";
 
 export interface EvidenceRunOptions {
   /** The directory runs are kept under. `evidenceRunsDir()` in the command. */

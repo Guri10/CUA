@@ -1,0 +1,118 @@
+import { describe, expect, it } from "vitest";
+import { decisionFor, reportOf } from "./decide.js";
+
+/**
+ * The boundary the spec draws: "the model's decisions" are not tested, because
+ * they are non-deterministic and asserting on them tests Anthropic rather than
+ * this system. What is tested is everything either side of them — given a tool
+ * call, the Action it becomes is fully deterministic, and so is what the model
+ * is told came back.
+ */
+describe("turning a tool call into an Action", () => {
+  it("reads a click as the Action the Surface takes", () => {
+    expect(
+      decisionFor("click", {
+        reason: "The account number is a link on the overview.",
+        locator: { role: "link", name: "13344", exact: true },
+      }),
+    ).toEqual({
+      kind: "act",
+      reason: "The account number is a link on the overview.",
+      action: { kind: "click", locator: { role: "link", name: "13344", exact: true } },
+    });
+  });
+
+  it("carries a fill's value through", () => {
+    expect(
+      decisionFor("fill", {
+        reason: "The first unnamed box is the username.",
+        locator: { role: "textbox", ordinal: 0 },
+        value: "john",
+      }),
+    ).toMatchObject({
+      kind: "act",
+      action: { kind: "fill", locator: { role: "textbox", ordinal: 0 }, value: "john" },
+    });
+  });
+
+  it("renames wait_for to the verb the Surface seam uses", () => {
+    expect(
+      decisionFor("wait_for", {
+        reason: "The rows arrive after the page does.",
+        locator: { role: "row", name: "$", ordinal: 0 },
+      }),
+    ).toMatchObject({ kind: "act", action: { kind: "waitFor" } });
+  });
+
+  it("keeps a scoped Locator's enclosing control", () => {
+    expect(
+      decisionFor("read", {
+        reason: "The balance is the second cell of its labelled row.",
+        locator: { role: "cell", ordinal: 1, within: { role: "row", name: "Balance:" } },
+      }),
+    ).toMatchObject({
+      action: { locator: { role: "cell", ordinal: 1, within: { role: "row", name: "Balance:" } } },
+    });
+  });
+
+  it("reads done as the end of the run rather than as an Action", () => {
+    expect(
+      decisionFor("done", { reason: "Both values are on screen.", summary: "SAVINGS, $1231.10" }),
+    ).toEqual({
+      kind: "done",
+      reason: "Both values are on screen.",
+      summary: "SAVINGS, $1231.10",
+    });
+  });
+
+  it("hands back a complaint rather than throwing when the input does not fit", () => {
+    // The model is told and gets to try again. Throwing here would end a run
+    // over a malformed argument the next turn could have corrected.
+    const decision = decisionFor("click", { reason: "Trying the link.", locator: { role: "nope" } });
+
+    expect(decision.kind).toBe("unusable");
+    if (decision.kind !== "unusable") return;
+    expect(decision.complaint).toContain("locator.role");
+  });
+
+  it("refuses a verb it does not offer", () => {
+    const decision = decisionFor("navigate", { reason: "Going straight there.", url: "/admin.htm" });
+
+    expect(decision).toMatchObject({ kind: "unusable" });
+    if (decision.kind !== "unusable") return;
+    expect(decision.complaint).toContain("navigate");
+  });
+});
+
+describe("telling the model what came back", () => {
+  it("reports a read's value, which is the point of a read", () => {
+    expect(reportOf({ kind: "ok", value: "-$2300.00" })).toEqual({
+      text: `ok: "-$2300.00"`,
+      isError: false,
+    });
+  });
+
+  it("reports an Action that worked and returned nothing", () => {
+    expect(reportOf({ kind: "ok" })).toEqual({ text: "ok", isError: false });
+  });
+
+  it("reports a miss as an error the model can act on", () => {
+    expect(reportOf({ kind: "not-found", locator: { role: "link", name: "nope" } })).toEqual({
+      text: "no control matched",
+      isError: true,
+    });
+  });
+
+  it("reports how many matched when a Locator was ambiguous", () => {
+    expect(
+      reportOf({ kind: "ambiguous", locator: { role: "link", name: "Funds" }, matches: 4 }),
+    ).toEqual({ text: "4 controls matched", isError: true });
+  });
+
+  it("passes the policy gate's own words through when it refused", () => {
+    expect(reportOf({ kind: "refused", reason: `"/transfer.htm" can change data.` })).toEqual({
+      text: `"/transfer.htm" can change data.`,
+      isError: true,
+    });
+  });
+});

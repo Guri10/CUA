@@ -8,10 +8,10 @@ behind the shape of the system.
 
 ## Status
 
-Early. The scaffold, the ParaBank target, the verification of ADR 0001's targeting assumption, the
-Capability schema, the replay path, and the policy gate are in place: a hand-written Capability
-replays against real ParaBank through an allowlist and returns typed outputs. The `discover` and
-`serve` commands are not built yet.
+Both paths run. `discover` puts `claude-opus-5` on a live ParaBank and it works out how to reach a
+goal; `replay` re-runs a saved Capability with no model in the loop. The scaffold, the Capability
+schema, the policy gate, and the evidence trail are in place. Turning a Discovery Run into a saved
+Capability is the next piece, and `serve` is not built yet.
 
 ## Requirements
 
@@ -60,10 +60,71 @@ real credentials or PII are involved anywhere in this project.
 | `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. `HEADED=1` shows the window. |
 | `npm run typecheck` | Type check without emitting. |
 | `npm run build` | Compile to `dist/`. |
+| `npm run discover -- --goal "..."` | Let the model work out how to reach a goal on the running application. |
 | `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |
 | `npm run parabank:start` | Start the target application. |
 | `npm run parabank:stop` | Stop and remove it. |
+
+## Let the model work it out
+
+With ParaBank running, `.env` filled in, and `ANTHROPIC_API_KEY` set:
+
+```sh
+npm run discover -- --goal "Find the type and balance of account 13344, then stop."
+```
+
+It signs in, puts the run at its entry point, and hands over to `claude-opus-5`. Each turn the model
+is given the accessibility tree of the screen it is on, a screenshot of the same screen for
+disambiguation, and what its last action produced. It acts through six tools we define —
+`click`, `fill`, `select`, `read`, `wait_for`, `done` — whose verbs are the Step vocabulary of a
+Recording exactly ([ADR 0002](docs/adr/0002-custom-tool-schema-for-discovery.md)), so that saving the
+run is a filter over what worked rather than a translation of a transcript.
+
+```
+  1. navigate to http://localhost:8080/parabank/overview.htm
+     → ok
+     ↳ The run's entry point.
+  2. wait for link "13344"
+     → ok
+     ↳ The account rows haven't loaded into the tree yet; wait for the account 13344 link.
+  3. click on link "13344" (exact)
+     → ok
+     ↳ The overview doesn't show account type, so open the account details page for 13344.
+  4. read of cell #1 within row "Account Type:"
+     → ok
+     ↳ Read the account type value from the "Account Type:" row's second cell.
+  5. read of cell #1 within row "Balance:"
+     → ok
+     ↳ Read the balance value from the "Balance:" row's second cell.
+```
+
+Steps 4 and 5 are the two Locators the hand-written Capability below uses, and step 2 is the same
+wait it needs — all arrived at independently. The sentence under each action is the model's own,
+printed for the engineer who has to judge whether the run is worth keeping, and written nowhere per
+ADR 0006.
+
+There is no `navigate` tool. Reaching the entry point (`--entry`, default `/overview.htm`) is the
+loop's own first Step, and from there the model moves the way an operator does, by clicking what is
+on the screen. A verb taking a URL would let it name any address it liked.
+
+The run stops when the goal is met, at `--max-steps` (default 25), at `--timeout` seconds (default
+300), or at a dead end. It also stops when the policy gate refuses:
+
+```sh
+$ npm run discover -- --goal "Transfer \$100 from account 13344 to account 12345."
+  1. click on link "Transfer Funds"
+     → ok
+     ↳ Open the Transfer Funds page to start the transfer.
+  2. fill of textbox
+     → "/transfer.htm" can change data, and this run has no mandate to.
+     ↳ Enter the transfer amount of $100.
+Stopped for a person to decide.
+```
+
+A Discovery Run explores with no mandate to change anything, so a risky Step raises an Intervention
+Request instead of acting ([ADR 0007](docs/adr/0007-risk-is-classified-statically-not-by-the-model.md)).
+The model has no say in that — it is a static rule, decided before a browser exists.
 
 ## Replay a Capability
 
@@ -94,7 +155,7 @@ the run's evidence unmasked — see below.
 
 ## What automation is allowed to touch
 
-Every action — during replay today, during discovery when it lands — passes through one policy gate,
+Every action — from a Discovery Run and from a Replay alike — passes through one policy gate,
 a decorator over the `Surface` interface. Both phases receive an already-wrapped Surface and there is
 no unwrapped one to reach for, which is checked by a test rather than left to review
 ([ADR 0007](docs/adr/0007-risk-is-classified-statically-not-by-the-model.md)).

@@ -44,6 +44,18 @@ function importsIn(source: string): string[] {
   return [...source.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)].map((match) => match[1]!);
 }
 
+/**
+ * Static, value-carrying imports only — the ones that actually load a module
+ * when the file is evaluated. `import type` is erased by the compiler and a
+ * dynamic `import()` runs only when it is reached, so neither puts anything in
+ * a process that does not ask for it.
+ */
+function valueImportsIn(source: string): string[] {
+  return [...source.matchAll(/^import\s+(?!type\s)[^;]*?from\s*["']([^"']+)["']/gm)].map(
+    (match) => match[1]!,
+  );
+}
+
 function packagesIn(files: string[]): string[] {
   const packages = files.flatMap((file) =>
     importsIn(readFileSync(file, "utf8")).filter((specifier) => !specifier.startsWith(".")),
@@ -73,6 +85,30 @@ describe("the replay path", () => {
     const offenders = packagesIn(moduleGraphFrom(ENTRY)).filter((name) => MODEL_PACKAGES.test(name));
 
     expect(offenders).toEqual([]);
+  });
+
+  it("keeps the model out of the process a replay runs in", () => {
+    // The graph walk above starts at the executor, which cannot see this: one
+    // command file serves both `discover` and `replay`, so a plain import of
+    // the discovery model there loads the Anthropic SDK for a replay too. The
+    // module graph would still be clean and the process would not be.
+    //
+    // `import type` is erased and does not count. A dynamic `import()` inside
+    // the discover command is the shape this is asking for.
+    const offenders = valueImportsIn(readFileSync("src/cli.ts", "utf8")).filter((specifier) =>
+      specifier.includes("discovery/model"),
+    );
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("recognises a static import of the model when it sees one", () => {
+    // Without this the check above could pass by matching nothing at all.
+    expect(valueImportsIn(`import { modelDecider } from "./discovery/model.js";`)).toEqual([
+      "./discovery/model.js",
+    ]);
+    expect(valueImportsIn(`import type { X } from "./discovery/model.js";`)).toEqual([]);
+    expect(valueImportsIn(`const m = await import("./discovery/model.js");`)).toEqual([]);
   });
 
   it("reads no model credential", () => {

@@ -1,6 +1,6 @@
 /**
- * The command line. One command today — `replay` — with `discover` and `serve`
- * to follow.
+ * The command line. Two commands — `discover` and `replay` — with `serve` to
+ * follow.
  *
  * Everything about establishing a session lives here rather than in the
  * executor. Logging in is a property of the application, not of any one
@@ -14,22 +14,16 @@
 import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
 import type { Surface } from "./surface/surface.js";
 import { capabilitiesDir, loadCapabilityRef } from "./capability/storage.js";
+import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
-import { mandateFor } from "./policy/mandate.js";
+import { discoveryMandate, mandateFor } from "./policy/mandate.js";
 import { openBrowserSurface } from "./policy/open-surface.js";
-import { loadSurfaceProfile, surfacesDir } from "./policy/profile.js";
+import { loadSurfaceProfile, surfacesDir, type SurfaceProfile } from "./policy/profile.js";
 import { coerceTextValues, parseContractValues } from "./replay/contract-values.js";
-import { describeMiss } from "./replay/describe.js";
+import { describeAction, describeMiss } from "./replay/describe.js";
 import { replayCapability } from "./replay/replay.js";
 
-const USAGE = `Usage:
-  npm run replay -- --capability <id>[@<version>] --input <name>=<value> [options]
-
-Options:
-  --capability <ref>     Which Capability to replay. A bare id means its highest version.
-  --input <name>=<value> One of the Contract's declared inputs. Repeatable.
-  --variant <name>       Which Tenant's Recording to run. Defaults to the shared one.
-  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
+const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
                          Surface profile's own. The profile's allowlist still governs it.
   --headed               Show the browser window.
   --evidence-redaction <on|off>
@@ -37,15 +31,36 @@ Options:
                          default. Secrets are never written under either setting.
 `;
 
+const USAGE = `Usage:
+  npm run discover -- --goal "..." [options]
+  npm run replay -- --capability <id>[@<version>] --input <name>=<value> [options]
+
+discover options:
+  --goal <text>          What the run is trying to accomplish, in plain language.
+  --entry <path>         Where the run starts. Defaults to /overview.htm.
+  --surface <id>         Which Surface profile to run against. Defaults to parabank.
+  --max-steps <n>        How many Actions the run may take. Defaults to 25.
+  --timeout <seconds>    How long the whole run may take. Defaults to 300.
+
+replay options:
+  --capability <ref>     Which Capability to replay. A bare id means its highest version.
+  --input <name>=<value> One of the Contract's declared inputs. Repeatable.
+  --variant <name>       Which Tenant's Recording to run. Defaults to the shared one.
+
+Both:
+${SHARED_USAGE}`;
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
-  if (command !== "replay") {
-    const complaint = command === undefined ? "No command given." : `Unknown command "${command}".`;
-    process.stderr.write(`${complaint}\n\n${USAGE}`);
-    return 2;
-  }
+  if (command === "discover") return await discoverCommand(parseArguments(rest, DISCOVER_OPTIONS));
+  if (command === "replay") return await replayCommand(parseArguments(rest, REPLAY_OPTIONS));
 
-  const args = parseArguments(rest);
+  const complaint = command === undefined ? "No command given." : `Unknown command "${command}".`;
+  process.stderr.write(`${complaint}\n\n${USAGE}`);
+  return 2;
+}
+
+async function replayCommand(args: Map<string, string[]>): Promise<number> {
   const ref = single(args, "capability");
   if (ref === undefined) {
     process.stderr.write(`--capability is required.\n\n${USAGE}`);
@@ -56,17 +71,7 @@ async function main(argv: string[]): Promise<number> {
   // The Capability names its Surface profile; the profile is what says where
   // that installation is and which of its routes may be touched.
   const profile = await loadSurfaceProfile(surfacesDir(), capability.surface);
-
-  // Normalised once, here. `absoluteUrl` strips a trailing slash and
-  // `logInToParabank` concatenates raw, so a base URL ending in one would sign
-  // in at `//index.htm` and replay Steps at `/overview.htm`. An override still
-  // answers to the profile's allowed origins — the gate refuses it otherwise,
-  // which is the point of the allowlist being checked-in rather than passed in.
-  const baseUrl = (
-    single(args, "base-url") ??
-    process.env["PARABANK_BASE_URL"] ??
-    profile.baseUrl
-  ).replace(/\/+$/, "");
+  const baseUrl = resolveBaseUrl(args, profile);
   const ident = `${capability.id}@${capability.version}`;
 
   // Decided before a browser exists, from two declared fields (ADR 0007). A
@@ -89,13 +94,7 @@ async function main(argv: string[]): Promise<number> {
 
   const variant = single(args, "variant");
   const masking = maskingSetting(single(args, "evidence-redaction"));
-  // Read before the browser launches, for the same reason the inputs are
-  // checked there: a missing `.env` should cost a sentence, not a Chromium.
-  const credentials = {
-    username: required("PARABANK_USERNAME"),
-    // ADR 0006 classes this a Secret: handed in at run time, never written.
-    password: required("PARABANK_PASSWORD"),
-  };
+  const credentials = credentialsFromEnv();
 
   // Opened before the browser is, so that signing in is logged too. The login
   // form is the one place this run types the application password, which makes
@@ -186,6 +185,161 @@ async function main(argv: string[]): Promise<number> {
 }
 
 /**
+ * The Discovery Run: a goal in plain language, and a model driving the
+ * application until it is met.
+ *
+ * The shape is deliberately the same as a replay: resolve the profile, decide
+ * the mandate before a browser exists, open the one gated and logged Surface,
+ * sign in, then hand over. What differs is only who decides the next Action.
+ */
+async function discoverCommand(args: Map<string, string[]>): Promise<number> {
+  const goal = single(args, "goal");
+  if (goal === undefined) {
+    process.stderr.write(`--goal is required.\n\n${USAGE}`);
+    return 2;
+  }
+
+  const profile = await loadSurfaceProfile(surfacesDir(), single(args, "surface") ?? "parabank");
+  const baseUrl = resolveBaseUrl(args, profile);
+
+  const entry = single(args, "entry") ?? "/overview.htm";
+  const maxSteps = wholeNumber(single(args, "max-steps"), "--max-steps", 25);
+  const timeoutMs = wholeNumber(single(args, "timeout"), "--timeout", 300) * 1_000;
+  const masking = maskingSetting(single(args, "evidence-redaction"));
+
+  const credentials = credentialsFromEnv();
+
+  const evidence = await EvidenceRun.start({
+    root: evidenceRunsDir(),
+    label: "discover",
+    // The goal is written as the operator typed it, and it is the one field
+    // here nobody classified. It goes through the Plain path, so a Secret in it
+    // is still stripped — but an account number in it is not, because a run's
+    // Sensitive-by-value list is its own declared inputs and this run has none.
+    // Left that way knowingly: masking it would need a rule for recognising an
+    // account number in free text, and ADR 0007 rejects exactly that kind of
+    // heuristic for the policy gate. The goal is also the one thing a reviewer
+    // needs in order to read the run at all.
+    about: { goal, entry, baseUrl, surface: profile.id, maxSteps: String(maxSteps) },
+    redaction: {
+      secrets: [credentials.password],
+      // Empty, and not an oversight. A run's Sensitive-by-value list is its own
+      // declared inputs, and a Discovery Run has none — it is the thing that
+      // works out what the inputs should be. What a `read` returns is still
+      // masked, because that is classified by where it sits rather than by
+      // matching a value. What is not masked is an account number the model
+      // picked off the screen and put in a Locator: there is nothing yet to
+      // recognise it against. #10 is where those become declared inputs.
+      sensitive: [],
+      masking,
+    },
+  });
+
+  // ADR 0007, and the reason a Discovery Run is safe to point at an application
+  // nobody has taught it: it explores with no mandate to change anything, and a
+  // refusal becomes an Intervention Request rather than a retry.
+  const { surface, close } = await openBrowserSurface(profile, discoveryMandate(), evidence, {
+    headless: !args.has("headed"),
+  });
+
+  try {
+    await establishSession(surface, baseUrl, credentials);
+
+    // Imported here rather than at the top of the file, and this is the whole
+    // reason: `cli.ts` serves both commands, so a static import would load the
+    // Anthropic SDK into the process a `npm run replay` runs in. "No model on
+    // the replay path" is the claim this project is built on, and a claim that
+    // holds for the module graph but not for the process is not the claim.
+    const { modelDecider } = await import("./discovery/model.js");
+
+    let taken = 0;
+    const result = await discover(surface, modelDecider({ goal, entry }), {
+      // The model has no `navigate` verb, so reaching the entry point is the
+      // loop's own first Step. From there it moves the way an operator does, by
+      // clicking what is on the screen.
+      entryUrl: `${baseUrl}${entry}`,
+      maxSteps,
+      timeoutMs,
+      // Printed as it happens. A run takes minutes, and a terminal that says
+      // nothing for four of them is indistinguishable from one that has hung.
+      onStep: (step) => process.stderr.write(showStep((taken += 1), step)),
+    });
+
+    return await reportDiscovery(result, evidence, surface);
+  } catch (thrown) {
+    await evidence.finish("hard-failure", {
+      observed: thrown instanceof Error ? thrown.message : String(thrown),
+    });
+    throw thrown;
+  } finally {
+    await close();
+    process.stderr.write(`Evidence: ${evidence.directory}\n`);
+  }
+}
+
+/**
+ * One Step, as the operator reads it: what was done, what came back, and the
+ * model's own sentence for why.
+ *
+ * The reason is printed here and written nowhere. ADR 0006 persists a filtered
+ * transcript — the Actions taken and their results, not the reasoning — because
+ * a sentence saying "the balance is $1,234.56" is exactly what field-level
+ * masking cannot catch. The evidence log underneath has already recorded the
+ * Action and the result; this line is the half that stays on the terminal.
+ */
+function showStep(number: number, step: TakenStep): string {
+  const outcome = step.result.kind === "ok" ? "ok" : describeMiss(step.result);
+  return [
+    `${String(number).padStart(3)}. ${describeAction(step.action)}`,
+    `     → ${outcome}`,
+    `     ↳ ${step.reason}`,
+    "",
+  ].join("\n");
+}
+
+/** What the run amounted to, on the terminal and in the log. */
+async function reportDiscovery(
+  result: DiscoveryResult,
+  evidence: EvidenceRun,
+  surface: Surface,
+): Promise<number> {
+  const steps = String(result.steps.length);
+
+  if (result.kind === "goal-reached") {
+    await evidence.finish("success", { steps });
+    process.stdout.write(`${result.summary}\n`);
+    return 0;
+  }
+
+  // Every other ending is one a person has to look at, so every other ending
+  // gets the screen it ended on. The decorator underneath captures at an Action
+  // that missed, but neither of these is that: the gate refuses before dispatch
+  // so a refusal never reaches it, and a run that used up its Steps never
+  // missed anything at all. Without this, the two endings that most need a
+  // picture are the two without one.
+  await evidence.captureFailure(await surface.screenshot());
+
+  if (result.kind === "intervention-request") {
+    // ADR 0007's escalation, and not a failure: the run stopped exactly where
+    // it was supposed to, and it stopped for a person rather than for a retry.
+    await evidence.finish("intervention-request", { steps, reason: result.reason });
+    process.stderr.write(
+      [
+        "Stopped for a person to decide.",
+        `  at:     ${describeAction(result.at.action)}`,
+        `  reason: ${result.reason}`,
+        "",
+      ].join("\n"),
+    );
+    return 1;
+  }
+
+  await evidence.finish("stopped", { steps, because: result.because });
+  process.stderr.write(`The goal was not reached: ${result.because}, after ${steps} Steps.\n`);
+  return 1;
+}
+
+/**
  * Signing in before Step one.
  *
  * The executor is handed a Surface that already has a session and knows nothing
@@ -215,6 +369,42 @@ function maskingSetting(value: string | undefined): "on" | "off" {
   throw new Error(`--evidence-redaction takes "on" or "off", not "${value}".`);
 }
 
+/**
+ * Where the application is, normalised once for both commands.
+ *
+ * `absoluteUrl` strips a trailing slash and `logInToParabank` concatenates raw,
+ * so a base URL ending in one would sign in at `//index.htm` and take Steps at
+ * `/overview.htm`. An override still answers to the profile's allowed origins —
+ * the gate refuses it otherwise, which is the point of the allowlist being
+ * checked-in rather than passed in.
+ */
+function resolveBaseUrl(args: Map<string, string[]>, profile: SurfaceProfile): string {
+  const given = single(args, "base-url") ?? process.env["PARABANK_BASE_URL"] ?? profile.baseUrl;
+  return given.replace(/\/+$/, "");
+}
+
+/**
+ * Read before a browser launches, for the same reason inputs are checked there:
+ * a missing `.env` should cost a sentence, not a Chromium.
+ */
+function credentialsFromEnv(): ParabankCredentials {
+  return {
+    username: required("PARABANK_USERNAME"),
+    // ADR 0006 classes this a Secret: handed in at run time, never written.
+    password: required("PARABANK_PASSWORD"),
+  };
+}
+
+/** A count or a duration from the command line, refused rather than coerced. */
+function wholeNumber(value: string | undefined, option: string, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${option} takes a whole number of at least 1, not "${value}".`);
+  }
+  return parsed;
+}
+
 function required(name: string): string {
   const value = process.env[name];
   if (value === undefined || value === "") {
@@ -224,21 +414,40 @@ function required(name: string): string {
 }
 
 /**
- * Every option there is, and whether it takes a value.
+ * Every option each command takes, and whether it takes a value.
  *
  * Named rather than inferred, so that a misspelled option is refused instead of
  * collected and ignored. `--baseurl http://elsewhere` silently dropped is a run
  * against the wrong installation that reports success, which is worse than any
  * error message.
+ *
+ * Split per command rather than pooled, so that `--capability` on a discovery
+ * run is refused too. An option that belongs to the other command is just as
+ * misspelled as one that belongs to neither.
  */
-const OPTIONS = {
-  capability: "value",
-  input: "value",
-  variant: "value",
+const SHARED = {
   "base-url": "value",
   headed: "flag",
   "evidence-redaction": "value",
 } as const;
+
+const REPLAY_OPTIONS = {
+  ...SHARED,
+  capability: "value",
+  input: "value",
+  variant: "value",
+} as const;
+
+const DISCOVER_OPTIONS = {
+  ...SHARED,
+  goal: "value",
+  entry: "value",
+  surface: "value",
+  "max-steps": "value",
+  timeout: "value",
+} as const;
+
+type Options = Record<string, "value" | "flag">;
 
 /**
  * `--name value`, `--name=value`, and `--flag`, collected so that a repeated
@@ -248,7 +457,7 @@ const OPTIONS = {
  * joined form is the one a reader reaches for. Splitting at the first `=` only
  * is what keeps `--input=accountId=12345` meaning what it looks like.
  */
-function parseArguments(argv: string[]): Map<string, string[]> {
+function parseArguments(argv: string[], options: Options): Map<string, string[]> {
   const args = new Map<string, string[]>();
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -257,8 +466,8 @@ function parseArguments(argv: string[]): Map<string, string[]> {
 
     const joined = token.indexOf("=");
     const name = joined === -1 ? token.slice(2) : token.slice(2, joined);
-    const takes = OPTIONS[name as keyof typeof OPTIONS];
-    if (takes === undefined) throw new Error(`Unknown option "--${name}".\n\n${USAGE}`);
+    const takes = options[name];
+    if (takes === undefined) throw new Error(`Unknown option "--${name}" for this command.\n\n${USAGE}`);
 
     if (takes === "flag") {
       if (joined !== -1) throw new Error(`--${name} takes no value.`);

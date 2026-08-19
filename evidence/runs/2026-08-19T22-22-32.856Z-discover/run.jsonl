@@ -1,0 +1,11 @@
+{"at":"2026-08-19T22:22:32.857Z","kind":"run-started","redaction":"on","about":{"goal":"Transfer $100 from account 13344 to account 12345.","entry":"/overview.htm","baseUrl":"http://localhost:8080/parabank","surface":"parabank","maxSteps":"8"}}
+{"at":"2026-08-19T22:22:36.549Z","kind":"action","seq":0,"ms":632,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:36.653Z","kind":"action","seq":1,"ms":27,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:36.680Z","kind":"action","seq":2,"ms":12,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:36.804Z","kind":"action","seq":3,"ms":120,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:36.869Z","kind":"action","seq":4,"ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:36.888Z","kind":"action","seq":5,"ms":6,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:37.053Z","kind":"action","seq":6,"ms":51,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:40.780Z","kind":"action","seq":7,"ms":139,"action":{"kind":"click","locator":{"role":"link","name":"Transfer Funds"}},"result":{"kind":"ok"}}
+{"at":"2026-08-19T22:22:45.583Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-08-19T22:22:45.584Z","kind":"run-finished","outcome":"intervention-request","about":{"steps":"3","reason":"\"/transfer.htm\" can change data, and this run has no mandate to."}}

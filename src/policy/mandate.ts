@@ -17,6 +17,20 @@ export type Mandate =
   | { readonly allowed: true; readonly mayMutate: boolean }
   | { readonly allowed: false; readonly reason: string };
 
+/**
+ * What a Discovery Run is allowed to do: look, and nothing else.
+ *
+ * ADR 0007 handles risk differently by phase on purpose — during a Discovery
+ * Run a risky Step raises an Intervention Request instead of acting. That is
+ * this, expressed where the rule lives: the mandate is decided before a browser
+ * exists and there is no argument that turns it on. A run exploring an
+ * application it has not been taught is the last thing that should be able to
+ * move money.
+ */
+export function discoveryMandate(): Extract<Mandate, { allowed: true }> {
+  return { allowed: true, mayMutate: false };
+}
+
 export function mandateFor(capability: Capability): Mandate {
   // Approval answers "may this run at all", not "what may it touch". A
   // read-only Capability that happens to be approved still has no business on a
