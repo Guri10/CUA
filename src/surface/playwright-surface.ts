@@ -14,6 +14,7 @@
  */
 import { chromium, type Browser, type Locator as BrowserLocator, type Page } from "playwright";
 import { readAriaSnapshot } from "./aria-snapshot.js";
+import { actionFrom, capturingScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
 import { readControlValue } from "./read-value.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
 
@@ -36,6 +37,10 @@ export class PlaywrightSurface implements Surface {
   readonly #timeoutMs: number;
   /** Set only when this object launched the browser, and so must close it. */
   #owned: Browser | undefined;
+  /** Whether the page listeners are installed. Once per page, not once per handover. */
+  #capturing = false;
+  /** Where a captured Action goes, and `undefined` whenever nobody is listening. */
+  #onHumanAction: ((action: Action) => void) | undefined;
 
   /**
    * Takes a page rather than making one, so that a session already in progress
@@ -60,6 +65,72 @@ export class PlaywrightSurface implements Surface {
    */
   async close(): Promise<void> {
     await this.#owned?.close();
+  }
+
+  /**
+   * Records what a person does to this page, as Actions.
+   *
+   * Outside the interface for the same reason `close` is: it is a property of
+   * having a browser rather than of driving a screen. A desktop Surface would
+   * implement the same idea over platform accessibility events, and neither
+   * would want the three decorators forwarding a fourth method to reach it.
+   *
+   * The listeners go in through an init script so that they survive the person
+   * navigating — which they will, because that is most of what taking over a
+   * session involves — and are also run against the page already open, which
+   * loaded before the script existed.
+   *
+   * Stopping is a switch on this side rather than a teardown on the page's. The
+   * page will be navigated again by the run that resumes, and an init script
+   * cannot be un-registered; what matters is that nothing is recorded once the
+   * agent is driving again, and dropping the handler is the version of that
+   * which cannot be defeated by a page reload.
+   */
+  async captureHumanActions(onAction: (action: Action) => void): Promise<StopCapture> {
+    const install = `(${capturingScript()})(${JSON.stringify(CAPTURE_BINDING)})`;
+
+    if (!this.#capturing) {
+      this.#capturing = true;
+      await this.#page.exposeBinding(CAPTURE_BINDING, (_source, captured: unknown) => {
+        // Validated on this side, and dropped rather than guessed at: the
+        // payload comes from a script running in a page this system does not
+        // own.
+        const action = actionFrom(captured);
+        if (action !== undefined) this.#onHumanAction?.(action);
+      });
+      await this.#page.addInitScript({ content: install });
+    }
+
+    this.#onHumanAction = onAction;
+    await this.#install(install);
+
+    return async () => {
+      this.#onHumanAction = undefined;
+    };
+  }
+
+  /**
+   * Runs the listeners against the document that is already open.
+   *
+   * It can lose a race, and does. An escalation is raised at the moment a Step
+   * was refused, which is very often the moment after a click — and a click
+   * resolves before the navigation it started finishes, so the document this
+   * evaluates against can be torn out from under it. The init script has
+   * already been registered by then, so the document arriving next is covered
+   * whatever happens here; what is at stake is only the one already on screen.
+   *
+   * So it waits for the page to settle and tries once more, and lets a second
+   * failure through. Swallowing it would mean a handover that silently records
+   * nothing until the person navigates, which is the kind of quiet gap an audit
+   * trail must not have.
+   */
+  async #install(script: string): Promise<void> {
+    try {
+      await this.#page.evaluate(script);
+    } catch {
+      await this.#page.waitForLoadState();
+      await this.#page.evaluate(script);
+    }
   }
 
   async snapshot(): Promise<Snapshot> {

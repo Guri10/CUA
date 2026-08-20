@@ -32,7 +32,7 @@ function plan(overrides: Partial<RecordingPlan> = {}): RecordingPlan {
 }
 
 function took(action: Action, extra: Partial<TakenStep> = {}): TakenStep {
-  return { action, reason: "because", result: { kind: "ok" }, ...extra };
+  return { action, by: "agent", reason: "because", result: { kind: "ok" }, ...extra };
 }
 
 const accountTypeCell = {
@@ -425,5 +425,51 @@ describe("recording a Discovery Run", () => {
     expect(steps[1]?.action).toMatchObject({
       locator: { name: { kind: "input", input: "accountId" } },
     });
+  });
+});
+
+/**
+ * The one rule the recorder applies that the plan does not declare.
+ *
+ * A Discovery Run holds `discoveryMandate()`, so an unattended one cannot have
+ * changed anything and `read-only` is a fact rather than a guess. An attended
+ * one is different: the reason a person was handed the session is that
+ * something the gate would not do needed doing.
+ */
+describe("a run a person took part in", () => {
+  function openedAnAccount(): TakenStep[] {
+    return [
+      took({ kind: "navigate", url: `${BASE_URL}/openaccount.htm` }),
+      took(
+        { kind: "select", locator: { role: "combobox", name: "Account Type" }, option: "SAVINGS" },
+        { by: "human" },
+      ),
+      took({ kind: "waitFor", locator: { role: "heading", name: "Account Opened!" } }),
+    ];
+  }
+
+  it("is recorded as mutating, whatever the plan declared read-only", () => {
+    const capability = recorded(recordCapability(plan({ inputs: {}, outputs: [] }), openedAnAccount()));
+
+    expect(capability.contract.effects).toBe("mutating");
+    // Which is what makes ADR 0007's approval check bite: a mutating draft does
+    // not replay unattended, so the Steps a person took get read by somebody
+    // before they are ever run without one.
+    expect(capability.approval).toBe("draft");
+  });
+
+  it("keeps the person's Steps, in the order the flow went in", () => {
+    // A Recording missing the Step a person had to take cannot reach the screen
+    // the Steps after it expect. Their Actions are Steps like any other — which
+    // is the whole reason the capture records in this vocabulary.
+    const steps = stepsOf(recorded(recordCapability(plan({ inputs: {}, outputs: [] }), openedAnAccount())));
+
+    expect(steps.map((step) => step.action.kind)).toEqual(["navigate", "select", "waitFor"]);
+  });
+
+  it("leaves a run the agent did alone as read-only", () => {
+    const capability = recorded(recordCapability(plan(), successfulRun()));
+
+    expect(capability.contract.effects).toBe("read-only");
   });
 });

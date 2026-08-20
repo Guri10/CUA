@@ -69,6 +69,10 @@ export interface RecordingPlan {
   readonly surface: string;
   /** One line for a catalog listing — in practice the goal, as it was typed. */
   readonly summary: string;
+  /**
+   * What the caller declares this Capability does. Escalated to `mutating` by
+   * the recorder when a person took part in the run — see `effectsOf`.
+   */
   readonly effects: "read-only" | "mutating";
   /**
    * The origin the run was pointed at, stripped off every navigate Step.
@@ -84,6 +88,32 @@ export interface RecordingPlan {
   readonly inputs: Readonly<Record<string, string>>;
   /** What the caller gets back. Each must be bound by a read the run performed. */
   readonly outputs: readonly string[];
+}
+
+/**
+ * What the recorded Capability says it does — which is not always what the plan
+ * declared.
+ *
+ * A Discovery Run holds `discoveryMandate()`, so the gate refuses a mutating
+ * route outright and a plan can honestly say `read-only` about everything the
+ * agent did. That argument ends at a handover. The reason a person was given
+ * the session is that something the gate would not do needed doing, and what
+ * they did on the screen they did it on is not something this process saw.
+ *
+ * So a Recording with any of a person's Steps in it is recorded as mutating.
+ * The escalation only ever runs one way — a declared `mutating` is never
+ * softened to `read-only` — because the cost of the two mistakes is not
+ * symmetric: a read-only Capability wrongly marked mutating is a draft somebody
+ * has to approve, and a mutating one wrongly marked read-only is money moved by
+ * a replay nobody signed off (ADR 0007).
+ *
+ * It lives here rather than in the command because it is a rule about what a
+ * Recording means, and a rule kept in the one place that builds a Contract
+ * cannot be forgotten by a second caller that builds one later.
+ */
+function effectsOf(plan: RecordingPlan, taken: readonly TakenStep[]): "read-only" | "mutating" {
+  if (plan.effects === "mutating") return "mutating";
+  return taken.some((step) => step.by === "human") ? "mutating" : "read-only";
 }
 
 /**
@@ -135,7 +165,7 @@ export function recordCapability(plan: RecordingPlan, taken: readonly TakenStep[
       summary: plan.summary,
       inputs: textSchemaFor(Object.keys(plan.inputs)),
       outputs: textSchemaFor(plan.outputs),
-      effects: plan.effects,
+      effects: effectsOf(plan, taken),
       terminalStates: [success],
     },
     recordings: [{ variant: BASE_VARIANT, steps: identified }],

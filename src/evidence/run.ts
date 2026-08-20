@@ -19,6 +19,7 @@
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { packageRootFrom } from "../package-root.js";
+import type { Controller } from "../escalation/controller.js";
 import { redact, stripSecrets, type Redaction } from "./redaction.js";
 
 /** The structured log, one record per line. */
@@ -43,10 +44,49 @@ export type EvidenceRecord =
   | {
       readonly kind: "action";
       readonly seq: number;
-      /** How long the Action took, which is Plain and is what a slow page looks like. */
-      readonly ms: number;
+      /**
+       * Who took it — CONTEXT.md's Controller, as it appears in the trail.
+       * The auditor's user story is "a record of every action taken, by whom —
+       * agent or human — so that responsibility for each change is
+       * attributable", and one field on one record kind is what makes that
+       * countable: a run's actions are one `jq` away from being split by
+       * author, rather than living in two record types that have to be merged
+       * by hand and re-sorted.
+       */
+      readonly by: Controller;
+      /**
+       * How long the Action took, which is Plain and is what a slow page looks
+       * like. Absent for a human's Action: the capture sees a control being
+       * used, not a call being made, and there is no honest duration to give
+       * — a zero would be read as an instant one.
+       */
+      readonly ms?: number;
       readonly action: unknown;
       readonly result: unknown;
+    }
+  | {
+      /**
+       * The escalation was raised, in the four parts CONTEXT.md names. The
+       * accessibility tree is deliberately not among them: it is served to the
+       * operator over the loopback endpoint while they hold the session, and
+       * writing every node of it here would put more Sensitive data on disk than
+       * the rest of the run — the same trade the snapshot is left out of the log
+       * for. What persists is which Capability, which Step, the masked screen,
+       * and why.
+       */
+      readonly kind: "intervention-request";
+      readonly capability: string;
+      readonly step: string;
+      readonly reason: string;
+      readonly screen: string;
+    }
+  | {
+      /**
+       * A handover, in either direction. Two per escalation, and the boundary
+       * that says which side of it every surrounding Action falls on.
+       */
+      readonly kind: "control";
+      readonly to: Controller;
     }
   | { readonly kind: "failure-screenshot"; readonly file: string }
   | {

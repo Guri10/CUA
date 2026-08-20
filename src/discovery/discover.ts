@@ -20,7 +20,19 @@
  * allowed. When the gate refuses, ADR 0007 says a Discovery Run raises an
  * Intervention Request rather than acting, and that is the one refusal this
  * loop does not treat as something to work around.
+ *
+ * What happens to that Intervention Request depends on whether anybody is
+ * watching. An unattended run stops and reports it, which is what every run did
+ * before #11. An attended one hands the live session over instead: a person
+ * does the thing the run was refused, and the loop carries on from wherever
+ * they left it, with their Steps in the same list as the model's. The loop does
+ * not know how a handover works — `escalate` is a function it is given, exactly
+ * as `decide` is — so what it holds is only the decision to offer one and what
+ * to do with the answer.
  */
+import type { InterventionRequest } from "../escalation/intervention-request.js";
+import type { Controller } from "../escalation/controller.js";
+import { describeAction } from "../replay/describe.js";
 import type { Action, ActionResult, Surface } from "../surface/surface.js";
 import { reportOf, type Decision, type Report } from "./decide.js";
 
@@ -49,9 +61,17 @@ export type Decide = (
   reports: readonly Report[],
 ) => Promise<readonly Decision[]>;
 
-/** One Action the run took, with why it was taken. */
+/** One Action the run took, with why it was taken and by whom. */
 export interface TakenStep {
   readonly action: Action;
+  /**
+   * Who took it. Almost always the agent; `human` for the Steps a person took
+   * while they held the session during an escalation. The two live in one list
+   * rather than two because they happened in one order — the run's later Steps
+   * only make sense after the person's — and because what the recorder turns
+   * into a Recording is the flow as it actually went.
+   */
+  readonly by: Controller;
   /**
    * The model's own sentence, except on the entry Step, which the loop takes
    * before the model has said anything. Printed for the operator who has to
@@ -68,6 +88,21 @@ export interface TakenStep {
    */
   readonly bind?: string;
 }
+
+/**
+ * Hand the live session to a person, and come back with what they did.
+ *
+ * A function rather than an interface, and for the reason `decide` is: there is
+ * nothing here to implement twice. The real one is `handOverToHuman` closed
+ * over the run's evidence and browser; the test one is a list of Actions and an
+ * immediate return.
+ *
+ * Returning `undefined` means nobody took it — the run is unattended, and the
+ * Intervention Request is the ending rather than a pause.
+ */
+export type Escalate = (
+  request: InterventionRequest,
+) => Promise<readonly Action[] | undefined>;
 
 export interface DiscoverOptions {
   /**
@@ -95,6 +130,19 @@ export interface DiscoverOptions {
   readonly timeoutMs: number;
   /** Called as each Step happens, so a run of minutes is not a silent terminal. */
   readonly onStep?: (step: TakenStep) => void;
+  /**
+   * What to do when the gate refuses. Absent means the run is unattended and an
+   * Intervention Request ends it, which is what every run did before #11.
+   */
+  readonly escalate?: Escalate;
+  /**
+   * What this run is for, named the way an Intervention Request names a
+   * Capability. A recording run gives `id@version`; an exploring one has no id
+   * to give, so the goal as it was typed says what the operator is being asked
+   * to help with. Falls back to the entry address, which is at least where they
+   * are.
+   */
+  readonly attempting?: string;
   /** Injected so the timeout is testable without waiting for one. */
   readonly now?: () => number;
 }
@@ -132,7 +180,66 @@ export async function discover(
   const now = options.now ?? Date.now;
   const startedAt = now();
   const steps: TakenStep[] = [];
-  const outOfTime = (): boolean => now() - startedAt > options.timeoutMs;
+  /**
+   * How long a person held the session. Subtracted from the run's own clock,
+   * because a timeout is a bound on how long the automation may take and an
+   * operator reading a screen is not the automation. Counting it would mean a
+   * run that paused for five minutes ended the instant it resumed, throwing
+   * away both the Steps it had and the ones the person had just taken.
+   */
+  let pausedMs = 0;
+  const outOfTime = (): boolean => now() - startedAt - pausedMs > options.timeoutMs;
+
+  /**
+   * The gate refused. ADR 0007 says that is where a person decides, and this is
+   * the one place the loop asks whether there is one.
+   *
+   * When there is, the Steps they took come back and go into the same list the
+   * model's are in, and the loop carries on from the screen they left. It does
+   * not retry the Action that was refused: the gate that refused it once will
+   * refuse it again, and the whole point of the handover is that the thing
+   * needing a person has now been done by one.
+   */
+  const escalated = async (refusal: string, at: TakenStep): Promise<Report | undefined> => {
+    if (options.escalate === undefined) return undefined;
+
+    const screen = await surface.snapshot();
+    const pausedAt = now();
+    const done = await options.escalate({
+      // A Discovery Run has no Recording yet, so the Step is the Action it was
+      // refused at, described — which is what an operator needs to read anyway.
+      capability: options.attempting ?? options.entryUrl,
+      step: describeAction(at.action),
+      reason: refusal,
+      observed: { url: screen.url, tree: screen.tree },
+    });
+    pausedMs += now() - pausedAt;
+    if (done === undefined) return undefined;
+
+    for (const action of done) {
+      const step: TakenStep = {
+        action,
+        by: "human",
+        reason: "Taken by the operator while they held the session.",
+        // Already done, by a person, in the browser. There was no Locator to
+        // miss and nothing dispatched that the gate could have refused.
+        result: { kind: "ok" },
+      };
+      steps.push(step);
+      options.onStep?.(step);
+    }
+
+    // The model is told, and told plainly. It asked for something it was not
+    // allowed to do; what it needs to know next is that the screen has moved on
+    // without it, so that it looks at where it now is rather than trying again.
+    return {
+      text:
+        `Refused: ${refusal} A human operator took the session and has now given it back` +
+        `${done.length === 0 ? ", having taken no action" : `, after ${done.length} action(s)`}.` +
+        " Look at the screen as it is now and continue from there.",
+      isError: false,
+    };
+  };
 
   // Step one, and the loop's own rather than the model's: the model has no
   // `navigate` verb to reach a first screen with, and a run whose Steps do not
@@ -141,6 +248,7 @@ export async function discover(
   const arrived = await surface.perform(entry);
   const entryStep: TakenStep = {
     action: entry,
+    by: "agent",
     reason: `The run's entry point.`,
     result: arrived,
   };
@@ -148,6 +256,9 @@ export async function discover(
   options.onStep?.(entryStep);
 
   if (arrived.kind === "refused") {
+    // Not escalated. A run refused its own entry point never reached a screen,
+    // so there is no live session to hand anybody — the operator would be given
+    // a blank window and the address that was rejected.
     return { kind: "intervention-request", reason: arrived.reason, at: entryStep, steps };
   }
   // Nowhere to explore from. Asking the model to work from a screen the run
@@ -195,6 +306,7 @@ export async function discover(
       const result = await surface.perform(decision.action);
       const step: TakenStep = {
         action: decision.action,
+        by: "agent",
         reason: decision.reason,
         result,
         ...(decision.bind === undefined ? {} : { bind: decision.bind }),
@@ -203,7 +315,12 @@ export async function discover(
       options.onStep?.(step);
 
       if (result.kind === "refused") {
-        return { kind: "intervention-request", reason: result.reason, at: step, steps };
+        const resumed = await escalated(result.reason, step);
+        if (resumed === undefined) {
+          return { kind: "intervention-request", reason: result.reason, at: step, steps };
+        }
+        reports.push(resumed);
+        continue;
       }
 
       reports.push(reportOf(result));

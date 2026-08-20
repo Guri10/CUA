@@ -34,7 +34,9 @@ recorded here so it doesn't get reinvented; it will not run until its ticket lan
   `evidence/accessibility-tree/`)
 - Replay a Capability: `npm run replay -- --capability <id>@<v> --input <name>=<value>` — **exists**
 - Discovery run: `npm run discover -- --goal "..."` — **exists** (add `--capability <id> --input
-  <name>=<value> --output <name>` and the run saves what it worked out as a new version)
+  <name>=<value> --output <name>` and the run saves what it worked out as a new version; add
+  `--attended` and a refusal hands you the live browser window instead of ending the run — resume
+  with `curl -X POST http://127.0.0.1:8787/resume`)
 - Serve the Capability catalog: `npm run serve` — **planned**, #13
 - Run lint: not configured, and no ticket asks for it
 

@@ -17,6 +17,8 @@ import { logInToParabank, type ParabankCredentials } from "./surface/parabank/lo
 import type { Surface } from "./surface/surface.js";
 import { capabilitiesDir, listVersions, loadCapabilityRef, saveCapability } from "./capability/storage.js";
 import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
+import { handOverToHuman } from "./escalation/handover.js";
+import { DEFAULT_RESUME_PORT } from "./escalation/resume-endpoint.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { discoveryMandate, mandateFor } from "./policy/mandate.js";
@@ -46,6 +48,12 @@ discover options:
   --timeout <seconds>    How long the whole run may take. Defaults to 300.
   --capability <id>      Save what the run worked out under this id, as its next version.
                          Without it the run explores and records nothing.
+  --attended             Stay with the run. When the policy gate refuses a Step, the
+                         browser window becomes yours: do what is needed, then hand
+                         control back over the endpoint the run prints. Implies --headed.
+                         Without it a refusal ends the run as an Intervention Request.
+  --resume-port <n>      Where the resume endpoint listens, on loopback. Defaults to
+                         8787.
   --input <name>=<value> A value the run may use, under the name the Contract will declare
                          it as. Repeatable. Every one must be used, or nothing is saved.
   --output <name>        A value the run must come back with. Repeatable. Each is bound by
@@ -238,6 +246,11 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   const maxSteps = wholeNumber(single(args, "max-steps"), "--max-steps", 25);
   const timeoutMs = wholeNumber(single(args, "timeout"), "--timeout", 300) * 1_000;
   const masking = maskingSetting(single(args, "evidence-redaction"));
+  // Whether there is a person to escalate to. Everything about the run is the
+  // same either way right up to the moment the gate refuses; this is what
+  // decides whether that moment is an ending or a pause.
+  const attended = args.has("attended");
+  const resumePort = wholeNumber(single(args, "resume-port"), "--resume-port", DEFAULT_RESUME_PORT);
 
   // What the run may use and what it owes back, declared before it starts
   // rather than read off whatever it happened to do. The model is told both,
@@ -286,9 +299,19 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   // ADR 0007, and the reason a Discovery Run is safe to point at an application
   // nobody has taught it: it explores with no mandate to change anything, and a
   // refusal becomes an Intervention Request rather than a retry.
-  const { surface, close } = await openBrowserSurface(profile, discoveryMandate(), evidence, {
-    headless: !args.has("headed"),
-  });
+  const { surface, control, capture, close } = await openBrowserSurface(
+    profile,
+    discoveryMandate(),
+    evidence,
+    {
+      // An attended run is shown whether or not `--headed` was passed. Taking
+      // over "the very session the automation was using" is the whole point of
+      // the handover, and a person cannot operate a window that is not on
+      // screen — so this is not a default to be overridden but a condition of
+      // the feature working at all.
+      headless: !args.has("headed") && !attended,
+    },
+  );
 
   try {
     await establishSession(surface, baseUrl, credentials);
@@ -303,6 +326,29 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
     let taken = 0;
     const decide = modelDecider({ goal, entry, inputs: given, outputs });
     const result = await discover(surface, decide, {
+      // What the operator is told they are being asked to help with. The
+      // Capability if the run is recording one, and otherwise the goal as it
+      // was typed — an exploring run has no id, and "the address you are on" is
+      // not what a person needs to read at the moment they are handed a
+      // session.
+      attempting: plan === undefined ? goal : `${plan.id}@${plan.version}`,
+      ...(attended
+        ? {
+            escalate: async (request) =>
+              (
+                await handOverToHuman({
+                  control,
+                  evidence,
+                  request,
+                  capture,
+                  port: resumePort,
+                  // stderr, because stdout is the run's result and nothing
+                  // else — and this message is the operator's whole interface.
+                  announce: (message) => process.stderr.write(`\n${message}`),
+                })
+              ).actions,
+          }
+        : {}),
       // The model has no `navigate` verb, so reaching the entry point is the
       // loop's own first Step. From there it moves the way an operator does, by
       // clicking what is on the screen.
@@ -339,7 +385,10 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
 function showStep(number: number, step: TakenStep): string {
   const outcome = step.result.kind === "ok" ? "ok" : describeMiss(step.result);
   return [
-    `${String(number).padStart(3)}. ${describeAction(step.action)}`,
+    // Marked when it was not the agent's, so that a run read back afterwards
+    // shows where the person's Steps sit among the model's rather than
+    // presenting the whole list as automation.
+    `${String(number).padStart(3)}. ${step.by === "human" ? "[human] " : ""}${describeAction(step.action)}`,
     `     → ${outcome}`,
     `     ↳ ${step.reason}`,
     "",
@@ -365,6 +414,11 @@ async function reportDiscovery(
     }
 
     const recorded = recordCapability(plan, result.steps);
+    // Read back off the Contract rather than worked out again here. The
+    // recorder decides what a Recording containing a person's Steps means, and
+    // a second copy of that rule in the command is a second copy to disagree.
+    const byHuman =
+      recorded.kind === "recorded" && recorded.capability.contract.effects === "mutating";
     if (recorded.kind === "unrecordable") {
       // The model reached the goal and the run cannot be turned into anything
       // repeatable — an ordinary outcome of pointing a model at an application,
@@ -381,7 +435,11 @@ async function reportDiscovery(
     }
 
     const path = await saveCapability(capabilitiesDir(), recorded.capability);
-    await evidence.finish("success", { steps, capability: `${plan.id}@${plan.version}` });
+    await evidence.finish("success", {
+      steps,
+      capability: `${plan.id}@${plan.version}`,
+      ...(byHuman ? { effects: "mutating" } : {}),
+    });
     process.stdout.write(`${result.summary}\n`);
     // On stderr, with what it does not yet know. A recorded Capability declares
     // success and nothing else: a run that succeeded never saw the not-found
@@ -392,6 +450,12 @@ async function reportDiscovery(
         `Recorded ${plan.id}@${plan.version} → ${path}`,
         "  It is a draft, and declares no Business Outcomes: a run that ends anywhere",
         "  other than success will report a Hard Failure until you add them.",
+        ...(byHuman
+          ? [
+              "  A person took Steps during this run, so it is recorded as mutating and will",
+              "  not replay until you have read those Steps and marked it approved.",
+            ]
+          : []),
         "",
       ].join("\n"),
     );
@@ -435,11 +499,16 @@ async function reportDiscovery(
  * a fresh run that worked something out is a new version rather than an edit to
  * the one callers are already replaying.
  *
- * The effects are read-only and not a guess. A Discovery Run holds
- * `discoveryMandate()`, which refuses a mutating route outright (ADR 0007), so
- * nothing the run did can have changed data and there is nothing else the
- * recorded Contract could honestly say. A mutating Capability is #12's, and it
- * arrives through the escalation path rather than through an unattended run.
+ * The effects declared here are read-only and not a guess. A Discovery Run
+ * holds `discoveryMandate()`, which refuses a mutating route outright (ADR
+ * 0007), so nothing *the agent* did can have changed data.
+ *
+ * That argument stops at the handover. An attended run can be given the session
+ * by a person who then does the very thing the gate refused, and this process
+ * never sees which screen they did it on. `reportDiscovery` is where that is
+ * accounted for: a run any of whose Steps were a person's is recorded as
+ * mutating instead, which makes it a draft that will not replay until somebody
+ * has read the Steps and approved it.
  */
 async function recordingPlan(
   args: Map<string, string[]>,
@@ -580,6 +649,8 @@ const REPLAY_OPTIONS = {
 
 const DISCOVER_OPTIONS = {
   ...SHARED,
+  attended: "flag",
+  "resume-port": "value",
   goal: "value",
   entry: "value",
   surface: "value",

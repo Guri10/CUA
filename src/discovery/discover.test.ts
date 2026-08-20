@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { FakeSurface } from "../surface/fake-surface.js";
 import { parabankScript } from "../surface/parabank/fake-script.js";
 import type { Action, ActionResult, Snapshot, Surface } from "../surface/surface.js";
-import { discover, type Decide, type Decision } from "./discover.js";
+import { discover, type Decide, type Decision, type Escalate } from "./discover.js";
+import type { InterventionRequest } from "../escalation/intervention-request.js";
 
 /**
  * The loop, driven by a scripted `decide` rather than by a model.
@@ -239,5 +240,168 @@ describe("a discovery run", () => {
     // rather than reusing what it had.
     expect(urls[0]).toBe(OVERVIEW);
     expect(urls[1]).not.toBe(OVERVIEW);
+  });
+});
+
+/**
+ * The escalation, from the loop's side. What a handover actually involves is
+ * `handover.test.ts`; what this file holds is the decision the loop makes when
+ * the gate refuses and somebody is watching — and the two ways the run can go
+ * on from there.
+ */
+describe("a discovery run with a person watching", () => {
+  const REFUSAL = `"/openaccount.htm" can change data, and this run has no mandate to.`;
+
+  /** A Surface that refuses the one risky click and behaves for everything else. */
+  function refusesOpeningAnAccount(): Surface {
+    const inner = parabank();
+    return {
+      snapshot: () => inner.snapshot(),
+      screenshot: () => inner.screenshot(),
+      perform: async (action) => {
+        if (action.kind === "click" && action.locator.name === "Open New Account") {
+          return { kind: "refused", reason: REFUSAL };
+        }
+        return await inner.perform(action);
+      },
+    };
+  }
+
+  const risky = act(
+    { kind: "click", locator: { role: "link", name: "Open New Account" } },
+    "Open the account.",
+  );
+
+  /** The person, played by the test: they do these, then hand the session back. */
+  function operatorWho(...actions: Action[]): { escalate: Escalate; asked: InterventionRequest[] } {
+    const asked: InterventionRequest[] = [];
+    return {
+      asked,
+      escalate: async (request) => {
+        asked.push(request);
+        return actions;
+      },
+    };
+  }
+
+  it("hands the session over instead of ending, and carries on where the person left it", async () => {
+    const operator = operatorWho({
+      kind: "click",
+      locator: { role: "button", name: "Open New Account", exact: true },
+    });
+
+    const result = await discover(
+      refusesOpeningAnAccount(),
+      scripted([risky], [{ kind: "done", reason: "The account is open.", summary: "opened" }]),
+      { ...options, escalate: operator.escalate, attempting: "open-account@1" },
+    );
+
+    expect(result).toMatchObject({ kind: "goal-reached", summary: "opened" });
+    // The entry Step, the refused one, and the person's — in the order they
+    // happened, in one list, because that is the order the flow went in.
+    expect(result.steps.map((step) => [step.by, step.action.kind])).toEqual([
+      ["agent", "navigate"],
+      ["agent", "click"],
+      ["human", "click"],
+    ]);
+  });
+
+  it("gives the operator the four things an Intervention Request carries", async () => {
+    const operator = operatorWho();
+
+    await discover(
+      refusesOpeningAnAccount(),
+      scripted([risky], [{ kind: "done", reason: "done", summary: "done" }]),
+      { ...options, escalate: operator.escalate, attempting: "open-account@1" },
+    );
+
+    expect(operator.asked).toHaveLength(1);
+    expect(operator.asked[0]).toMatchObject({
+      capability: "open-account@1",
+      // No Recording exists yet, so the Step is the Action that was refused.
+      step: `click on link "Open New Account"`,
+      reason: REFUSAL,
+    });
+    // The observed state, read off the live Surface rather than described from
+    // memory: it is what the operator has in front of them.
+    expect(operator.asked[0]?.observed.url).toContain("parabank");
+    expect(operator.asked[0]?.observed.tree).toContain("-");
+  });
+
+  it("does not retry the Action it was refused", async () => {
+    const attempted: Action[] = [];
+    const inner = refusesOpeningAnAccount();
+    const watched: Surface = {
+      snapshot: () => inner.snapshot(),
+      screenshot: () => inner.screenshot(),
+      perform: async (action) => {
+        attempted.push(action);
+        return await inner.perform(action);
+      },
+    };
+
+    await discover(watched, scripted([risky], [{ kind: "done", reason: "d", summary: "d" }]), {
+      ...options,
+      escalate: operatorWho().escalate,
+    });
+
+    // The gate that refused it once refuses it again, and the thing needing a
+    // person has now been done by one. Retrying is how a resumed run undoes the
+    // handover it just had.
+    expect(attempted.filter((action) => action.kind === "click")).toHaveLength(1);
+  });
+
+  it("tells the model the screen moved on without it", async () => {
+    const seen: string[][] = [];
+    let turn = 0;
+    const decide: Decide = async (_observation, reports) => {
+      seen.push(reports.map((report) => report.text));
+      turn += 1;
+      if (turn === 1) return [risky];
+      return [{ kind: "done", reason: "d", summary: "d" }];
+    };
+
+    await discover(refusesOpeningAnAccount(), decide, {
+      ...options,
+      escalate: operatorWho({ kind: "click", locator: { role: "button", name: "Open" } }).escalate,
+    });
+
+    // Not marked an error: nothing went wrong, and a model told "error" looks
+    // for something to fix rather than for where it now is.
+    expect(seen[1]?.[0]).toContain("A human operator took the session");
+    expect(seen[1]?.[0]).toContain("1 action(s)");
+  });
+
+  it("still ends with the Intervention Request when nobody takes it", async () => {
+    const result = await discover(
+      refusesOpeningAnAccount(),
+      scripted([risky]),
+      // An operator who was offered the session and did not take it — the same
+      // ending an unattended run has, because it is the same situation.
+      { ...options, escalate: async () => undefined },
+    );
+
+    expect(result).toMatchObject({ kind: "intervention-request", reason: REFUSAL });
+  });
+
+  it("does not spend the run's clock on the time a person held the session", async () => {
+    let clock = 0;
+    const result = await discover(
+      refusesOpeningAnAccount(),
+      scripted([risky], [{ kind: "done", reason: "d", summary: "d" }]),
+      {
+        ...options,
+        timeoutMs: 1_000,
+        now: () => clock,
+        escalate: async () => {
+          // The operator read the screen, worked out what was wrong, and fixed
+          // it. A timeout is a bound on how long the automation may take.
+          clock += 600_000;
+          return [];
+        },
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "goal-reached" });
   });
 });

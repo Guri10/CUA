@@ -11,16 +11,14 @@
  * is worth knowing when reading a log: a refusal is reported to the caller and
  * appears in the run's outcome, not as an Action in the log.
  *
- * Classification happens here rather than in the log because only this layer
- * knows where a value sat. What a `read` returned is Sensitive by position; a
- * Locator's accessible name is Plain by position and Sensitive only when this
- * run's own input was substituted into it; what a `fill` typed may be the
- * application password, which is a Secret and never written. ADR 0006's rule
- * that redaction is about what is stored and never about what is returned holds
- * literally here: `perform` hands the caller back the inner result untouched.
+ * Which field carries which kind of data is `classify-action.ts`, shared with
+ * the escalation so that an Action a person took is masked by the same rules as
+ * one the agent took. ADR 0006's rule that redaction is about what is stored and
+ * never about what is returned holds literally here: `perform` hands the caller
+ * back the inner result untouched.
  */
-import type { Action, ActionResult, Locator, Snapshot, Surface } from "../surface/surface.js";
-import { redact, type Redaction } from "./redaction.js";
+import type { Action, ActionResult, Snapshot, Surface } from "../surface/surface.js";
+import { loggedAction, loggedResult } from "./classify-action.js";
 import type { EvidenceRun } from "./run.js";
 
 export class EvidenceSurface implements Surface {
@@ -58,9 +56,14 @@ export class EvidenceSurface implements Surface {
     await this.#run.append({
       kind: "action",
       seq,
+      // The agent, always. This decorator is only ever reached by something the
+      // executor or the discovery loop performed — a person driving the same
+      // session acts on the browser directly, and their Actions are captured
+      // and written by the escalation. One trail, two authors, told apart here.
+      by: "agent",
       ms,
-      action: this.#loggedAction(action),
-      result: this.#loggedResult(result),
+      action: loggedAction(this.#run.redaction, action),
+      result: loggedResult(this.#run.redaction, result),
     });
 
     // The screen an Action missed on, captured here rather than at the end — by
@@ -72,91 +75,5 @@ export class EvidenceSurface implements Surface {
     if (result.kind !== "ok") await this.#run.captureFailure(await this.#inner.screenshot());
 
     return result;
-  }
-
-  get #redaction(): Redaction {
-    return this.#run.redaction;
-  }
-
-  #plain(text: string): string {
-    return redact(this.#redaction, "plain", text);
-  }
-
-  #sensitive(text: string): string {
-    return redact(this.#redaction, "sensitive", text);
-  }
-
-  #loggedAction(action: Action): Record<string, unknown> {
-    switch (action.kind) {
-      case "navigate":
-        return { kind: action.kind, url: this.#plain(action.url) };
-      case "fill":
-        // What was typed. A password reaching here is a Secret and is stripped
-        // whatever the setting says; anything else typed into an application
-        // like this one is Sensitive.
-        return {
-          kind: action.kind,
-          locator: this.#loggedLocator(action.locator),
-          value: this.#sensitive(action.value),
-        };
-      case "select":
-        return {
-          kind: action.kind,
-          locator: this.#loggedLocator(action.locator),
-          option: this.#sensitive(action.option),
-        };
-      case "waitFor":
-        return {
-          kind: action.kind,
-          locator: this.#loggedLocator(action.locator),
-          ...(action.timeoutMs === undefined ? {} : { timeoutMs: action.timeoutMs }),
-        };
-      // Named rather than defaulted, so that an Action verb added later cannot
-      // be logged by a catch-all that has no idea what its fields carry. This
-      // switch is where ADR 0006 classifies a value, and a new verb arriving
-      // unclassified is exactly the leak the classification exists to stop.
-      case "click":
-      case "read":
-        return { kind: action.kind, locator: this.#loggedLocator(action.locator) };
-    }
-  }
-
-  /**
-   * A Locator's role and shape are Plain — they are the checked-in Recording,
-   * readable in a diff. Its accessible name is Plain too right up until this
-   * run substituted an account number into it, which is why the name goes
-   * through the Plain path rather than round it: that path masks a known
-   * Sensitive value found inside.
-   */
-  #loggedLocator(locator: Locator): Record<string, unknown> {
-    return {
-      role: locator.role,
-      ...(locator.name === undefined ? {} : { name: this.#plain(locator.name) }),
-      ...(locator.exact === undefined ? {} : { exact: locator.exact }),
-      ...(locator.ordinal === undefined ? {} : { ordinal: locator.ordinal }),
-      ...(locator.within === undefined ? {} : { within: this.#loggedLocator(locator.within) }),
-    };
-  }
-
-  #loggedResult(result: ActionResult): Record<string, unknown> {
-    switch (result.kind) {
-      case "ok":
-        // The one field on this path carrying a value off the screen, and the
-        // reason the Capability exists. Masked here, returned in full above.
-        return {
-          kind: result.kind,
-          ...(result.value === undefined ? {} : { value: this.#sensitive(result.value) }),
-        };
-      case "not-found":
-        return { kind: result.kind, locator: this.#loggedLocator(result.locator) };
-      case "ambiguous":
-        return {
-          kind: result.kind,
-          locator: this.#loggedLocator(result.locator),
-          matches: result.matches,
-        };
-      case "refused":
-        return { kind: result.kind, reason: this.#plain(result.reason) };
-    }
   }
 }

@@ -51,8 +51,8 @@ describe("an evidence run", () => {
 
   it("writes one record per line, in the order they happened", async () => {
     const run = await startRun();
-    await run.append({ kind: "action", seq: 0, ms: 4, action: {}, result: {} });
-    await run.append({ kind: "action", seq: 1, ms: 7, action: {}, result: {} });
+    await run.append({ kind: "action", seq: 0, by: "agent", ms: 4, action: {}, result: {} });
+    await run.append({ kind: "action", seq: 1, by: "agent", ms: 7, action: {}, result: {} });
     await run.finish("success", {});
 
     expect((await recordsOf(run)).map((record) => record["kind"])).toEqual([
@@ -75,7 +75,7 @@ describe("an evidence run", () => {
     // The backstop ADR 0006 asks for: redaction applied at the boundary, so a
     // value that got into an unclassified field is still not written.
     const run = await startRun("off");
-    await run.append({ kind: "action", seq: 0, ms: 1, action: { value: PASSWORD }, result: {} });
+    await run.append({ kind: "action", seq: 0, by: "agent", ms: 1, action: { value: PASSWORD }, result: {} });
 
     const log = await readFile(join(run.directory, "run.jsonl"), "utf8");
     expect(log).not.toContain(PASSWORD);
