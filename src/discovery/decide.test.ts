@@ -55,6 +55,34 @@ describe("turning a tool call into an Action", () => {
     });
   });
 
+  it("carries which declared value a read is for, alongside the Action rather than in it", () => {
+    // The recorder needs it and the Surface has no use for it, which is the
+    // same place `reason` sits. Matching reads to declared values by the order
+    // they happened would hand back a balance under the name of an account
+    // type the first time a run read something twice.
+    const decision = decisionFor("read", {
+      reason: "This is the balance the goal asked for.",
+      locator: { role: "cell", ordinal: 1, within: { role: "row", name: "Balance:" } },
+      bind: "balance",
+    });
+
+    expect(decision).toMatchObject({ kind: "act", bind: "balance", action: { kind: "read" } });
+    if (decision.kind !== "act") throw new Error("expected an act");
+    expect(decision.action).not.toHaveProperty("bind");
+  });
+
+  it("leaves the bind absent when the model named nothing, rather than present and empty", () => {
+    // A read binding nothing was the model looking around. Absent and set to
+    // undefined are different things under `exactOptionalPropertyTypes`, and
+    // the recorder drops on the absence.
+    const decision = decisionFor("read", {
+      reason: "Checking what this row says.",
+      locator: { role: "heading", name: "Account Details" },
+    });
+
+    expect(decision).not.toHaveProperty("bind");
+  });
+
   it("reads done as the end of the run rather than as an Action", () => {
     expect(
       decisionFor("done", { reason: "Both values are on screen.", summary: "SAVINGS, $1231.10" }),

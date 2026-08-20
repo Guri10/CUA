@@ -84,7 +84,24 @@ export const selectInput = z.object({
   locator,
   option: z.string().describe("The option to choose, by its visible label."),
 });
-export const readInput = z.object({ reason, locator });
+export const readInput = z.object({
+  reason,
+  locator,
+  /**
+   * Which of the run's declared return values this read is for.
+   *
+   * A Recording's read Step carries the same field, and the recorder needs it
+   * from the model rather than working it out: matching reads to return values
+   * by the order they happened would silently hand back a balance under the
+   * name of an account type the first time a run read something twice. Optional
+   * because a run may be pure exploration with nothing declared to return, and
+   * a read binding nothing is not recorded at all.
+   */
+  bind: z
+    .string()
+    .optional()
+    .describe("The name of the return value this read is for, exactly as it was given."),
+});
 export const waitForInput = z.object({
   reason,
   locator,

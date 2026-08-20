@@ -73,6 +73,26 @@ describe("a discovery run", () => {
     });
   });
 
+  it("keeps which declared value a read was for, which is all the recorder has to go on", async () => {
+    const result = await discover(
+      parabank(),
+      scripted([
+        {
+          kind: "act",
+          reason: "The balance is the second cell of its labelled row.",
+          action: {
+            kind: "read",
+            locator: { role: "cell", ordinal: 1, within: { role: "row", name: "Balance:" } },
+          },
+          bind: "balance",
+        },
+      ]),
+      options,
+    );
+
+    expect(result.steps.at(-1)).toMatchObject({ bind: "balance" });
+  });
+
   it("dispatches each decision to the Surface in the order it was decided", async () => {
     const performed: Action[] = [];
     const surface = parabank();

@@ -1,0 +1,12 @@
+{"at":"2026-08-20T16:59:13.378Z","kind":"run-started","redaction":"off","about":{"capability":"account-lookup-discovered@1","baseUrl":"http://localhost:8080/parabank","input.accountId":"13344"}}
+{"at":"2026-08-20T16:59:13.686Z","kind":"action","seq":0,"ms":111,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.729Z","kind":"action","seq":1,"ms":15,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"john"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.771Z","kind":"action","seq":2,"ms":37,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.868Z","kind":"action","seq":3,"ms":92,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.903Z","kind":"action","seq":4,"ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.919Z","kind":"action","seq":5,"ms":12,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:13.950Z","kind":"action","seq":6,"ms":28,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:14.034Z","kind":"action","seq":7,"ms":51,"action":{"kind":"click","locator":{"role":"link","name":"13344","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:59:14.085Z","kind":"action","seq":8,"ms":14,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Account Type:"}}},"result":{"kind":"ok","value":"SAVINGS"}}
+{"at":"2026-08-20T16:59:14.105Z","kind":"action","seq":9,"ms":14,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Balance:"}}},"result":{"kind":"ok","value":"$1231.10"}}
+{"at":"2026-08-20T16:59:14.111Z","kind":"run-finished","outcome":"success","about":{}}

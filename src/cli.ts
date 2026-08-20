@@ -15,8 +15,9 @@
  */
 import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
 import type { Surface } from "./surface/surface.js";
-import { capabilitiesDir, loadCapabilityRef } from "./capability/storage.js";
+import { capabilitiesDir, listVersions, loadCapabilityRef, saveCapability } from "./capability/storage.js";
 import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
+import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { discoveryMandate, mandateFor } from "./policy/mandate.js";
 import { openBrowserSurface } from "./policy/open-surface.js";
@@ -43,6 +44,12 @@ discover options:
   --surface <id>         Which Surface profile to run against. Defaults to parabank.
   --max-steps <n>        How many Actions the run may take. Defaults to 25.
   --timeout <seconds>    How long the whole run may take. Defaults to 300.
+  --capability <id>      Save what the run worked out under this id, as its next version.
+                         Without it the run explores and records nothing.
+  --input <name>=<value> A value the run may use, under the name the Contract will declare
+                         it as. Repeatable. Every one must be used, or nothing is saved.
+  --output <name>        A value the run must come back with. Repeatable. Each is bound by
+                         a read the model names.
 
 replay options:
   --capability <ref>     Which Capability to replay. A bare id means its highest version.
@@ -232,6 +239,13 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   const timeoutMs = wholeNumber(single(args, "timeout"), "--timeout", 300) * 1_000;
   const masking = maskingSetting(single(args, "evidence-redaction"));
 
+  // What the run may use and what it owes back, declared before it starts
+  // rather than read off whatever it happened to do. The model is told both,
+  // and the recorder holds it to them.
+  const given = inputPairs(args.get("input") ?? []);
+  const outputs = args.get("output") ?? [];
+  const plan = await recordingPlan(args, { goal, profile, baseUrl, inputs: given, outputs });
+
   const credentials = credentialsFromEnv();
 
   const evidence = await EvidenceRun.start({
@@ -239,23 +253,32 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
     label: "discover",
     // The goal is written as the operator typed it, and it is the one field
     // here nobody classified. It goes through the Plain path, so a Secret in it
-    // is still stripped — but an account number in it is not, because a run's
-    // Sensitive-by-value list is its own declared inputs and this run has none.
-    // Left that way knowingly: masking it would need a rule for recognising an
-    // account number in free text, and ADR 0007 rejects exactly that kind of
-    // heuristic for the policy gate. The goal is also the one thing a reviewer
-    // needs in order to read the run at all.
-    about: { goal, entry, baseUrl, surface: profile.id, maxSteps: String(maxSteps) },
+    // is still stripped, and a declared input quoted inside it is masked like
+    // any other occurrence of that value — but a number the operator typed into
+    // the goal and did not declare is not. Left that way knowingly: masking it
+    // would need a rule for recognising an account number in free text, and ADR
+    // 0007 rejects exactly that kind of heuristic for the policy gate. The goal
+    // is also the one thing a reviewer needs in order to read the run at all.
+    about: {
+      goal,
+      entry,
+      baseUrl,
+      surface: profile.id,
+      maxSteps: String(maxSteps),
+      ...(plan === undefined ? {} : { capability: `${plan.id}@${plan.version}` }),
+      // Prefixed, so an input named `goal` cannot quietly overwrite what the
+      // log says the run was for.
+      ...Object.fromEntries(Object.entries(given).map(([name, value]) => [`input.${name}`, value])),
+    },
     redaction: {
       secrets: [credentials.password],
-      // Empty, and not an oversight. A run's Sensitive-by-value list is its own
-      // declared inputs, and a Discovery Run has none — it is the thing that
-      // works out what the inputs should be. What a `read` returns is still
-      // masked, because that is classified by where it sits rather than by
-      // matching a value. What is not masked is an account number the model
-      // picked off the screen and put in a Locator: there is nothing yet to
-      // recognise it against. #10 is where those become declared inputs.
-      sensitive: [],
+      // This run's declared inputs, exactly as a replay's are. A Discovery Run
+      // used to have none — it was the thing that worked out what the inputs
+      // should be — and an account number the model picked off the screen and
+      // put in a Locator went into evidence unmasked because there was nothing
+      // to recognise it against. Now the operator names them up front, so there
+      // is.
+      sensitive: Object.values(given),
       masking,
     },
   });
@@ -278,7 +301,8 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
     const { modelDecider } = await import("./discovery/model.js");
 
     let taken = 0;
-    const result = await discover(surface, modelDecider({ goal, entry }), {
+    const decide = modelDecider({ goal, entry, inputs: given, outputs });
+    const result = await discover(surface, decide, {
       // The model has no `navigate` verb, so reaching the entry point is the
       // loop's own first Step. From there it moves the way an operator does, by
       // clicking what is on the screen.
@@ -290,7 +314,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
       onStep: (step) => process.stderr.write(showStep((taken += 1), step)),
     });
 
-    return await reportDiscovery(result, evidence, surface);
+    return await reportDiscovery(result, evidence, surface, plan);
   } catch (thrown) {
     await evidence.finish("hard-failure", {
       observed: thrown instanceof Error ? thrown.message : String(thrown),
@@ -327,12 +351,50 @@ async function reportDiscovery(
   result: DiscoveryResult,
   evidence: EvidenceRun,
   surface: Surface,
+  plan: RecordingPlan | undefined,
 ): Promise<number> {
   const steps = String(result.steps.length);
 
   if (result.kind === "goal-reached") {
-    await evidence.finish("success", { steps });
+    if (plan === undefined) {
+      // An exploration run: no id to save under, so nothing is written and the
+      // run is worth exactly what the operator saw on the terminal.
+      await evidence.finish("success", { steps });
+      process.stdout.write(`${result.summary}\n`);
+      return 0;
+    }
+
+    const recorded = recordCapability(plan, result.steps);
+    if (recorded.kind === "unrecordable") {
+      // The model reached the goal and the run cannot be turned into anything
+      // repeatable — an ordinary outcome of pointing a model at an application,
+      // and a failure of what the operator asked for, so it is reported as one.
+      await evidence.finish("stopped", { steps, because: "unrecordable" });
+      process.stderr.write(
+        [
+          "The goal was reached, but the run cannot be saved as a Capability:",
+          ...recorded.reasons.map((reason) => `  - ${reason}`),
+          "",
+        ].join("\n"),
+      );
+      return 1;
+    }
+
+    const path = await saveCapability(capabilitiesDir(), recorded.capability);
+    await evidence.finish("success", { steps, capability: `${plan.id}@${plan.version}` });
     process.stdout.write(`${result.summary}\n`);
+    // On stderr, with what it does not yet know. A recorded Capability declares
+    // success and nothing else: a run that succeeded never saw the not-found
+    // screen, so ADR 0004's Business Outcomes cannot be derived from it, and
+    // until somebody adds them every other ending is a Hard Failure.
+    process.stderr.write(
+      [
+        `Recorded ${plan.id}@${plan.version} → ${path}`,
+        "  It is a draft, and declares no Business Outcomes: a run that ends anywhere",
+        "  other than success will report a Hard Failure until you add them.",
+        "",
+      ].join("\n"),
+    );
     return 0;
   }
 
@@ -362,6 +424,59 @@ async function reportDiscovery(
   await evidence.finish("stopped", { steps, because: result.because });
   process.stderr.write(`The goal was not reached: ${result.because}, after ${steps} Steps.\n`);
   return 1;
+}
+
+/**
+ * What the run will be saved as, or nothing at all.
+ *
+ * A Discovery Run without `--capability` is exploration: it drives the
+ * application, prints what it did, and writes no file. Naming an id is what
+ * turns it into a recording session, and the version is always the next one —
+ * a fresh run that worked something out is a new version rather than an edit to
+ * the one callers are already replaying.
+ *
+ * The effects are read-only and not a guess. A Discovery Run holds
+ * `discoveryMandate()`, which refuses a mutating route outright (ADR 0007), so
+ * nothing the run did can have changed data and there is nothing else the
+ * recorded Contract could honestly say. A mutating Capability is #12's, and it
+ * arrives through the escalation path rather than through an unattended run.
+ */
+async function recordingPlan(
+  args: Map<string, string[]>,
+  about: {
+    goal: string;
+    profile: SurfaceProfile;
+    baseUrl: string;
+    inputs: Record<string, string>;
+    outputs: string[];
+  },
+): Promise<RecordingPlan | undefined> {
+  const id = single(args, "capability");
+  if (id === undefined) {
+    // Refused rather than ignored. Both options exist for the recorder, and a
+    // run that declares what it will return and then saves nothing has spent a
+    // browser, a sign-in, and a model call to print one sentence.
+    if (about.outputs.length > 0 || Object.keys(about.inputs).length > 0) {
+      throw new Error("--input and --output need --capability, which is what says where to save.");
+    }
+    return undefined;
+  }
+
+  const versions = await listVersions(capabilitiesDir(), id);
+
+  return {
+    id,
+    version: (versions.at(-1) ?? 0) + 1,
+    surface: about.profile.id,
+    // The goal as the operator typed it. It is already the one-line description
+    // of what this Capability does, which is exactly what the Contract's
+    // summary is for.
+    summary: about.goal,
+    effects: "read-only",
+    baseUrl: about.baseUrl,
+    inputs: about.inputs,
+    outputs: about.outputs,
+  };
 }
 
 /**
@@ -470,6 +585,9 @@ const DISCOVER_OPTIONS = {
   surface: "value",
   "max-steps": "value",
   timeout: "value",
+  capability: "value",
+  input: "value",
+  output: "value",
 } as const;
 
 type Options = Record<string, "value" | "flag">;

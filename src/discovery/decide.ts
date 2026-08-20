@@ -20,7 +20,18 @@ import { describeMiss } from "../replay/describe.js";
 import { DISCOVERY_TOOLS, isToolName } from "./tools.js";
 
 export type Decision =
-  | { readonly kind: "act"; readonly reason: string; readonly action: Action }
+  | {
+      readonly kind: "act";
+      readonly reason: string;
+      readonly action: Action;
+      /**
+       * On a read, which declared return value the model says it is taking.
+       * Carried alongside the Action rather than inside it, for the same reason
+       * `reason` is: the Surface has no use for either, and an Action is what
+       * touches the screen. The recorder is what reads this.
+       */
+      readonly bind?: string;
+    }
   | { readonly kind: "done"; readonly reason: string; readonly summary: string }
   /** The model asked for something that does not parse. It is told, and retries. */
   | { readonly kind: "unusable"; readonly complaint: string };
@@ -39,7 +50,16 @@ export function decisionFor(name: string, input: unknown): Decision {
     return { kind: "done", reason, summary };
   }
 
-  return { kind: "act", reason: call.reason, action: actionFor(name, call) };
+  const action = actionFor(name, call);
+  if (name !== "read") return { kind: "act", reason: call.reason, action };
+
+  const { bind } = call as z.infer<typeof DISCOVERY_TOOLS.read.input>;
+  return {
+    kind: "act",
+    reason: call.reason,
+    action,
+    ...(bind === undefined ? {} : { bind }),
+  };
 }
 
 /**

@@ -1,8 +1,8 @@
 # Committed runs
 
-Six runs against a running ParaBank — four replays and two Discovery Runs — kept so that the
+Nine runs against a running ParaBank — six replays and three Discovery Runs — kept so that the
 evidence trail and its redaction can be read rather than taken on trust. Every run writes its own
-directory here; these six are committed and the rest are yours to delete.
+directory here; these nine are committed and the rest are yours to delete.
 
 Each holds `run.jsonl` — one JSON record per line, in the order things happened — and, when the run
 ended anywhere other than success, `failure.png`: the screen it ended on. The picture is captured at
@@ -18,6 +18,9 @@ is the screen the outcome was read off.
 | `2026-08-19T22-44-14.631Z-…` | The same request after #6: the declared `ACCOUNT_NOT_FOUND` Business Outcome. |
 | `2026-08-19T22-21-55.385Z-discover` | A Discovery Run that reached its goal: `claude-opus-5` driving ParaBank. |
 | `2026-08-19T22-22-32.856Z-discover` | A Discovery Run told to move money, refused by the policy gate. |
+| `2026-08-20T16-58-40.572Z-discover` | A Discovery Run that saved what it worked out as `account-lookup-discovered@1`. |
+| `2026-08-20T16-59-10.668Z-…-discovered` | That saved Capability replayed, with no model on the path. |
+| `2026-08-20T16-59-13.377Z-…-discovered` | The same replay with `--evidence-redaction=off`, so the values can be read. |
 
 ## What to look at
 
@@ -68,10 +71,12 @@ persists a filtered transcript — the Actions taken and their results — becau
 balance is exactly what field-level masking cannot catch. The record type has no free-text field to
 put one in.
 
-**What is not masked, and why.** The account number appears in full inside a Locator's name. A run's
-Sensitive-by-value list is its own declared inputs, and a Discovery Run has none — it is the thing
-that works out what the inputs should be. What a `read` returned is still masked, because that is
-classified by where it sits rather than by matching a value.
+**The account number, before and after #10.** In the two Discovery Runs from the 19th it appears in
+full inside a Locator's name: a run's Sensitive-by-value list is its own declared inputs, and a
+Discovery Run had none — it was the thing that worked out what the inputs should be. In the run from
+the 20th the same Locator reads `"name":"[SENSITIVE]"`, because that run was told which value was the
+caller's before it started. What a `read` returned is masked in both, because that is classified by
+where it sits rather than by matching a value.
 
 **The refused run stops with no refused Action in it.** The second run was told to transfer money. It
 clicked through to the transfer screen, and the first action it tried there was refused. The log
@@ -87,6 +92,26 @@ decorator, because an Action the gate refused never reaches the decorator at all
 [ADR 0007](../../docs/adr/0007-risk-is-classified-statically-not-by-the-model.md) is what makes a
 Discovery Run safe to point at an application nobody has taught it: it explores with no mandate to
 change anything, and the model has no say in that.
+
+**The last three runs are the loop closed.** The Discovery Run reached the goal and wrote
+`capabilities/account-lookup-discovered/1.json`; the two replays beside it ran that file against the
+same application with nothing but the recorded Steps deciding anything. Read the discovery log and
+the first replay side by side: `seq 7` onwards is the same three Actions in the same order, once
+chosen by `claude-opus-5` over eleven seconds of thinking, once dispatched from a file in fifty
+milliseconds.
+
+**And the balance is the same one.** That is what the third run is for. Masked evidence cannot show
+that a recorded Capability answers what the hand-written one answers, because both sides read
+`[SENSITIVE]`. With the flag off, `2026-08-20T16-59-13.377Z` — the recorded Capability — writes
+`"value":"SAVINGS"` and `"value":"$1231.10"`, and `2026-08-19T17-34-23.512Z` — the hand-written
+`account-lookup@1`, same account, same setting — writes the same two values. A model worked out the
+flow, a file recorded it, and the file answers the question the same way.
+
+The recorded Capability declares success and no Business Outcome — a run that reached the balance
+never saw the not-found screen — which is why it lands as a draft for a person to finish. It is also
+four Steps where the hand-written one is six: the two waits are the checkpoints a person added
+knowing that ParaBank fills its tables from a request that finishes after load, and the recorder had
+no way to learn that from a run where the table happened to be ready.
 
 ## Reading one
 

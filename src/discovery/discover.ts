@@ -61,6 +61,12 @@ export interface TakenStep {
    */
   readonly reason: string;
   readonly result: ActionResult;
+  /**
+   * On a read, which of the run's declared return values the model says it
+   * took. The recorder turns it into the Step's `bind`; a read carrying none
+   * was the model looking around and is not recorded.
+   */
+  readonly bind?: string;
 }
 
 export interface DiscoverOptions {
@@ -187,7 +193,12 @@ export async function discover(
       if (outOfTime()) return { kind: "stopped", because: "timeout", steps };
 
       const result = await surface.perform(decision.action);
-      const step: TakenStep = { action: decision.action, reason: decision.reason, result };
+      const step: TakenStep = {
+        action: decision.action,
+        reason: decision.reason,
+        result,
+        ...(decision.bind === undefined ? {} : { bind: decision.bind }),
+      };
       steps.push(step);
       options.onStep?.(step);
 

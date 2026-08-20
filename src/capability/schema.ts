@@ -427,7 +427,15 @@ function actionsOf(recording: Recording): [string, StepAction][] {
     : Object.entries(recording.patch).map(([stepId, override]) => [stepId, override.action]);
 }
 
-function inputReferencesInAction(action: StepAction): string[] {
+/**
+ * Every input one Step's action refers to.
+ *
+ * Exported for the recorder, which needs the same walk for the opposite check:
+ * this file asks whether a referenced input is declared, and the recorder asks
+ * whether a declared input is referenced. Two copies of a walk over the same
+ * union is how one of them quietly stops covering a field the other gained.
+ */
+export function inputReferencesInAction(action: StepAction): string[] {
   switch (action.kind) {
     case "navigate":
       return inputReferencesInExpression(action.url);

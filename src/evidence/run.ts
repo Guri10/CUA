@@ -72,8 +72,10 @@ export type EvidenceRecord =
  *   from.
  * - `intervention-request` — ADR 0007: the gate refused, and a person decides.
  *   Not a failure; the run stopped exactly as it was supposed to.
- * - `stopped` — a Discovery Run that ran out of steps, time, or ideas. It did
- *   not fail to understand anything; it simply did not get there.
+ * - `stopped` — a Discovery Run that did not produce what it was for: it ran
+ *   out of steps, time, or ideas, or it reached the goal in a way that could
+ *   not be saved as a Capability. It did not fail to understand anything, and
+ *   nothing about the application broke; there is simply nothing to keep.
  */
 export type RunOutcome =
   | "success"

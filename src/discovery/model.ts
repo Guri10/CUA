@@ -31,6 +31,20 @@ export interface ModelOptions {
   readonly goal: string;
   /** Where the run starts, named in the prompt so the model knows where it is. */
   readonly entry: string;
+  /**
+   * The values this run may use, by the name the Contract will declare them
+   * under. Given to the model so that it uses the operator's account number
+   * rather than whichever one it liked the look of — the recorder recognises a
+   * declared value where it turns up and turns it into a reference, and one the
+   * model invented is recorded as a literal that every replay would reuse.
+   */
+  readonly inputs?: Readonly<Record<string, string>>;
+  /**
+   * What the run has to come back with, by name. The model names one of these
+   * on each read, which is how the recorder knows which value is which without
+   * counting reads.
+   */
+  readonly outputs?: readonly string[];
 }
 
 const SYSTEM = `You are operating a legacy web application through its accessibility tree, the way a
@@ -54,6 +68,14 @@ Rules:
 - Read every value the goal asks for with the "read" tool, even when you can already see it in the
   tree. What you do here is being recorded and will be replayed later without you, and only a
   "read" becomes a value that comes back. Seeing it is not reading it.
+- When you are given named values to return, put the name on the read that takes it, in "bind".
+  A read that names none of them is treated as you looking around and is not kept.
+- Use the values you are given exactly as given. A value you typed or clicked that was not one of
+  them is recorded as a fixed part of the flow and will be used again on every future run.
+- If you were given no values to return, finish by waiting for a control that identifies the screen
+  you ended on. With nothing read, that wait is the only thing recorded as having arrived. When you
+  do have values to return, the controls you read them from are that, and a wait added afterwards
+  guards nothing.
 - Address a control by something that will still be true next time, never by the value it happens to
   hold today. A value shown in a labelled row is reached by scoping to that row and taking the cell
   by ordinal — not by naming the number currently in it. A control addressed by today's balance
@@ -136,10 +158,7 @@ function turnContent(
     }),
   );
 
-  const opening =
-    pending.length === 0
-      ? [`Goal: ${options.goal}`, `You are starting at ${options.entry}.`].join("\n")
-      : "";
+  const opening = pending.length === 0 ? briefing(options) : "";
 
   return [
     ...results,
@@ -158,4 +177,38 @@ function turnContent(
         .join("\n"),
     },
   ];
+}
+
+/**
+ * The first user turn: the goal, where the run is, the values it was given, and
+ * the values it owes back.
+ *
+ * The inputs are named rather than only spelled out in the goal because the
+ * recorder recognises them by value: a run that used the operator's account
+ * number produces a Recording that works for any account, and one that used a
+ * number it found on the screen produces a Recording that works for that
+ * account only.
+ */
+function briefing(options: ModelOptions): string {
+  const inputs = Object.entries(options.inputs ?? {});
+  const outputs = options.outputs ?? [];
+
+  return [
+    `Goal: ${options.goal}`,
+    `You are starting at ${options.entry}.`,
+    ...(inputs.length === 0
+      ? []
+      : [
+          "",
+          "Use these values, exactly as given:",
+          ...inputs.map(([name, value]) => `- ${name} = ${value}`),
+        ]),
+    ...(outputs.length === 0
+      ? []
+      : [
+          "",
+          `Return these values, naming each one in the "bind" argument of the read that takes it:`,
+          ...outputs.map((name) => `- ${name}`),
+        ]),
+  ].join("\n");
 }

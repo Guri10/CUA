@@ -60,7 +60,7 @@ real credentials or PII are involved anywhere in this project.
 | `npm run test:e2e` | The same interaction against a real browser and a running ParaBank. `HEADED=1` shows the window. |
 | `npm run typecheck` | Type check without emitting. |
 | `npm run build` | Compile to `dist/`. |
-| `npm run discover -- --goal "..."` | Let the model work out how to reach a goal on the running application. |
+| `npm run discover -- --goal "..."` | Let the model work out how to reach a goal on the running application, and save what it worked out. |
 | `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |
 | `npm run parabank:start` | Start the target application. |
@@ -103,6 +103,40 @@ Steps 4 and 5 are the two Locators the hand-written Capability below uses, and s
 wait it needs — all arrived at independently. The sentence under each action is the model's own,
 printed for the engineer who has to judge whether the run is worth keeping, and written nowhere per
 ADR 0006.
+
+### Saving what the run worked out
+
+A run given a Capability id, the values it may use, and the values it owes back writes the result to
+disk as a new version:
+
+```sh
+npm run discover -- \
+  --goal "Look up one account's type and balance by account number." \
+  --capability account-lookup-discovered \
+  --input accountId=13344 \
+  --output accountType --output balance
+```
+
+```
+Recorded account-lookup-discovered@1 → capabilities/account-lookup-discovered/1.json
+```
+
+The Contract is declared rather than scraped: the run is told the names up front, uses the values it
+was given, and names one of the declared outputs on each `read`. What the recorder does with the
+Actions it took is drop the ones that failed, collapse the ones it repeated, and turn every occurrence
+of a supplied value into a reference into the inputs — which is what makes the saved file work for
+any account rather than the one it was recorded against. Step ids come from what each Step does, so
+they survive the list changing around them.
+
+Two things it will not do. It never marks its own output approved, and it cannot declare a Business
+Outcome — a run that reached the balance never saw the not-found screen, and
+[ADR 0004](docs/adr/0004-terminal-states-are-first-class.md) would rather report an unrecognised
+ending as a Hard Failure than guess at one. The file lands as a draft for a person to add the rest,
+which is what `capabilities/account-lookup/1.json` — the hand-written one — already has.
+
+A run that reached the goal but cannot be saved says why rather than writing a file that would not
+replay: an input no Step used, a declared value nothing read, an address outside the installation the
+run was pointed at.
 
 There is no `navigate` tool. Reaching the entry point (`--entry`, default `/overview.htm`) is the
 loop's own first Step, and from there the model moves the way an operator does, by clicking what is

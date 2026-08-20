@@ -1,0 +1,12 @@
+{"at":"2026-08-20T16:58:40.572Z","kind":"run-started","redaction":"on","about":{"goal":"Look up one account's type and balance by account number.","entry":"/overview.htm","baseUrl":"http://localhost:8080/parabank","surface":"parabank","maxSteps":"15","capability":"account-lookup-discovered@1","input.accountId":"[SENSITIVE]"}}
+{"at":"2026-08-20T16:58:42.364Z","kind":"action","seq":0,"ms":723,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:42.435Z","kind":"action","seq":1,"ms":25,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:42.504Z","kind":"action","seq":2,"ms":57,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:42.697Z","kind":"action","seq":3,"ms":186,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:42.750Z","kind":"action","seq":4,"ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:42.837Z","kind":"action","seq":5,"ms":82,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:43.098Z","kind":"action","seq":6,"ms":41,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:47.812Z","kind":"action","seq":7,"ms":139,"action":{"kind":"click","locator":{"role":"link","name":"[SENSITIVE]","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-20T16:58:52.787Z","kind":"action","seq":8,"ms":12,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Account Type:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-20T16:58:58.777Z","kind":"action","seq":9,"ms":12,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Balance:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-20T16:59:03.403Z","kind":"run-finished","outcome":"success","about":{"steps":"4","capability":"account-lookup-discovered@1"}}
