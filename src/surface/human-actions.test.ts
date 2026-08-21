@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionFrom, capturingScript, CAPTURE_BINDING } from "./human-actions.js";
+import { actionFrom, capturingScript, injectableCaptureScript, CAPTURE_BINDING } from "./human-actions.js";
 
 /**
  * The half of the capture that runs here.
@@ -78,5 +78,46 @@ describe("turning what a person did into an Action", () => {
     expect(script).toContain("addEventListener");
     expect(script).not.toContain("actionFrom");
     expect(CAPTURE_BINDING).toBe("__cuaHumanAction");
+  });
+});
+
+/**
+ * The wrapper that lets the serialised listeners survive the build.
+ *
+ * This is the half of the capture that a browser is not needed to check, and
+ * the one that a passing e2e suite hid: under Vitest the listener source has no
+ * `__name` reference, so the suite ran green while the built CLI — transpiled by
+ * esbuild, which injects `__name` — threw inside the page and captured nothing.
+ * The regression is reproduced here by standing in a body that names `__name`,
+ * exactly as a keep-names transpiler would emit, and driving it through the same
+ * wrapper the surface uses.
+ */
+describe("injecting the capture script into the page", () => {
+  // `eval` here stands in for the page's own evaluation of the injected source,
+  // and only ever runs literals authored in this file — there is no external
+  // input, which is the risk `eval` otherwise carries.
+
+  // What esbuild's keep-names transform turns a nested function into: a call to
+  // a `__name` helper it defines at module scope and which is therefore absent
+  // once the function is serialised on its own.
+  const keepNamesBody = `function (binding) { const f = __name(() => binding, "f"); return f(); }`;
+
+  it("reproduces the dangling __name that broke the raw injection", () => {
+    // Injected without the wrapper, the transpiled body is a ReferenceError —
+    // thrown before a single listener is attached, so the capture is silent.
+    expect(() => eval(`(${keepNamesBody})("BOUND")`)).toThrow(/__name is not defined/);
+  });
+
+  it("supplies __name so the same body runs wherever it was built", () => {
+    expect(eval(injectableCaptureScript("BOUND", keepNamesBody))).toBe("BOUND");
+  });
+
+  it("wraps the real listeners into a callable expression bound to the capture name", () => {
+    const install = injectableCaptureScript(CAPTURE_BINDING);
+
+    expect(install).toContain("const __name");
+    expect(install).toContain(CAPTURE_BINDING);
+    // The listeners themselves, unchanged, are still in there.
+    expect(install).toContain("addEventListener");
   });
 });

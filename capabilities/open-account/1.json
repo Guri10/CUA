@@ -1,0 +1,149 @@
+{
+  "id": "open-account",
+  "version": 1,
+  "surface": "parabank",
+  "approval": "draft",
+  "contract": {
+    "summary": "Open a new savings account, then return to the Accounts Overview page.",
+    "inputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "Accounts Overview"
+                },
+                "exact": true
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-overview-htm",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/overview.htm"
+            }
+          }
+        },
+        {
+          "id": "click-link-open-new-account",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Open New Account"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-combobox",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "select-combobox",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "SAVINGS"
+            }
+          }
+        },
+        {
+          "id": "click-combobox-2",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "click-button-open-new-account",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Open New Account"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "click-link-accounts-overview",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Accounts Overview"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-heading-accounts-overview",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "Accounts Overview"
+              },
+              "exact": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

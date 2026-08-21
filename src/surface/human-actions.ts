@@ -124,6 +124,28 @@ export function capturingScript(): string {
 export const CAPTURE_BINDING = "__cuaHumanAction";
 
 /**
+ * The capture script as a page-ready expression: the serialised listeners,
+ * called with the binding name, wrapped so a names-preserving transpiler cannot
+ * silently break it.
+ *
+ * `capturingScript()` is `String(installCapture)`, and esbuild — which is what
+ * `tsx` runs the CLI through — rewrites every nested function to a
+ * `__name(fn, "…")` call, defining `__name` once at module scope rather than
+ * inside the function. Serialised on its own that reference is dangling, so the
+ * script throws `__name is not defined` before it attaches a single listener,
+ * and the capture records nothing at all. Vitest does not inject `__name`, so
+ * the unit and e2e suites never saw it — only the built CLI did, which is why a
+ * person's Steps during an escalation came back empty. A one-identity shim in
+ * the surrounding scope makes the calls resolve wherever the code was built.
+ *
+ * The `script` argument defaults to the real listeners and exists so a test can
+ * pass a body that names `__name`, which the shipped one only does once built.
+ */
+export function injectableCaptureScript(binding: string, script: string = capturingScript()): string {
+  return `(() => { const __name = (fn) => fn; return (${script})(${JSON.stringify(binding)}); })()`;
+}
+
+/**
  * As much of the DOM as the injected script touches, declared here rather than
  * by turning on TypeScript's `DOM` library.
  *

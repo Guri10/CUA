@@ -1,0 +1,16 @@
+{"at":"2026-08-21T05:36:28.335Z","kind":"run-started","redaction":"on","about":{"capability":"open-account@1","baseUrl":"http://localhost:8080/parabank"}}
+{"at":"2026-08-21T05:36:29.279Z","kind":"action","seq":0,"by":"agent","ms":287,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.339Z","kind":"action","seq":1,"by":"agent","ms":20,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.380Z","kind":"action","seq":2,"by":"agent","ms":36,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.483Z","kind":"action","seq":3,"by":"agent","ms":97,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.532Z","kind":"action","seq":4,"by":"agent","ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.552Z","kind":"action","seq":5,"by":"agent","ms":14,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.575Z","kind":"action","seq":6,"by":"agent","ms":21,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.658Z","kind":"action","seq":7,"by":"agent","ms":52,"action":{"kind":"click","locator":{"role":"link","name":"Open New Account"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.717Z","kind":"action","seq":8,"by":"agent","ms":34,"action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.735Z","kind":"action","seq":9,"by":"agent","ms":13,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.801Z","kind":"action","seq":10,"by":"agent","ms":33,"action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.834Z","kind":"action","seq":11,"by":"agent","ms":27,"action":{"kind":"click","locator":{"role":"button","name":"Open New Account","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.880Z","kind":"action","seq":12,"by":"agent","ms":42,"action":{"kind":"click","locator":{"role":"link","name":"Accounts Overview","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.918Z","kind":"action","seq":13,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:36:29.924Z","kind":"run-finished","outcome":"success","about":{}}

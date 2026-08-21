@@ -14,7 +14,7 @@
  */
 import { chromium, type Browser, type Locator as BrowserLocator, type Page } from "playwright";
 import { readAriaSnapshot } from "./aria-snapshot.js";
-import { actionFrom, capturingScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
+import { actionFrom, injectableCaptureScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
 import { readControlValue } from "./read-value.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
 
@@ -87,7 +87,9 @@ export class PlaywrightSurface implements Surface {
    * which cannot be defeated by a page reload.
    */
   async captureHumanActions(onAction: (action: Action) => void): Promise<StopCapture> {
-    const install = `(${capturingScript()})(${JSON.stringify(CAPTURE_BINDING)})`;
+    // Page-ready and transpiler-proof: `injectableCaptureScript` explains why
+    // the serialised listeners have to be wrapped rather than injected raw.
+    const install = injectableCaptureScript(CAPTURE_BINDING);
 
     if (!this.#capturing) {
       this.#capturing = true;

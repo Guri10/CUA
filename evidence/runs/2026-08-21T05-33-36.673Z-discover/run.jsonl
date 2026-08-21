@@ -1,0 +1,19 @@
+{"at":"2026-08-21T05:33:36.675Z","kind":"run-started","redaction":"on","about":{"goal":"Open a new savings account, then return to the Accounts Overview page.","entry":"/overview.htm","baseUrl":"http://localhost:8080/parabank","surface":"parabank","maxSteps":"25","capability":"open-account@1"}}
+{"at":"2026-08-21T05:33:40.734Z","kind":"action","seq":0,"by":"agent","ms":772,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:40.915Z","kind":"action","seq":1,"by":"agent","ms":39,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:40.951Z","kind":"action","seq":2,"by":"agent","ms":19,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:41.149Z","kind":"action","seq":3,"by":"agent","ms":192,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:41.208Z","kind":"action","seq":4,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:41.244Z","kind":"action","seq":5,"by":"agent","ms":30,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:41.486Z","kind":"action","seq":6,"by":"agent","ms":73,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:45.541Z","kind":"action","seq":7,"by":"agent","ms":170,"action":{"kind":"click","locator":{"role":"link","name":"Open New Account"}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:33:50.199Z","kind":"intervention-request","capability":"open-account@1","step":"select of combobox #0","reason":"\"/openaccount.htm\" can change data, and this run has no mandate to.","screen":"http://localhost:8080/parabank/openaccount.htm"}
+{"at":"2026-08-21T05:33:50.202Z","kind":"control","to":"human"}
+{"at":"2026-08-21T05:34:06.909Z","kind":"action","seq":8,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:09.609Z","kind":"action","seq":9,"by":"human","action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:09.619Z","kind":"action","seq":10,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:18.393Z","kind":"action","seq":11,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Open New Account","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:29.861Z","kind":"action","seq":12,"by":"human","action":{"kind":"click","locator":{"role":"link","name":"Accounts Overview","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:44.363Z","kind":"control","to":"agent"}
+{"at":"2026-08-21T05:34:51.458Z","kind":"action","seq":13,"by":"agent","ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-21T05:34:57.065Z","kind":"run-finished","outcome":"success","about":{"steps":"9","capability":"open-account@1","effects":"mutating"}}
