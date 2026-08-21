@@ -16,17 +16,19 @@
 import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
 import type { Surface } from "./surface/surface.js";
 import { capabilitiesDir, listVersions, loadCapabilityRef, saveCapability } from "./capability/storage.js";
+import type { Capability } from "./capability/schema.js";
 import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
 import { handOverToHuman } from "./escalation/handover.js";
 import { DEFAULT_RESUME_PORT } from "./escalation/resume-endpoint.js";
+import { startCatalog, DEFAULT_CATALOG_PORT, type InvokeCapability } from "./catalog/serve.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
-import { discoveryMandate, mandateFor } from "./policy/mandate.js";
+import { discoveryMandate, mandateFor, type Mandate } from "./policy/mandate.js";
 import { openBrowserSurface } from "./policy/open-surface.js";
 import { loadSurfaceProfile, surfacesDir, type SurfaceProfile } from "./policy/profile.js";
 import { coerceTextValues, parseContractValues } from "./replay/contract-values.js";
 import { describeAction, describeMiss } from "./replay/describe.js";
-import { replayCapability } from "./replay/replay.js";
+import { replayCapability, type ReplayResult } from "./replay/replay.js";
 
 const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
                          Surface profile's own. The profile's allowlist still governs it.
@@ -39,6 +41,7 @@ const SHARED_USAGE = `  --base-url <url>       Where the application is. Default
 const USAGE = `Usage:
   npm run discover -- --goal "..." [options]
   npm run replay -- --capability <id>[@<version>] --input <name>=<value> [options]
+  npm run serve [-- --port <n>] [options]
 
 discover options:
   --goal <text>          What the run is trying to accomplish, in plain language.
@@ -64,13 +67,21 @@ replay options:
   --input <name>=<value> One of the Contract's declared inputs. Repeatable.
   --variant <name>       Which Tenant's Recording to run. Defaults to the shared one.
 
-Both:
+serve options:
+  --port <n>             Where the catalog listens, on loopback. Defaults to 8788.
+                         A caller reads GET /capabilities and POSTs to
+                         /capabilities/<id>/invoke with a JSON body of typed inputs.
+                         Each invoke drives a real browser, exactly as replay does,
+                         so --base-url and --evidence-redaction apply to it.
+
+All:
 ${SHARED_USAGE}`;
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === "discover") return await discoverCommand(parseArguments(rest, DISCOVER_OPTIONS));
   if (command === "replay") return await replayCommand(parseArguments(rest, REPLAY_OPTIONS));
+  if (command === "serve") return await serveCommand(parseArguments(rest, SERVE_OPTIONS));
 
   const complaint = command === undefined ? "No command given." : `Unknown command "${command}".`;
   process.stderr.write(`${complaint}\n\n${USAGE}`);
@@ -113,6 +124,83 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
   const masking = maskingSetting(single(args, "evidence-redaction"));
   const credentials = credentialsFromEnv();
 
+  const { result } = await runCapability({
+    capability,
+    inputs,
+    given,
+    profile,
+    mandate,
+    baseUrl,
+    ...(variant === undefined ? {} : { variant }),
+    masking,
+    credentials,
+    headless: !args.has("headed"),
+  });
+
+  if (result.kind === "success") {
+    // The declared outputs, in full. ADR 0006 masks a Sensitive value in
+    // persisted evidence and never in what the caller asked for. What each read
+    // returned is already in the log, masked, so it is not repeated here — one
+    // copy, classified once.
+    process.stdout.write(`${JSON.stringify(result.outputs, null, 2)}\n`);
+    return 0;
+  }
+
+  if (result.kind === "business-outcome") {
+    // Not a failure, and so no error text: the application worked correctly and
+    // this is the answer it gave. The exit code keeps it out of the failure
+    // column the way ADR 0005 keeps it out of `catch`.
+    process.stdout.write(`${JSON.stringify({ outcome: result.name }, null, 2)}\n`);
+    return 0;
+  }
+
+  process.stderr.write(
+    [
+      `${ident} stopped at Step "${result.step}".`,
+      `  expected: ${result.expected}`,
+      `  observed: ${result.observed}`,
+      `  screen:   ${result.url}`,
+      "",
+    ].join("\n"),
+  );
+  return 1;
+}
+
+interface RunCapabilityInput {
+  readonly capability: Capability;
+  /** Typed and already validated against the Contract. */
+  readonly inputs: Record<string, unknown>;
+  /** The raw text of each input, for redaction and the evidence header. */
+  readonly given: Record<string, string>;
+  readonly profile: SurfaceProfile;
+  /** Allowed — decided before this is called, so no browser opens for a refusal. */
+  readonly mandate: Extract<Mandate, { allowed: true }>;
+  readonly baseUrl: string;
+  readonly variant?: string;
+  readonly masking: "on" | "off";
+  readonly credentials: ParabankCredentials;
+  readonly headless: boolean;
+}
+
+/**
+ * One replay end to end: open the evidence run, open the one gated and logged
+ * Surface, sign in, run the Recording, and record how it ended. The whole of the
+ * machinery `replay` and `serve` share, so that a Capability invoked over the
+ * catalog runs exactly as one invoked from the command line and leaves the same
+ * trail behind.
+ *
+ * It returns the `ReplayResult` rather than printing it: the caller decides what
+ * a success, a Business Outcome, or a Hard Failure looks like on its own
+ * surface — stdout and an exit code for the command line, a status and a body
+ * for the catalog. What does not vary is the evidence, which is why finishing
+ * the run lives here and not in either caller.
+ */
+async function runCapability(
+  input: RunCapabilityInput,
+): Promise<{ result: ReplayResult; evidenceDir: string }> {
+  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, credentials, headless } = input;
+  const ident = `${capability.id}@${capability.version}`;
+
   // Opened before the browser is, so that signing in is logged too. The login
   // form is the one place this run types the application password, which makes
   // it the case ADR 0006's "no flag reaches a Secret" is really about.
@@ -141,9 +229,7 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
 
   // Already gated, and already logged. There is no unwrapped Surface to reach
   // for, here or anywhere else — `no-ungated-surface.test.ts` keeps that true.
-  const { surface, close } = await openBrowserSurface(profile, mandate, evidence, {
-    headless: !args.has("headed"),
-  });
+  const { surface, close } = await openBrowserSurface(profile, mandate, evidence, { headless });
   try {
     await establishSession(surface, baseUrl, credentials);
 
@@ -151,7 +237,7 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
       baseUrl,
       ...(variant === undefined ? {} : { variant }),
       // ADR 0005's middle class, wired the way the ADR splits it: the profile
-      // says which screens are interruptions, and this command — the one place
+      // says which screens are interruptions, and the caller — the one place
       // holding credentials — says how to answer the one that needs a session.
       recoverableConditions: profile.recoverableConditions,
       reestablishSession: () => establishSession(surface, baseUrl, credentials),
@@ -159,60 +245,36 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
 
     if (result.kind === "success") {
       await evidence.finish("success", {});
-      // The declared outputs, in full. ADR 0006 masks a Sensitive value in
-      // persisted evidence and never in what the caller asked for. What each
-      // read returned is already in the log, masked, so it is not repeated
-      // here — one copy, classified once.
-      process.stdout.write(`${JSON.stringify(result.outputs, null, 2)}\n`);
-      return 0;
-    }
-
-    if (result.kind === "business-outcome") {
-      // Not a failure, and so no error text: the application worked correctly
-      // and this is the answer it gave. ADR 0005 keeps it out of `catch` on the
-      // calling side, and the exit code keeps it out of the failure column on
-      // this one.
-      //
-      // The screen is captured all the same, and by this branch rather than
-      // only by the decorator underneath. An outcome recognised because a Step
-      // missed already has a picture; one recognised at the end of the
-      // Recording never missed anything, so without this the two kinds of
-      // Business Outcome would leave different amounts of evidence behind. The
-      // capture is idempotent, so the decorator's wins when there was one.
+    } else if (result.kind === "business-outcome") {
+      // The screen is captured all the same, and by this branch rather than only
+      // by the decorator underneath. An outcome recognised because a Step missed
+      // already has a picture; one recognised at the end of the Recording never
+      // missed anything, so without this the two kinds of Business Outcome would
+      // leave different amounts of evidence behind. The capture is idempotent, so
+      // the decorator's wins when there was one.
       await evidence.captureFailure(await surface.screenshot());
       await evidence.finish("business-outcome", { outcome: result.name, step: result.step });
-      process.stdout.write(`${JSON.stringify({ outcome: result.name }, null, 2)}\n`);
-      return 0;
+    } else {
+      // The backstop to the decorator's own capture. A run that took every Step
+      // without ever missing and then found itself on a screen it could not name
+      // has no failed Action to have triggered one; the decorator's capture wins
+      // when there was one, because that is the screen that explains the run.
+      await evidence.captureFailure(await surface.screenshot());
+      await evidence.finish("hard-failure", {
+        step: result.step,
+        expected: result.expected,
+        observed: result.observed,
+        screen: result.url,
+      });
     }
 
-    // The backstop to the decorator's own capture. A run that took every Step
-    // without ever missing and then found itself on a screen it could not name
-    // has no failed Action to have triggered one; the decorator's capture wins
-    // when there was one, because that is the screen that explains the run.
-    await evidence.captureFailure(await surface.screenshot());
-    await evidence.finish("hard-failure", {
-      step: result.step,
-      expected: result.expected,
-      observed: result.observed,
-      screen: result.url,
-    });
-
-    process.stderr.write(
-      [
-        `${ident} stopped at Step "${result.step}".`,
-        `  expected: ${result.expected}`,
-        `  observed: ${result.observed}`,
-        `  screen:   ${result.url}`,
-        "",
-      ].join("\n"),
-    );
-    return 1;
+    return { result, evidenceDir: evidence.directory };
   } catch (thrown) {
-    // A Hard Failure by ADR 0005's definition — a state the run cannot
-    // interpret or continue from — reached by something neither the Contract
-    // nor the application accounted for: a browser that closed, a host that
-    // went away. Recorded under the same name as any other, because a trail
-    // that stops mid-sentence cannot be told apart from one never written.
+    // A Hard Failure by ADR 0005's definition — a state the run cannot interpret
+    // or continue from — reached by something neither the Contract nor the
+    // application accounted for: a browser that closed, a host that went away.
+    // Recorded under the same name as any other, because a trail that stops
+    // mid-sentence cannot be told apart from one never written.
     await evidence.finish("hard-failure", {
       observed: thrown instanceof Error ? thrown.message : String(thrown),
     });
@@ -222,6 +284,76 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
     // On stderr, because stdout is the caller's result and nothing else.
     process.stderr.write(`Evidence: ${evidence.directory}\n`);
   }
+}
+
+/**
+ * The catalog: the saved Capabilities served so that a calling agent discovers
+ * them and invokes one by name with typed arguments. The stretch goal, and the
+ * one place the central claim is demonstrated rather than asserted — a second
+ * program reading the Contract and successfully invoking against it is the JSON
+ * Schema working rather than the schema described.
+ *
+ * The server owns the two decisions the Contract is a boundary for — a mutating
+ * draft refused, invalid inputs rejected — both before a browser exists. What it
+ * is handed here is only the run, and the run is `runCapability`: the very same
+ * machinery `replay` uses, so a Capability invoked over HTTP drives the browser,
+ * signs in, and leaves a trail exactly as one invoked from the command line.
+ */
+async function serveCommand(args: Map<string, string[]>): Promise<number> {
+  const port = wholeNumber(single(args, "port"), "--port", DEFAULT_CATALOG_PORT);
+  // Read once, at start, so a missing `.env` fails the whole server loudly
+  // rather than every invoke quietly — the same reason a replay reads them
+  // before launching a browser.
+  const credentials = credentialsFromEnv();
+  const masking = maskingSetting(single(args, "evidence-redaction"));
+
+  const invoke: InvokeCapability = async (capability, inputs, options) => {
+    // The Capability names its Surface profile; the profile says where that
+    // installation is and which of its routes may be touched.
+    const profile = await loadSurfaceProfile(surfacesDir(), capability.surface);
+    const baseUrl = resolveBaseUrl(args, profile);
+    // The server already refused a mutating draft, but the mandate is what the
+    // gated Surface is opened against, so it is resolved again here rather than
+    // threaded through — and a not-allowed one is a fault, not an outcome.
+    const mandate = mandateFor(capability);
+    if (!mandate.allowed) throw new Error(mandate.reason);
+    // Inputs arrive typed over JSON, so the strings evidence has to recognise as
+    // this run's own Sensitive values are their string forms.
+    const given = Object.fromEntries(Object.entries(inputs).map(([name, value]) => [name, String(value)]));
+
+    const { result } = await runCapability({
+      capability,
+      inputs,
+      given,
+      profile,
+      mandate,
+      baseUrl,
+      ...(options.variant === undefined ? {} : { variant: options.variant }),
+      masking,
+      credentials,
+      headless: !args.has("headed"),
+    });
+    return result;
+  };
+
+  const server = await startCatalog({ root: capabilitiesDir(), invoke, port });
+  process.stdout.write(
+    [
+      `Capability catalog on ${server.url}`,
+      `  list:   GET  ${server.url}/capabilities`,
+      `  invoke: POST ${server.url}/capabilities/<id>/invoke`,
+      "",
+    ].join("\n"),
+  );
+
+  // The server holds the process open; this settles when a signal asks it to
+  // stop, which is the one way a long-running command ends cleanly.
+  await new Promise<void>((resolve) => {
+    process.once("SIGINT", resolve);
+    process.once("SIGTERM", resolve);
+  });
+  await server.close();
+  return 0;
 }
 
 /**
@@ -645,6 +777,11 @@ const REPLAY_OPTIONS = {
   capability: "value",
   input: "value",
   variant: "value",
+} as const;
+
+const SERVE_OPTIONS = {
+  ...SHARED,
+  port: "value",
 } as const;
 
 const DISCOVER_OPTIONS = {

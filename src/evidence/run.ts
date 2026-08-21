@@ -17,6 +17,7 @@
  * this same seam, as Actions and results.
  */
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { packageRootFrom } from "../package-root.js";
 import type { Controller } from "../escalation/controller.js";
@@ -149,7 +150,14 @@ export class EvidenceRun {
     // Colons are legal in a path on this platform and not on every one, and a
     // run directory is a thing people copy between machines and into archives.
     const stamp = new Date().toISOString().replaceAll(":", "-");
-    const directory = join(options.root, `${stamp}-${options.label}`);
+    // A short random suffix, so a run's directory is its own even when two runs
+    // start in the same millisecond under the same label. That was unreachable
+    // while every run was a one-shot CLI process; the catalog (`serve`) handles
+    // concurrent invokes in one process, and two of the same Capability sharing
+    // a directory would interleave one `run.jsonl` and clobber one screenshot —
+    // the audit trail corrupting itself. The timestamp still leads, so runs sort
+    // and the label still names them.
+    const directory = join(options.root, `${stamp}-${options.label}-${randomUUID().slice(0, 8)}`);
     await mkdir(directory, { recursive: true });
 
     const run = new EvidenceRun(directory, options.redaction);

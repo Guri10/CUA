@@ -12,6 +12,7 @@
  * it.
  */
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { join } from "node:path";
 import { packageRootFrom } from "../package-root.js";
 import { capabilitySchema, type Capability } from "./schema.js";
@@ -91,6 +92,29 @@ export async function listVersions(root: string, id: string): Promise<number[]> 
     // to version 9.
     .filter((version) => Number.isInteger(version) && version > 0)
     .sort((left, right) => left - right);
+}
+
+/**
+ * Every Capability id on disk, one per directory that holds at least one
+ * version, sorted. The catalog reads this and loads each id's highest version;
+ * an id with a directory but no valid version file is left out rather than
+ * surfaced as a broken entry.
+ */
+export async function listCapabilities(root: string): Promise<string[]> {
+  let entries: Dirent[];
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const ids: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const versions = await listVersions(root, entry.name);
+    if (versions.length > 0) ids.push(entry.name);
+  }
+  return ids.sort();
 }
 
 export async function loadCapabilityRef(root: string, ref: string): Promise<Capability> {

@@ -8,10 +8,10 @@ behind the shape of the system.
 
 ## Status
 
-Both paths run. `discover` puts `claude-opus-5` on a live ParaBank and it works out how to reach a
-goal; `replay` re-runs a saved Capability with no model in the loop. The scaffold, the Capability
-schema, the policy gate, and the evidence trail are in place. Turning a Discovery Run into a saved
-Capability is the next piece, and `serve` is not built yet.
+All three paths run. `discover` puts `claude-opus-5` on a live ParaBank and it works out how to
+reach a goal; `replay` re-runs a saved Capability with no model in the loop; `serve` exposes the
+saved Capabilities as a catalog a calling agent discovers and invokes by name. The scaffold, the
+Capability schema, the policy gate, and the evidence trail are in place.
 
 ## Requirements
 
@@ -62,6 +62,8 @@ real credentials or PII are involved anywhere in this project.
 | `npm run build` | Compile to `dist/`. |
 | `npm run discover -- --goal "..."` | Let the model work out how to reach a goal on the running application, and save what it worked out. |
 | `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
+| `npm run serve` | Serve the saved Capabilities as a catalog on loopback, for a calling agent to discover and invoke. See [`docs/capability-catalog.md`](docs/capability-catalog.md). |
+| `npm run catalog:demo` | A worked demonstration: a second program discovers a Capability from the running catalog and invokes it. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |
 | `npm run parabank:start` | Start the target application. |
 | `npm run parabank:stop` | Stop and remove it. |
@@ -186,6 +188,18 @@ A bare id (`--capability account-lookup`) runs the highest version there is. `--
 runs a Tenant's corrected Recording, `--base-url` points at an installation other than
 `$PARABANK_BASE_URL`, `--headed` shows the browser window, and `--evidence-redaction=off` writes
 the run's evidence unmasked — see below.
+
+## Serve the catalog
+
+`npm run serve` exposes the saved Capabilities over HTTP on loopback so a calling agent can
+discover them and invoke one by name with typed arguments — the same replay, reached over the wire
+instead of the command line. A caller reads `GET /capabilities` for every Capability's Contract as
+JSON Schema, then `POST`s to `/capabilities/<id>/invoke` with a JSON body of inputs. Invalid inputs
+are rejected against the Contract before any browser opens, and the result comes back in the same
+discriminated shape a direct replay returns.
+
+The full walkthrough, the endpoints, and the committed worked demonstration
+(`npm run catalog:demo`) are in [`docs/capability-catalog.md`](docs/capability-catalog.md).
 
 ## What automation is allowed to touch
 

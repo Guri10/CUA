@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "./parabank/account-lookup.js";
 import {
   capabilityFile,
+  listCapabilities,
   loadCapability,
   loadCapabilityRef,
   parseCapabilityRef,
@@ -67,6 +68,21 @@ describe("Capability storage", () => {
     const capability = await loadCapabilityRef(root, "account-lookup");
 
     expect(capability.version).toBe(10);
+  });
+
+  it("lists every Capability id that has a version, sorted, and skips empty directories", async () => {
+    await saveCapability(root, accountLookupCapability());
+    await saveCapability(root, { ...accountLookupCapability(), version: 2 });
+    await saveCapability(root, { ...accountLookupCapability(), id: "open-account" });
+    // A directory with no valid version file is not a Capability, so it is not
+    // listed as one.
+    await mkdir(join(root, "half-written"), { recursive: true });
+
+    expect(await listCapabilities(root)).toEqual(["account-lookup", "open-account"]);
+  });
+
+  it("lists nothing when there are no Capabilities on disk", async () => {
+    expect(await listCapabilities(join(root, "nowhere"))).toEqual([]);
   });
 
   it("refuses a reference whose version is not a version", () => {
