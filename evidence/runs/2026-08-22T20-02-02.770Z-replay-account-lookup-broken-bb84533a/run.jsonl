@@ -1,0 +1,13 @@
+{"at":"2026-08-22T20:02:02.782Z","kind":"run-started","redaction":"on","about":{"capability":"account-lookup-broken@1","baseUrl":"http://localhost:8080/parabank","input.accountId":"[SENSITIVE]"}}
+{"at":"2026-08-22T20:02:03.783Z","kind":"action","seq":0,"by":"agent","ms":370,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:03.888Z","kind":"action","seq":1,"by":"agent","ms":49,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:03.930Z","kind":"action","seq":2,"by":"agent","ms":34,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.076Z","kind":"action","seq":3,"by":"agent","ms":138,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.138Z","kind":"action","seq":4,"by":"agent","ms":6,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.191Z","kind":"action","seq":5,"by":"agent","ms":47,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.239Z","kind":"action","seq":6,"by":"agent","ms":46,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.465Z","kind":"action","seq":7,"by":"agent","ms":198,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:04.582Z","kind":"action","seq":8,"by":"agent","ms":105,"action":{"kind":"click","locator":{"role":"link","name":"[SENSITIVE]","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:02:07.641Z","kind":"action","seq":9,"by":"agent","ms":3014,"action":{"kind":"waitFor","locator":{"role":"cell","name":"$","within":{"role":"row","name":"Interest Rate:"}},"timeoutMs":3000},"result":{"kind":"not-found","locator":{"role":"cell","name":"$","within":{"role":"row","name":"Interest Rate:"}}}}
+{"at":"2026-08-22T20:02:07.723Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-08-22T20:02:07.798Z","kind":"run-finished","outcome":"hard-failure","about":{"step":"wait-for-balance","expected":"wait for cell \"$\" within row \"Interest Rate:\"","observed":"no control matched","screen":"http://localhost:8080/parabank/activity.htm?id=[SENSITIVE]"}}

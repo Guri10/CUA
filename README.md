@@ -3,8 +3,8 @@
 An LLM works out how to drive a legacy web application once; what it learned is then replayed
 deterministically, with no model in the loop.
 
-Read [`CONTEXT.md`](CONTEXT.md) for the vocabulary and [`docs/adr/`](docs/adr/) for the decisions
-behind the shape of the system.
+Read [`REPORT.md`](REPORT.md) for the design write-up, [`CONTEXT.md`](CONTEXT.md) for the
+vocabulary, and [`docs/adr/`](docs/adr/) for the decisions behind the shape of the system.
 
 ## Status
 
@@ -52,6 +52,37 @@ It takes a minute or so to come up. It is ready when
 The container seeds a demo user, `john` / `demo`. Those are the credentials in `.env.example`; no
 real credentials or PII are involved anywhere in this project.
 
+## Demo — run the agent on a goal, then replay what it learned
+
+With ParaBank running and `.env` filled in (steps above), this is the whole loop end to end. Each
+section below expands on a step.
+
+```sh
+# 1. Let the model work out how to reach a goal, and save it as a Capability.
+#    Needs ANTHROPIC_API_KEY. Writes capabilities/account-lookup-discovered/1.json.
+npm run discover -- \
+  --goal "Look up one account's type and balance by account number." \
+  --capability account-lookup-discovered \
+  --input accountId=13344 \
+  --output accountType --output balance
+
+# 2. Replay what it learned — deterministically, with no model in the loop.
+npm run replay -- --capability account-lookup-discovered@1 --input accountId=13344
+```
+
+No API key, and want a replay straight away? The hand-written `account-lookup@1` is already
+committed, so a clean clone reaches a successful replay with only ParaBank and `.env`:
+
+```sh
+npm run replay -- --capability account-lookup@1 --input accountId=12345
+```
+
+To see determinism as a figure, replay the read-only lookup many times and read the variance:
+
+```sh
+npm run replay:stability          # twenty replays over one session; prints "variance = 0"
+```
+
 ## Commands
 
 | Command | What it does |
@@ -64,6 +95,8 @@ real credentials or PII are involved anywhere in this project.
 | `npm run replay -- --capability <id>@<v> --input <name>=<value>` | Replay a Capability against the running application. |
 | `npm run serve` | Serve the saved Capabilities as a catalog on loopback, for a calling agent to discover and invoke. See [`docs/capability-catalog.md`](docs/capability-catalog.md). |
 | `npm run catalog:demo` | A worked demonstration: a second program discovers a Capability from the running catalog and invokes it. |
+| `npm run replay:stability` | Replay the read-only lookup twenty times over one session and report how much the answer varied. |
+| `npm run evidence:recoverable` | Replay with a session injected to expire mid-run, so the `SESSION_EXPIRED` Recoverable Condition is absorbed and written to `evidence/runs/`. |
 | `npm run capture:a11y` | Capture ParaBank's accessibility tree into `evidence/`. Needs ParaBank running. |
 | `npm run parabank:start` | Start the target application. |
 | `npm run parabank:stop` | Stop and remove it. |
@@ -171,7 +204,8 @@ npm run replay -- --capability account-lookup@1 --input accountId=12345
 ```
 
 It signs in, drives the accounts overview and the account detail screen, checks that the screen it
-reached is the one the Capability calls success, and prints the outputs its Contract declares:
+reached is the one the Capability calls success, and prints the outputs its Contract declares —
+for example:
 
 ```json
 {
@@ -179,6 +213,10 @@ reached is the one the Capability calls success, and prints the outputs its Cont
   "balance": "-$2300.00"
 }
 ```
+
+The balance is read live off the account, so your number will differ — the container seeds its own,
+and any `open-account` or transfer runs move it. Determinism is about the Steps and outputs being the
+*same read every time*, not a frozen value.
 
 No model runs on this path — not to pick a control, not to decide it worked. A run that cannot
 reach its declared success state prints the Step it stopped at, what it expected, and what it saw,

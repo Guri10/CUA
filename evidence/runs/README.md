@@ -1,8 +1,8 @@
 # Committed runs
 
-Nine runs against a running ParaBank — six replays and three Discovery Runs — kept so that the
+Thirteen runs against a running ParaBank — nine replays and four Discovery Runs — kept so that the
 evidence trail and its redaction can be read rather than taken on trust. Every run writes its own
-directory here; these nine are committed and the rest are yours to delete.
+directory here; these thirteen are committed and the rest are yours to delete.
 
 Each holds `run.jsonl` — one JSON record per line, in the order things happened — and, when the run
 ended anywhere other than success, `failure.png`: the screen it ended on. The picture is captured at
@@ -16,11 +16,15 @@ is the screen the outcome was read off.
 | `2026-08-19T17-34-23.512Z-…` | The same lookup with `--evidence-redaction=off`. |
 | `2026-08-19T17-34-27.269Z-…` | An account the customer does not hold, before #6: a Hard Failure, with the screen it stopped on. |
 | `2026-08-19T22-44-14.631Z-…` | The same request after #6: the declared `ACCOUNT_NOT_FOUND` Business Outcome. |
+| `2026-08-22T20-02-02.770Z-…-broken-…` | An **injected failure**: a Recording pointed at a row the account page does not have — standing in for the app changing under a Recording — stops with a Hard Failure naming the Step (`wait-for-balance`, expected vs observed), and `failure.png` is the screen it stopped on. |
+| `2026-08-22T20-49-07.451Z-replay-account-lookup` | A **Recoverable Condition**: a session injected to expire on the way to the account detail. Replay matches the profile's `SESSION_EXPIRED`, signs in again (the sign-in appears twice in the log), re-runs the Recording, and finishes `success`. Its `failure.png` is the logged-out screen it recovered from. |
 | `2026-08-19T22-21-55.385Z-discover` | A Discovery Run that reached its goal: `claude-opus-5` driving ParaBank. |
 | `2026-08-19T22-22-32.856Z-discover` | A Discovery Run told to move money, refused by the policy gate. |
 | `2026-08-20T16-58-40.572Z-discover` | A Discovery Run that saved what it worked out as `account-lookup-discovered@1`. |
+| `2026-08-21T05-33-36.673Z-discover` | An **attended** Discovery Run for `open-account@1`: the gate refused the irreversible step, a person completed it, and their Steps were folded in `by: human`. |
 | `2026-08-20T16-59-10.668Z-…-discovered` | That saved Capability replayed, with no model on the path. |
 | `2026-08-20T16-59-13.377Z-…-discovered` | The same replay with `--evidence-redaction=off`, so the values can be read. |
+| `2026-08-21T05-36-28.334Z-replay-open-account` | The mutating `open-account@1` replayed (against a temporarily-approved copy) to `success`, with no model in the loop. |
 
 ## What to look at
 
@@ -49,6 +53,14 @@ and replay now recognises it —
 [ADR 0005](../../docs/adr/0005-error-taxonomy-split-by-scope.md)'s split, made visible in two logs
 of the same question. Nothing about the application changed between them; what changed is what the
 system is able to call the answer.
+
+**The injected failure was produced by a deliberately broken Recording, then thrown away.** A copy of
+`account-lookup` whose `wait-for-balance` Step was pointed at a row ParaBank's account page does not
+have — an "Interest Rate:" row that is not there — was replayed against account 12345 and stopped with
+a Hard Failure: `wait-for-balance`, expected "cell $ within row Interest Rate:", observed "no control
+matched". It stands in for the one failure Replay exists to catch — the application changing under a
+Recording — without waiting for ParaBank to actually change. The broken Capability is not committed
+under `capabilities/`; only the run it produced is kept.
 
 **`failure.png` shows real balances, and that is deliberate.** It is a picture, so nothing can mask a
 value inside it, and a reviewer needs to see the state the system could not interpret. It is the one

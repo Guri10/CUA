@@ -1,0 +1,25 @@
+{"at":"2026-08-22T20:49:07.452Z","kind":"run-started","redaction":"on","about":{"capability":"account-lookup@1","baseUrl":"http://localhost:8080/parabank","injected":"SESSION_EXPIRED"}}
+{"at":"2026-08-22T20:49:08.055Z","kind":"action","seq":0,"by":"agent","ms":601,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.114Z","kind":"action","seq":1,"by":"agent","ms":22,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.154Z","kind":"action","seq":2,"by":"agent","ms":35,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.284Z","kind":"action","seq":3,"by":"agent","ms":125,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.333Z","kind":"action","seq":4,"by":"agent","ms":6,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.365Z","kind":"action","seq":5,"by":"agent","ms":28,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.410Z","kind":"action","seq":6,"by":"agent","ms":34,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.442Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:08.522Z","kind":"action","seq":8,"by":"agent","ms":74,"action":{"kind":"click","locator":{"role":"link","name":"12345","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:13.566Z","kind":"action","seq":9,"by":"agent","ms":5007,"action":{"kind":"waitFor","locator":{"role":"cell","name":"$","within":{"role":"row","name":"Balance:"}}},"result":{"kind":"not-found","locator":{"role":"cell","name":"$","within":{"role":"row","name":"Balance:"}}}}
+{"at":"2026-08-22T20:49:13.648Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-08-22T20:49:13.821Z","kind":"action","seq":10,"by":"agent","ms":167,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/index.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:13.856Z","kind":"action","seq":11,"by":"agent","ms":9,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:13.867Z","kind":"action","seq":12,"by":"agent","ms":7,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:13.996Z","kind":"action","seq":13,"by":"agent","ms":124,"action":{"kind":"click","locator":{"role":"button","name":"Log In"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.033Z","kind":"action","seq":14,"by":"agent","ms":10,"action":{"kind":"waitFor","locator":{"role":"heading","name":"Accounts Overview"}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.067Z","kind":"action","seq":15,"by":"agent","ms":31,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.104Z","kind":"action","seq":16,"by":"agent","ms":36,"action":{"kind":"navigate","url":"http://localhost:8080/parabank/overview.htm"},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.140Z","kind":"action","seq":17,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"row","name":"$","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.218Z","kind":"action","seq":18,"by":"agent","ms":72,"action":{"kind":"click","locator":{"role":"link","name":"12345","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.261Z","kind":"action","seq":19,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"cell","name":"$","within":{"role":"row","name":"Balance:"}}},"result":{"kind":"ok"}}
+{"at":"2026-08-22T20:49:14.282Z","kind":"action","seq":20,"by":"agent","ms":16,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Account Type:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-22T20:49:14.297Z","kind":"action","seq":21,"by":"agent","ms":8,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Balance:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-08-22T20:49:14.304Z","kind":"run-finished","outcome":"success","about":{"recovered":"SESSION_EXPIRED"}}

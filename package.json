@@ -20,7 +20,9 @@
     "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
     "capability:write": "tsx scripts/write-capabilities.ts",
     "parabank:start": "docker run -d -p 8080:8080 --name parabank parasoft/parabank",
-    "parabank:stop": "docker rm -f parabank"
+    "parabank:stop": "docker rm -f parabank",
+    "replay:stability": "tsx --env-file-if-exists=.env scripts/replay-stability.ts",
+    "evidence:recoverable": "tsx --env-file-if-exists=.env scripts/evidence-recoverable.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
