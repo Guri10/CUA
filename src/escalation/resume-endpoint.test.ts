@@ -1,3 +1,4 @@
+import { Agent, get, type Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { SessionControl } from "./controller.js";
 import type { InterventionRequest } from "./intervention-request.js";
@@ -92,5 +93,42 @@ describe("the resume endpoint", () => {
     const { endpoint } = await paused();
 
     expect(endpoint.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+  });
+
+  it("closes promptly even with an idle keep-alive reader socket open", async () => {
+    const { endpoint } = await paused();
+
+    // An operator who read the request over a keep-alive connection and then
+    // left the socket idle. The endpoint must still close at once so the resume
+    // is prompt — `Connection: close` ends the reader's socket with the response
+    // so this holds however a runtime treats idle keep-alive sockets on close.
+    const agent = new Agent({ keepAlive: true });
+    await new Promise<void>((resolve, reject) => {
+      get(endpoint.url, { agent }, (response) => {
+        response.resume();
+        response.on("end", resolve);
+        response.on("error", reject);
+      }).on("error", reject);
+    });
+
+    const started = Date.now();
+    await endpoint.close();
+    expect(Date.now() - started).toBeLessThan(2000);
+    agent.destroy();
+  });
+
+  it("surfaces a server fault after it began listening rather than swallowing it", async () => {
+    const { endpoint } = await paused();
+
+    // A run paused here is awaiting `resumed`. A server error after `listen`
+    // must reach it — an endpoint that faulted will never carry a resume, so a
+    // swallowed error would hang the run on a socket that is never coming back.
+    const surfaced = endpoint.resumed.catch((error: unknown) => error);
+    // The server is not on the public interface; a post-listen fault is not
+    // reachable through it, so the test drives one via the attached seam.
+    const { server } = endpoint as unknown as { server: Server };
+    server.emit("error", new Error("boom after listen"));
+
+    await expect(surfaced).resolves.toMatchObject({ message: "boom after listen" });
   });
 });

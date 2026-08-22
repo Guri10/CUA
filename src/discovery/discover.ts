@@ -32,6 +32,7 @@
  */
 import type { InterventionRequest } from "../escalation/intervention-request.js";
 import type { Controller } from "../escalation/controller.js";
+import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import { describeAction } from "../replay/describe.js";
 import type { Action, ActionResult, Surface } from "../surface/surface.js";
 import { reportOf, type Decision, type Report } from "./decide.js";
@@ -211,7 +212,12 @@ export async function discover(
       capability: options.attempting ?? options.entryUrl,
       step: describeAction(at.action),
       reason: refusal,
-      observed: { url: screen.url, tree: screen.tree },
+      // Masked at the source, so `observed.url` matches the contract its own
+      // doc states — ParaBank carries a session token in the URL, ADR 0006
+      // classes it a Secret, and the request travels to a log and a terminal.
+      // The tree is carried whole on purpose: the operator reading it is the
+      // person already looking at that screen over the loopback endpoint.
+      observed: { url: redactSessionIds(screen.url), tree: screen.tree },
     });
     pausedMs += now() - pausedAt;
     if (done === undefined) return undefined;
@@ -319,8 +325,13 @@ export async function discover(
         if (resumed === undefined) {
           return { kind: "intervention-request", reason: result.reason, at: step, steps };
         }
+        // A person just changed the screen, so the rest of this batch was
+        // decided against a screen that no longer exists. Break out and let the
+        // loop re-observe and re-decide rather than draining a stale tail
+        // against the state they left — the handover report goes with it, in
+        // `reports`, so the next decision is made knowing the screen moved on.
         reports.push(resumed);
-        continue;
+        break;
       }
 
       reports.push(reportOf(result));

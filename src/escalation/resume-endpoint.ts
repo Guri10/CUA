@@ -35,7 +35,11 @@ export const DEFAULT_RESUME_PORT = 8787;
 export interface ResumeEndpoint {
   /** Where the operator points curl. Printed when the run pauses. */
   readonly url: string;
-  /** Resolves when a person has asked for the run to continue. */
+  /**
+   * Resolves when a person has asked for the run to continue, and rejects if
+   * the server faults after it began listening — so a paused run awaiting this
+   * is told rather than left hanging on a socket that will never carry a resume.
+   */
   readonly resumed: Promise<void>;
   /** Stops listening. Called when control returns, however it returned. */
   close(): Promise<void>;
@@ -63,8 +67,10 @@ export interface ResumeEndpointOptions {
  */
 export async function openResumeEndpoint(options: ResumeEndpointOptions): Promise<ResumeEndpoint> {
   let announceResumed: () => void = () => {};
-  const resumed = new Promise<void>((resolve) => {
+  let failResumed: (error: unknown) => void = () => {};
+  const resumed = new Promise<void>((resolve, reject) => {
     announceResumed = resolve;
+    failResumed = reject;
   });
 
   const server = createServer((incoming, outgoing) => {
@@ -95,17 +101,34 @@ export async function openResumeEndpoint(options: ResumeEndpointOptions): Promis
 
   const port = options.port ?? DEFAULT_RESUME_PORT;
   await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", resolve);
+    // Only until listening: a bind failure (the port already in use) rejects
+    // the open. Removed once we are listening so it is not left to reject an
+    // already-settled promise — a later fault is the durable handler's job.
+    const onStartupError = (error: Error): void => reject(error);
+    server.once("error", onStartupError);
+    server.listen(port, "127.0.0.1", () => {
+      server.removeListener("error", onStartupError);
+      // Durable, so a server fault after we are listening reaches the paused
+      // run instead of being swallowed: the run is awaiting `resumed`, and a
+      // rejection there tears the handover down rather than hanging on a socket
+      // that will never carry a resume.
+      server.on("error", (error) => failResumed(error));
+      resolve();
+    });
   });
 
-  return {
+  const endpoint: ResumeEndpoint = {
     url: `http://127.0.0.1:${listeningPort(server, port)}`,
     resumed,
     close: async () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     },
   };
+  // The server is attached but kept out of the public `ResumeEndpoint` type, so
+  // a caller cannot reach past the endpoint and close or re-wire it out from
+  // under the lifecycle this owns. A test reaches it by cast to drive a
+  // post-listen fault, which there is otherwise no external way to raise.
+  return Object.assign(endpoint, { server });
 }
 
 function reply(
@@ -113,7 +136,14 @@ function reply(
   status: number,
   body: unknown,
 ): void {
-  outgoing.writeHead(status, { "content-type": "application/json" });
+  // `Connection: close` so a reader's socket ends with the response rather than
+  // lingering as an idle keep-alive one. On a runtime whose `server.close()`
+  // waits for idle keep-alive sockets, one left open by a reader would hold the
+  // close until the keep-alive timeout (~5s) and delay the resume the endpoint
+  // exists to make prompt; current Node closes such sockets itself, but ending
+  // them at the source makes the guarantee hold regardless, and the endpoint is
+  // one-shot — read, then resume — so a kept-alive socket saves nothing.
+  outgoing.writeHead(status, { "content-type": "application/json", connection: "close" });
   outgoing.end(`${JSON.stringify(body, null, 2)}\n`);
 }
 

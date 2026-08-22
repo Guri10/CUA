@@ -328,6 +328,64 @@ describe("a discovery run with a person watching", () => {
     expect(operator.asked[0]?.observed.tree).toContain("-");
   });
 
+  it("re-observes after a handover rather than draining the rest of the batch", async () => {
+    const performed: Action[] = [];
+    const inner = refusesOpeningAnAccount();
+    const watched: Surface = {
+      snapshot: () => inner.snapshot(),
+      screenshot: () => inner.screenshot(),
+      perform: async (action) => {
+        performed.push(action);
+        return await inner.perform(action);
+      },
+    };
+    // The refused Action and a second one, decided together against the screen
+    // as it was before the person touched it.
+    const staleTail = act({ kind: "click", locator: { role: "button", name: "STALE-TAIL", exact: true } });
+
+    const result = await discover(
+      watched,
+      scripted([risky, staleTail], [{ kind: "done", reason: "d", summary: "d" }]),
+      {
+        ...options,
+        escalate: operatorWho({ kind: "click", locator: { role: "button", name: "Open New Account", exact: true } })
+          .escalate,
+        attempting: "open-account@1",
+      },
+    );
+
+    expect(result).toMatchObject({ kind: "goal-reached" });
+    // The tail was decided against a screen the person then changed, so the loop
+    // must have broken the batch and re-decided instead of dispatching it.
+    expect(performed.some((action) => action.kind === "click" && action.locator.name === "STALE-TAIL")).toBe(false);
+  });
+
+  it("masks the session token in observed.url at the source", async () => {
+    const withToken: Surface = {
+      snapshot: async () => ({
+        url: "http://localhost:8080/parabank/overview.htm;jsessionid=SECRET123",
+        tree: "- document",
+        nodes: [],
+      }),
+      screenshot: async () => Buffer.from("a screen"),
+      perform: async (action) =>
+        action.kind === "navigate" ? { kind: "ok" } : { kind: "refused", reason: REFUSAL },
+    };
+    const operator = operatorWho();
+
+    await discover(withToken, scripted([risky]), {
+      ...options,
+      escalate: operator.escalate,
+      attempting: "open-account@1",
+    });
+
+    // The contract `ObservedState.url` documents — token masked — held at the
+    // source, so the value never travels unmasked (handover keeps its own mask
+    // as defence in depth on a Secret).
+    expect(operator.asked[0]?.observed.url).not.toContain("SECRET123");
+    expect(operator.asked[0]?.observed.url).toContain("jsessionid=[REDACTED]");
+  });
+
   it("does not retry the Action it was refused", async () => {
     const attempted: Action[] = [];
     const inner = refusesOpeningAnAccount();

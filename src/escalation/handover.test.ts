@@ -225,6 +225,77 @@ describe("handing the live session to a person", () => {
     expect(log).not.toContain("12345");
   });
 
+  it("returns control and closes the endpoint even when stopping the capture throws", async () => {
+    const control = new SessionControl();
+    const evidence = await startRun();
+    const announced: string[] = [];
+
+    const handover = handOverToHuman({
+      control,
+      evidence,
+      request: REQUEST,
+      // The recording could not be torn down — the page went away as the person
+      // resumed. The teardown must not let that strand the Controller or leak
+      // the endpoint: the steps after it still have to run.
+      capture: async () => async () => {
+        throw new Error("stop blew up");
+      },
+      port: 0,
+      announce: (message) => announced.push(message),
+    });
+    await resumeThrough(announced);
+
+    // Surfaced rather than swallowed — a teardown that went wrong is worth
+    // knowing about — but only after every guaranteed step has run.
+    await expect(handover).rejects.toThrow("stop blew up");
+    // The Controller is the agent's again, not stuck on `human` refusing every
+    // later Action; and the endpoint is closed, not left listening for a resume
+    // that has already happened.
+    expect(control.controller).toBe("agent");
+    const url = announced.join("\n").match(/http:\/\/127\.0\.0\.1:\d+/)![0];
+    await expect(fetch(url)).rejects.toThrow();
+  });
+
+  it("keeps writing the trail after one append fails, rather than dropping the rest", async () => {
+    const control = new SessionControl();
+    const evidence = await startRun();
+    const announced: string[] = [];
+
+    // The first human Action's append fails — a transient disk error. A single
+    // write chain must not let that poison the chain and silently drop every
+    // record after it: the audit trail's tail is the one thing it cannot lose.
+    const realAppend = evidence.append.bind(evidence);
+    let failedOnce = false;
+    (evidence as unknown as { append: EvidenceRun["append"] }).append = async (record) => {
+      if (!failedOnce && record.kind === "action") {
+        failedOnce = true;
+        throw new Error("disk full");
+      }
+      return realAppend(record);
+    };
+
+    const handover = handOverToHuman({
+      control,
+      evidence,
+      request: REQUEST,
+      capture: humanWho(
+        { kind: "click", locator: { role: "button", name: "First" } },
+        { kind: "click", locator: { role: "button", name: "Second" } },
+      ).capture,
+      port: 0,
+      announce: (message) => announced.push(message),
+    });
+    await resumeThrough(announced);
+    // The failure is surfaced, not swallowed.
+    await expect(handover).rejects.toThrow("disk full");
+
+    const records = await recordsOf(evidence);
+    // The chain carried on: the second Action and the control-returning record
+    // were written even though the first Action's append failed.
+    expect(records.filter((record) => record["kind"] === "action")).toHaveLength(1);
+    expect(records.at(-1)).toMatchObject({ kind: "control", to: "agent" });
+  });
+
   it("closes the endpoint once control is back", async () => {
     const evidence = await startRun();
     const announced: string[] = [];

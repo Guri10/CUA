@@ -66,9 +66,21 @@ export async function handOverToHuman(options: HandoverOptions): Promise<Handove
   // could have the two Actions land in the log in the order their `appendFile`
   // calls happened to resolve, which for an audit trail is the one thing it
   // must not do.
+  //
+  // Each append catches its own failure into `writeFailures` rather than letting
+  // it reject the chain. A rejected `writing` would make every later `.then`
+  // short-circuit, so one failed append would silently drop every human Action
+  // after it — the tail of the audit trail lost without a word, which is the
+  // same thing the ordering exists to prevent. The failures are surfaced at
+  // teardown instead, once, so nothing is lost quietly.
+  const writeFailures: unknown[] = [];
   let writing = Promise.resolve();
   const write = (record: Parameters<EvidenceRun["append"]>[0]): void => {
-    writing = writing.then(() => evidence.append(record));
+    writing = writing.then(() =>
+      evidence.append(record).catch((failure: unknown) => {
+        writeFailures.push(failure);
+      }),
+    );
   };
 
   // Before the transition, so the trail reads in the order it happened: this is
@@ -125,11 +137,40 @@ export async function handOverToHuman(options: HandoverOptions): Promise<Handove
     // listening for a resume that has already happened. And the Controller does
     // not still say a person holds a session nobody is holding, which would
     // leave every later Action refused with no way left to un-refuse it.
-    await stop?.();
-    await endpoint?.close();
+    //
+    // Each step is guaranteed independently rather than sequenced behind a bare
+    // `await`: a rejecting `stop()` or `close()` must not skip the steps after
+    // it, or a failed teardown would leave control on `human` with the endpoint
+    // still listening — the exact outcome this block exists to prevent. The
+    // first failure is collected and rethrown once every step has run, so a
+    // teardown that went wrong is surfaced rather than swallowed.
+    const failures: unknown[] = [];
+    const settle = async (step: () => void | Promise<void>): Promise<void> => {
+      try {
+        await step();
+      } catch (failure) {
+        failures.push(failure);
+      }
+    };
+
+    await settle(() => stop?.());
+    await settle(() => endpoint?.close());
+    // Synchronous and cannot throw, so they need no guard and always run: the
+    // Controller returns to the agent, and the transition listener is detached.
     if (control.controller === "human") control.toAgent();
     stopWatching();
+    // The append chain never rejects — each write catches its own — so this
+    // only waits for the queued writes to drain; any that failed are collected.
     await writing;
+    failures.push(...writeFailures);
+
+    // Surfaced rather than swallowed, and every failure not just the first: two
+    // teardown steps failing at once — a capture that would not stop and an
+    // endpoint that would not close — is worse than one, not something to hide.
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      throw new AggregateError(failures, "Steps of the handover teardown failed.");
+    }
   }
 
   return { actions };
