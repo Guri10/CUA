@@ -25,3 +25,28 @@ brief itself frames it when it says a risky or irreversible step needs a person 
 
 A single gate shared by both phases is deliberate: two enforcement points would eventually disagree,
 and the disagreement would be silent.
+
+## Amendment (2026-09-02): observation verbs pass the mutation-class check
+
+The original rule refused *every* action on a mutating route to a run without a write mandate. That
+was one word too broad. The thing this gate guards against is a run *changing* data it has no mandate
+to change; a `read` or a `waitFor` changes nothing — it observes one value on the screen, exactly as
+`snapshot()` does, and `snapshot()` was never gated. Refusing it bought no safety and cost real
+capability: the only stable place ParaBank shows a newly-opened account number is the "Account
+Opened!" confirmation, served on the mutating `/openaccount.htm` route, so a Discovery Run could not
+read it there and fell back to reading it by value off the Accounts Overview — a locator that is
+different every run and cannot replay.
+
+So the mutation-class check now gates *state-changing* verbs only. `read` and `waitFor` pass it;
+`click`, `fill`, `select`, and `navigate` onto a mutating route are gated exactly as before. Nothing
+else moves: classification is still static and profile-owned, the model still has no say, and it is
+still one gate for both phases. The escalation path is untouched — the risky Steps that raise an
+Intervention Request are the state-changing ones, and they still do. What the amendment adds is that,
+once a person has completed the mutation and handed control back on the confirmation screen, the run
+can *read* the result it was sent to fetch.
+
+The line held here is "no unmandated **mutation**", not "no presence on a mutating page". One
+consequence is worth naming: a Discovery Run can now read the content of a mutating screen it reaches
+(e.g. by clicking a link onto one), where before it refused on arrival. That is observation only — it
+still cannot act there, and a read's return value is Sensitive-by-position and redacted in evidence
+under ADR 0006 — so it widens what the run can *see*, never what it can *do*.

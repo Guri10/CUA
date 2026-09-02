@@ -85,7 +85,16 @@ export class PolicyGatedSurface implements Surface {
     const verdict = routeOf(this.#profile, url);
     if (!verdict.allowed) return verdict.reason;
 
-    if (verdict.mutates && !this.#mandate.mayMutate) {
+    // The mutation-class check gates verbs that can *change* data, not verbs
+    // that only watch. A `read` or `waitFor` observes one value on the screen
+    // and cannot mutate anything — the same reason `snapshot()` above passes
+    // straight through — so it is not what "no mandate to mutate" is about
+    // (ADR 0007's amendment). `click` / `fill` / `select` / `navigate` onto a
+    // mutating route stay gated. This is what lets a Discovery Run read the new
+    // account number off ParaBank's confirmation screen, which is served on the
+    // mutating /openaccount.htm route and is the only stable place it appears.
+    const observes = action.kind === "read" || action.kind === "waitFor";
+    if (verdict.mutates && !this.#mandate.mayMutate && !observes) {
       return `"${verdict.route}" can change data, and this run has no mandate to.`;
     }
 
