@@ -1,0 +1,143 @@
+{
+  "id": "open-acc-v3",
+  "version": 1,
+  "surface": "parabank",
+  "approval": "approved",
+  "contract": {
+    "summary": "open a new checking account, then return the new account number.",
+    "inputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "accountNumber": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "accountNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "link",
+                "ordinal": 0,
+                "within": {
+                  "role": "paragraph",
+                  "ordinal": 3
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-overview-htm",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/overview.htm"
+            }
+          }
+        },
+        {
+          "id": "click-link-open-new-account",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Open New Account"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-combobox",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            }
+          }
+        },
+        {
+          "id": "select-combobox",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            },
+            "option": {
+              "kind": "literal",
+              "value": "12900"
+            }
+          }
+        },
+        {
+          "id": "click-combobox-2",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            }
+          }
+        },
+        {
+          "id": "click-button-open-new-account",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Open New Account"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-account-number",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "link",
+              "ordinal": 0,
+              "within": {
+                "role": "paragraph",
+                "ordinal": 3
+              }
+            },
+            "bind": "accountNumber"
+          }
+        }
+      ]
+    }
+  ]
+}

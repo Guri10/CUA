@@ -1,8 +1,8 @@
 # Committed runs
 
-Thirteen runs against a running ParaBank — nine replays and four Discovery Runs — kept so that the
+Fourteen runs against a running ParaBank — ten replays and four Discovery Runs — kept so that the
 evidence trail and its redaction can be read rather than taken on trust. Every run writes its own
-directory here; these thirteen are committed and the rest are yours to delete.
+directory here; these fourteen are committed and the rest are yours to delete.
 
 Each holds `run.jsonl` — one JSON record per line, in the order things happened — and, when the run
 ended anywhere other than success, `failure.png`: the screen it ended on. The picture is captured at
@@ -25,6 +25,7 @@ is the screen the outcome was read off.
 | `2026-08-20T16-59-10.668Z-…-discovered` | That saved Capability replayed, with no model on the path. |
 | `2026-08-20T16-59-13.377Z-…-discovered` | The same replay with `--evidence-redaction=off`, so the values can be read. |
 | `2026-08-21T05-36-28.334Z-replay-open-account` | The mutating `open-account@1` replayed (against a temporarily-approved copy) to `success`, with no model in the loop. |
+| `2026-09-02T17-02-21.801Z-replay-open-acc-v3` | The mutating `open-acc-v3@1` replayed to `success` — it opened a real account and **read the new number off the confirmation screen** (returned in full to the caller, redacted here). The payoff of the #16/#17 gate refinement: a mutating Capability that returns a value the run itself created, so a later replay hands back a *different* number than the recording. |
 
 ## What to look at
 

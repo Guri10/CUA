@@ -54,14 +54,34 @@ override or a failure report can point at it even as the list around it changes.
 condition checked against the screen, not a boolean someone sets, so an ending is something the system
 recognizes rather than assumes.
 
-The two Capabilities I built are deliberately lopsided, and I left that visible instead of smoothing it
+The Capabilities I built are deliberately lopsided, and I left that visible instead of smoothing it
 over. `account-lookup` is read-only: it takes an account number, hands back a type and a balance, has a
-real business outcome for "no such account," and runs unattended. `open-account` mutates: it takes
-nothing, returns nothing, stays a draft, and came out of an attended run where a person did the step
-the gate wouldn't let the agent do. There's a consequence worth calling out. Its "account opened"
-confirmation lives on a mutating page the discovery gate won't even read, so the Recording ends by
-going back to the read-only overview and checking that instead. A hand-written Capability could anchor
-on the confirmation; one recorded through discovery structurally can't.
+real business outcome for "no such account," and runs unattended. The mutating side has two, and the
+pair is a before-and-after I kept rather than hid.
+
+`open-account` came first. It mutates, takes nothing, returns nothing, stays a draft, and came out of
+an attended run where a person did the step the gate wouldn't let the agent do. It carried a real
+limitation. The new account's number appears in exactly one reliable, labelled place — the "Account
+Opened!" confirmation — which lives on the mutating `/openaccount.htm` route, and the policy gate then
+refused *every* action on a mutating route to a run with no write mandate, plain `read` included. So
+discovery couldn't read the number where it appears and fell back to reading it off the read-only
+Accounts Overview by its value (a `read` of the link literally named `15120`). A locator that *is* the
+account number is different on every run, so that Recording can't be replayed to return the number:
+`open-account` ends by checking the overview and hands back nothing.
+
+`open-acc-v3` is the same task after I fixed that (issue #16, PR #17). The mutation check now skips
+observation verbs — `read` and `waitFor` pass on a mutating route, while `click`, `fill`, `select`, and
+`navigate` onto one stay gated exactly as before — because a read changes nothing; it is the same thing
+`snapshot()` already did ungated, so the blanket refusal bought no safety and cost real capability. The
+guardrail is intact: the state-changing steps that open the account still refuse and escalate,
+classification is still static and profile-owned, the model still has no say, and it is still one gate
+for both phases. ADR 0007 records the amendment and its one honest side effect — a run may now *read* a
+mutating page it lands on, never act on it, and read values stay redacted in evidence per ADR 0006.
+With the gate opened, `open-acc-v3` reads the number straight off the confirmation, so its output
+locator is a position (`link[0]` within `paragraph[3]`) bound to `accountNumber` rather than a baked-in
+value. That is what makes a mutating Capability genuinely replayable: the run that recorded it opened
+account `15231`, and a later replay opened a *different* real account and returned `15342` — it hands
+back whatever *this* run created, which is the whole point.
 
 ## Determinism & error handling
 
