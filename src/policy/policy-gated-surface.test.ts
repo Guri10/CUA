@@ -112,6 +112,27 @@ describe("the policy gate", () => {
     expect(result.kind === "refused" && result.reason).toMatch(/"\/transfer\.htm" can change data/);
   });
 
+  it.each([
+    ["read", { kind: "read", locator: { role: "button", name: "Transfer" } } as Action],
+    ["waitFor", { kind: "waitFor", locator: { role: "button", name: "Transfer" } } as Action],
+  ])(
+    "lets a %s through on a mutating screen with no mandate — observing changes nothing",
+    async (_, action) => {
+      // The counterpart to the click test above. Reached with a mandate, then
+      // observed without one: ADR 0007's amendment gates verbs that can change
+      // data, and a read or a wait is not one of them. This is what lets a
+      // Discovery Run read the new-account number off ParaBank's confirmation
+      // screen, which lives on the mutating /openaccount.htm route.
+      const inner = new FakeSurface(script);
+      await inner.perform({ kind: "navigate", url: `${BASE}/transfer.htm` });
+      const surface = new PolicyGatedSurface(inner, profile, { mayMutate: false });
+
+      const result = await surface.perform(action);
+
+      expect(result.kind).toBe("ok");
+    },
+  );
+
   it("allows a mutating route when the run has a mandate to mutate", async () => {
     // The same action, the same profile — only the mandate differs. That is
     // what makes approval the thing being enforced rather than the route.
