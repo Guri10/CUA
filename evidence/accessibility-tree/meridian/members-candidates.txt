@@ -1,0 +1,75 @@
+URL: https://web-sample.interface-hiring.com/members?by=name&q=o
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "MEMBER INQUIRY / SELECTION Search by: Last Name Value: o Search Member No. Name Shares 100234 Lovelace, Ada 24 Select 101555 Hopper, Grace 8 Select 102777 Johnson, Katherine 12 Select 103001 Vaughan, Dorothy 9 Select Try member numbers 100234, 100987, 101555, 102777, 103001."':
+      - 'cell "MEMBER INQUIRY / SELECTION Search by: Last Name Value: o Search Member No. Name Shares 100234 Lovelace, Ada 24 Select 101555 Hopper, Grace 8 Select 102777 Johnson, Katherine 12 Select 103001 Vaughan, Dorothy 9 Select Try member numbers 100234, 100987, 101555, 102777, 103001."':
+        - heading "MEMBER INQUIRY / SELECTION" [level=1]
+        - table:
+          - rowgroup:
+            - 'row "Search by: Last Name"':
+              - cell "Search by:"
+              - cell "Last Name":
+                - combobox:
+                  - option "Member Number"
+                  - option "Last Name" [selected]
+            - 'row "Value: o Search"':
+              - cell "Value:"
+              - cell "o Search":
+                - textbox: o
+                - button "Search"
+        - table:
+          - rowgroup:
+            - row "Member No. Name Shares":
+              - cell "Member No."
+              - cell "Name"
+              - cell "Shares"
+              - cell
+            - row "100234 Lovelace, Ada 24 Select":
+              - cell "100234"
+              - cell "Lovelace, Ada"
+              - cell "24"
+              - cell "Select":
+                - link "Select":
+                  - /url: /members/100234
+            - row "101555 Hopper, Grace 8 Select":
+              - cell "101555"
+              - cell "Hopper, Grace"
+              - cell "8"
+              - cell "Select":
+                - link "Select":
+                  - /url: /members/101555
+            - row "102777 Johnson, Katherine 12 Select":
+              - cell "102777"
+              - cell "Johnson, Katherine"
+              - cell "12"
+              - cell "Select":
+                - link "Select":
+                  - /url: /members/102777
+            - row "103001 Vaughan, Dorothy 9 Select":
+              - cell "103001"
+              - cell "Vaughan, Dorothy"
+              - cell "9"
+              - cell "Select":
+                - link "Select":
+                  - /url: /members/103001
+        - text: Try member numbers 100234, 100987, 101555, 102777, 103001.
+    - row "OPR TELLER1 | BR MAIN-001 | 09/04/2026 16:02:39 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/04/2026 16:02:39 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

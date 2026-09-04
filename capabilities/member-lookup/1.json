@@ -1,0 +1,251 @@
+{
+  "id": "member-lookup",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Look up a member by number or last name; return the member when the match is unique.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string",
+          "enum": [
+            "Member Number",
+            "Last Name"
+          ],
+          "description": "How to search, as the \"Search by:\" combobox lists it."
+        },
+        "q": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The value to search for — a member number, or a last name (matched as a substring)."
+        }
+      },
+      "required": [
+        "by",
+        "q"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "The member's name, as displayed — for example \"Lovelace, Ada\"."
+        }
+      },
+      "required": [
+        "memberNumber",
+        "name"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "MEMBER RECORD"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "NOT_FOUND",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "MEMBER INQUIRY / SELECTION"
+                },
+                "exact": true
+              }
+            },
+            {
+              "kind": "absent",
+              "locator": {
+                "role": "cell",
+                "name": {
+                  "kind": "literal",
+                  "value": "Member No."
+                },
+                "exact": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "MULTIPLE_MATCHES",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "Member No."
+            },
+            "exact": true
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "by"
+            }
+          }
+        },
+        {
+          "id": "fill-value",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "q"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-number",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Member No.:"
+                }
+              }
+            },
+            "bind": "memberNumber"
+          }
+        },
+        {
+          "id": "read-name",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 3,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Member No.:"
+                }
+              }
+            },
+            "bind": "name"
+          }
+        }
+      ]
+    }
+  ]
+}

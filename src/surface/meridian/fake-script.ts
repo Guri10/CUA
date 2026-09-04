@@ -67,6 +67,70 @@ export function meridianScript(outcome: SignOnOutcome = "succeeds"): Script {
 }
 
 /**
+ * Which outcome a member-lookup Replay should reach: the one row a unique match
+ * shows, the several rows several matches show, or the empty result no match
+ * shows. The three are different scripts, not one screen read three ways — the
+ * fake fires a transition on the control acted on, so the Search click leads to
+ * whichever result screen this outcome names.
+ */
+export type MemberLookupOutcome = "unique" | "multiple" | "none";
+
+/**
+ * The member-inquiry screens, wired for one outcome.
+ *
+ * Every tree is a real capture (`members-search`, `members-unique`,
+ * `members-candidates`, `members-not-found`, and the `member-100234` record a
+ * unique match leads to). The Search click always moves off the form to a result
+ * screen; only the unique result carries a further transition, because only there
+ * does clicking "Select" resolve to one link and lead on to the record. On the
+ * several-matches screen the "Select" Locator is ambiguous and the click simply
+ * misses, which is exactly what leaves the run standing on the candidate list.
+ */
+export function meridianMemberLookupScript(outcome: MemberLookupOutcome): Script {
+  const search: ScriptedScreen = {
+    name: "search",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members`,
+    tree: capturedMeridianTree("members-search"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "button", name: "Search" } }, to: "result" },
+    ],
+  };
+
+  if (outcome === "unique") {
+    return {
+      screens: [
+        search,
+        {
+          name: "result",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=${CAPTURED_MEMBER}`,
+          tree: capturedMeridianTree("members-unique"),
+          transitions: [
+            { when: { kind: "click", locator: { role: "link", name: "Select", exact: true } }, to: "record" },
+          ],
+        },
+        {
+          name: "record",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${CAPTURED_MEMBER}`,
+          tree: capturedMeridianTree(`member-${CAPTURED_MEMBER}`),
+        },
+      ],
+    };
+  }
+
+  const result =
+    outcome === "multiple"
+      ? { slug: "members-candidates", url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=name&q=o` }
+      : { slug: "members-not-found", url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=999999` };
+
+  return {
+    screens: [
+      search,
+      { name: "result", url: result.url, tree: capturedMeridianTree(result.slug) },
+    ],
+  };
+}
+
+/**
  * One committed MERIDIAN snapshot, by slug, scrubbed and with its `URL:` header
  * stripped.
  *

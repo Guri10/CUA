@@ -18,6 +18,7 @@
     "catalog:demo": "tsx --env-file-if-exists=.env scripts/catalog-demo.ts",
     "test:e2e": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts",
     "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
+    "capture:meridian": "tsx --env-file-if-exists=.env scripts/capture-meridian-members.ts",
     "capability:write": "tsx scripts/write-capabilities.ts",
     "parabank:start": "docker run -d -p 8080:8080 --name parabank parasoft/parabank",
     "parabank:stop": "docker rm -f parabank",
