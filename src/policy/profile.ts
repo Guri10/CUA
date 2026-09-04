@@ -32,7 +32,7 @@ const CONDITION_NAME = /^[A-Z][A-Z0-9_]*$/;
  * questions: `Action` is what the seam supports, this is what we allow to be
  * done to *this* application.
  */
-export const ACTION_KINDS = ["navigate", "click", "fill", "select", "read", "waitFor"] as const;
+export const ACTION_KINDS = ["navigate", "click", "fill", "select", "read", "readEach", "waitFor"] as const;
 
 /**
  * A Recoverable Condition: a state of the application that Replay absorbs and

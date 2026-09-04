@@ -114,6 +114,16 @@ export const stepActionSchema = z.discriminatedUnion("kind", [
     bind: z.string().regex(PROPERTY_NAME),
   }),
   z.object({
+    // Read a table's rows into a list of records. `rows` may match many; each
+    // column is resolved within its row and becomes the record field it is keyed
+    // by. `bind` names the Contract output — an array of those records — the way
+    // a `read`'s does for a scalar.
+    kind: z.literal("readEach"),
+    rows: stepLocatorSchema,
+    columns: z.record(z.string().regex(PROPERTY_NAME), stepLocatorSchema),
+    bind: z.string().regex(PROPERTY_NAME),
+  }),
+  z.object({
     kind: z.literal("waitFor"),
     locator: stepLocatorSchema,
     timeoutMs: z.int().positive().optional(),
@@ -398,7 +408,7 @@ function checkContractAgreement(
           message: `Step "${stepId}" references input "${reference}", which the Contract does not declare.`,
         });
       }
-      if (action.kind !== "read") continue;
+      if (action.kind !== "read" && action.kind !== "readEach") continue;
       if (!outputs.has(action.bind)) {
         ctx.addIssue({
           code: "custom",
@@ -448,6 +458,11 @@ export function inputReferencesInAction(action: StepAction): string[] {
       return [
         ...inputReferencesInLocator(action.locator),
         ...inputReferencesInExpression(action.option),
+      ];
+    case "readEach":
+      return [
+        ...inputReferencesInLocator(action.rows),
+        ...Object.values(action.columns).flatMap(inputReferencesInLocator),
       ];
     default:
       return inputReferencesInLocator(action.locator);

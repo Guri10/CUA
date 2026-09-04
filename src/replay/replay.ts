@@ -205,6 +205,10 @@ async function runOnce(
   ref: string,
 ): Promise<Attempt> {
   const extracted: Record<string, string> = {};
+  // A `readEach` binds a structured list, not a scalar, so it is kept apart from
+  // the text reads: `coerceTextValues` turns text into a declared type and would
+  // reject an array, which this list already is.
+  const extractedRecords: Record<string, unknown> = {};
 
   for (const step of steps) {
     const action = substituteAction(step.action, values, options.baseUrl);
@@ -238,6 +242,9 @@ async function runOnce(
     // is described by the Recording rather than by a second list of Locators
     // hanging off the Terminal State.
     if (step.action.kind === "read") extracted[step.action.bind] = result.value ?? "";
+    // A `readEach` binds the whole list of rows. An empty list is a real value —
+    // a table with no data rows — so it is bound as `[]`, not skipped.
+    if (step.action.kind === "readEach") extractedRecords[step.action.bind] = result.records ?? [];
   }
 
   // The Steps running out is not success. ADR 0004: success is a declared
@@ -261,8 +268,12 @@ async function runOnce(
     outputs: parseContractValues(
       capability.contract.outputs,
       // A read returns the text of a control; the Contract says what that text
-      // means.
-      coerceTextValues(capability.contract.outputs, extracted, `An output of ${ref}`),
+      // means. A `readEach` already produced structured rows, so those join the
+      // coerced scalars rather than passing through the text coercion.
+      {
+        ...coerceTextValues(capability.contract.outputs, extracted, `An output of ${ref}`),
+        ...extractedRecords,
+      },
       `This run's outputs for ${ref}`,
     ),
   };

@@ -146,6 +146,8 @@ export class PlaywrightSurface implements Surface {
       return { kind: "ok" };
     }
 
+    if (action.kind === "readEach") return await this.#readEach(action);
+
     const control = this.#locate(action.locator);
     const timeoutMs =
       action.kind === "waitFor" ? (action.timeoutMs ?? this.#timeoutMs) : this.#timeoutMs;
@@ -239,12 +241,49 @@ export class PlaywrightSurface implements Surface {
   }
 
   /**
+   * Read each matching row into a record of its columns — `readEach`, in
+   * Playwright's vocabulary and by the same rules the scripted fake follows.
+   *
+   * Only visible rows are counted and iterated, the same restriction the single
+   * reads make, so the fake — which reads an accessibility tree hidden elements
+   * never reach — and the browser agree on how many rows there are. Each column
+   * is located *inside* its row, so a field can only come from that row. A column
+   * matching none or several of a row's controls is the same miss any read would
+   * be, reported against the column's Locator. No visible rows is an empty list,
+   * which is a value: the table was there, it just had no data rows. The wait for
+   * the rows to arrive belongs to a `waitFor` Step before this, exactly as it
+   * does for the single reads — every table here fills after the screen does.
+   */
+  async #readEach(action: Extract<Action, { kind: "readEach" }>): Promise<ActionResult> {
+    const rows = this.#locate(action.rows).filter({ visible: true });
+    const count = await rows.count();
+
+    const records: Record<string, string>[] = [];
+    for (let i = 0; i < count; i++) {
+      const row = rows.nth(i);
+      const record: Record<string, string> = {};
+      for (const [field, column] of Object.entries(action.columns)) {
+        const cell = this.#locate(column, row).filter({ visible: true });
+        const matches = await cell.count();
+        if (matches === 0) return { kind: "not-found", locator: column };
+        if (matches > 1 && column.ordinal === undefined) {
+          return { kind: "ambiguous", locator: column, matches };
+        }
+        record[field] = await this.#read(cell.first());
+      }
+      records.push(record);
+    }
+    return { kind: "ok", records };
+  }
+
+  /**
    * A Locator, in Playwright's vocabulary. Scoping recurses, so a parent that
    * matches several controls is searched in all of them — the rule the scripted
-   * fake follows too.
+   * fake follows too. `base` is the scope to resolve in, the page unless a
+   * `readEach` is reading a column inside one particular row.
    */
-  #locate(locator: Locator): BrowserLocator {
-    const scope = locator.within === undefined ? this.#page : this.#locate(locator.within);
+  #locate(locator: Locator, base: Page | BrowserLocator = this.#page): BrowserLocator {
+    const scope = locator.within === undefined ? base : this.#locate(locator.within, base);
     const found = scope.getByRole(locator.role, {
       ...(locator.name === undefined ? {} : { name: locator.name }),
       ...(locator.exact === undefined ? {} : { exact: locator.exact }),

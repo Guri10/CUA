@@ -17,7 +17,7 @@
  */
 import { readAriaSnapshot, type AriaNode } from "./aria-snapshot.js";
 import { readControlValue } from "./read-value.js";
-import { resolveLocatorIndices } from "./resolve-locator.js";
+import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
 
 export interface Script {
@@ -114,6 +114,8 @@ export class FakeSurface implements Surface {
       return { kind: "ok" };
     }
 
+    if (action.kind === "readEach") return this.#readEach(action);
+
     const matches = resolveLocatorIndices(this.#nodes, action.locator);
     if (matches.length === 0) return { kind: "not-found", locator: action.locator };
     if (matches.length > 1) {
@@ -163,6 +165,32 @@ export class FakeSurface implements Surface {
    */
   async screenshot(): Promise<Buffer> {
     return Buffer.from(`fake screenshot: ${this.#current.name} at ${this.#current.url}\n`, "utf8");
+  }
+
+  /**
+   * Read each matching row into a record of its columns.
+   *
+   * The rows Locator is allowed to match many — that is the whole point — and
+   * each column is resolved among that row's own descendants, so a field can
+   * only come from its row. A column that matches none or several of a row's
+   * controls is the same miss any read would be, reported against that column's
+   * Locator; no row is silently skipped and no field silently shifts. No matching
+   * rows is an empty list, which is a value: a table present but with no data
+   * rows, not a control that failed to resolve.
+   */
+  #readEach(action: Extract<Action, { kind: "readEach" }>): ActionResult {
+    const records: Record<string, string>[] = [];
+    for (const row of resolveLocatorIndices(this.#nodes, action.rows)) {
+      const record: Record<string, string> = {};
+      for (const [field, column] of Object.entries(action.columns)) {
+        const cells = resolveLocatorIndicesWithin(this.#nodes, column, row);
+        if (cells.length === 0) return { kind: "not-found", locator: column };
+        if (cells.length > 1) return { kind: "ambiguous", locator: column, matches: cells.length };
+        record[field] = this.#valueAt(cells[0]!);
+      }
+      records.push(record);
+    }
+    return { kind: "ok", records };
   }
 
   /**

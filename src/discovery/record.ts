@@ -286,6 +286,19 @@ function stepActionFor(step: TakenStep, plan: RecordingPlan): StepAction {
         bind: step.bind ?? "",
       };
 
+    case "readEach":
+      return {
+        kind: "readEach",
+        rows: stepLocatorFor(action.rows, plan),
+        columns: Object.fromEntries(
+          Object.entries(action.columns).map(([field, column]) => [
+            field,
+            stepLocatorFor(column, plan),
+          ]),
+        ),
+        bind: step.bind ?? "",
+      };
+
     case "waitFor":
       return {
         kind: "waitFor",
@@ -396,6 +409,10 @@ function describeForId(action: StepAction): string {
       // The value it produces. `read-balance` is the name anybody debugging a
       // failure would have picked.
       return slug(`read ${action.bind}`);
+
+    case "readEach":
+      // The list it produces, by the output it binds — `read-each-shares`.
+      return slug(`read each ${action.bind}`);
 
     default: {
       // Role and name, and the name only when it is a literal: a reference

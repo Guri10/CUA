@@ -33,6 +33,8 @@ export function describeAction(action: Action): string {
       return `select of ${describeLocator(action.locator)}`;
     case "read":
       return `read of ${describeLocator(action.locator)}`;
+    case "readEach":
+      return `read each ${describeLocator(action.rows)} into { ${Object.keys(action.columns).join(", ")} }`;
     case "waitFor":
       return `wait for ${describeLocator(action.locator)}`;
   }

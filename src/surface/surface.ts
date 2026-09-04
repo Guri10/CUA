@@ -72,6 +72,25 @@ export type Action =
   | { readonly kind: "select"; readonly locator: Locator; readonly option: string }
   | { readonly kind: "read"; readonly locator: Locator }
   | {
+      /**
+       * Read a table's rows into a list of records. `read` gets one control's
+       * value and treats several matches as an error; this is the one place many
+       * matches is the point. Each column is resolved *within* its row, so a
+       * field can only ever come from its own row — the balance in a share's
+       * record cannot be the balance of the row below it. That grouping is why
+       * this is a verb of its own rather than several `read`s zipped by position,
+       * which misaligns the moment one row is missing a cell.
+       */
+      readonly kind: "readEach";
+      /** The rows to iterate. Matching many is expected here, not an error. */
+      readonly rows: Locator;
+      /**
+       * The columns to read from each row, keyed by the record field they
+       * become. Each Locator is resolved among the row's own descendants.
+       */
+      readonly columns: Readonly<Record<string, Locator>>;
+    }
+  | {
       readonly kind: "waitFor";
       readonly locator: Locator;
       /** Absent means the Surface's own default. */
@@ -98,6 +117,13 @@ export type ActionResult =
       readonly kind: "ok";
       /** The accessible name a `read` returned. Absent for every other Action. */
       readonly value?: string;
+      /**
+       * The rows a `readEach` returned, each a record of field name to value.
+       * Absent for every other Action. An empty list is a table with no data
+       * rows — a value, not a miss, so a member with no shares is a success that
+       * returns `[]` rather than a NOT_FOUND.
+       */
+      readonly records?: readonly Readonly<Record<string, string>>[];
     }
   | { readonly kind: "not-found"; readonly locator: Locator }
   | { readonly kind: "ambiguous"; readonly locator: Locator; readonly matches: number }
