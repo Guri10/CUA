@@ -273,3 +273,90 @@ describe("FakeSurface", () => {
     });
   });
 });
+
+/**
+ * An ambiguous Locator is a miss, and a miss does nothing. member-lookup's
+ * MULTIPLE_MATCHES rests entirely on this: its `select-member` step clicks
+ * `link "Select"`, and on a by-name search that matches several members the
+ * locator is ambiguous — so the click misses, the run stays on the results
+ * screen, and MULTIPLE_MATCHES holds. If a click ever silently resolved an
+ * ambiguous locator to its first match, that same "Select" would click the
+ * first candidate, reach a member record, and be reported as SUCCESS with the
+ * wrong member — a Hard Failure answered as a success, the worst way for this
+ * system to be wrong. These tests pin the invariant at the layer it lives in,
+ * so any future move to first-match resolution has to break a test to happen.
+ */
+describe("FakeSurface rejects ambiguous locators without acting on the first (#34)", () => {
+  // A results screen whose two "Select" links each lead to the same transition,
+  // so a first-match click would fire it and land on the record — exactly the
+  // wrong-member-SUCCESS mistake. The ambiguous click must instead stay put.
+  const AMBIGUOUS_SCRIPT: Script = {
+    screens: [
+      {
+        name: "results",
+        url: "https://example.test/results.htm",
+        tree: [
+          `- heading "Search Results"`,
+          `- link "Select"`,
+          `- link "Select"`,
+          `- textbox`,
+          `- textbox`,
+          `- cell "Ada Lovelace"`,
+          `- cell "Ada Lovelace"`,
+        ].join("\n"),
+        transitions: [
+          { when: { kind: "click", locator: { role: "link", name: "Select" } }, to: "record" },
+        ],
+      },
+      {
+        name: "record",
+        url: "https://example.test/record.htm",
+        tree: `- heading "Member Record"\n`,
+      },
+    ],
+  };
+
+  it("a click on a locator matching several controls is ambiguous and fires no transition", async () => {
+    const surface = new FakeSurface(AMBIGUOUS_SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/results.htm" });
+
+    const locator: Locator = { role: "link", name: "Select" };
+    const result = await surface.perform({ kind: "click", locator });
+
+    expect(result).toEqual({ kind: "ambiguous", locator, matches: 2 });
+    // The invariant that guards wrong-member SUCCESS: the click did not act on
+    // the first "Select", so the run never left the results screen.
+    expect((await surface.snapshot()).url).toBe("https://example.test/results.htm");
+  });
+
+  it("a fill on a locator matching several controls is ambiguous and enters nothing", async () => {
+    const surface = new FakeSurface(AMBIGUOUS_SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/results.htm" });
+
+    const locator: Locator = { role: "textbox" };
+    const result = await surface.perform({ kind: "fill", locator, value: "typed-value" });
+
+    expect(result).toEqual({ kind: "ambiguous", locator, matches: 2 });
+    // Neither box was written: a fill that missed must not silently land on the
+    // first control.
+    expect(await surface.perform({ kind: "read", locator: { role: "textbox", ordinal: 0 } })).toEqual(
+      { kind: "ok", value: "" },
+    );
+    expect(await surface.perform({ kind: "read", locator: { role: "textbox", ordinal: 1 } })).toEqual(
+      { kind: "ok", value: "" },
+    );
+  });
+
+  it("a read on a locator matching several controls is ambiguous, not the first value", async () => {
+    const surface = new FakeSurface(AMBIGUOUS_SCRIPT);
+    await surface.perform({ kind: "navigate", url: "https://example.test/results.htm" });
+
+    const locator: Locator = { role: "cell", name: "Ada Lovelace" };
+
+    expect(await surface.perform({ kind: "read", locator })).toEqual({
+      kind: "ambiguous",
+      locator,
+      matches: 2,
+    });
+  });
+});
