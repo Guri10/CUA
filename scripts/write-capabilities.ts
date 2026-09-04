@@ -12,10 +12,16 @@
 import { accountLookupCapability } from "../src/capability/parabank/account-lookup.js";
 import { signOnCapability } from "../src/capability/meridian/sign-on.js";
 import { memberLookupCapability } from "../src/capability/meridian/member-lookup.js";
+import { memberBalanceCapability } from "../src/capability/meridian/member-balance.js";
 import { capabilitiesDir, saveCapability } from "../src/capability/storage.js";
 
 const root = capabilitiesDir();
 
-for (const capability of [accountLookupCapability(), signOnCapability(), memberLookupCapability()]) {
+for (const capability of [
+  accountLookupCapability(),
+  signOnCapability(),
+  memberLookupCapability(),
+  memberBalanceCapability(),
+]) {
   console.log(`wrote ${await saveCapability(root, capability)}`);
 }

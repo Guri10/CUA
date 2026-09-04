@@ -1,0 +1,246 @@
+{
+  "id": "member-balance",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Read every share on a member's record — id, type, balance, and status — by member number.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        }
+      },
+      "required": [
+        "memberNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "shares": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shareId": {
+                "type": "string",
+                "description": "The share's id — for example \"100234-S0001\"."
+              },
+              "type": {
+                "type": "string",
+                "description": "The share's type, as displayed — for example \"Regular Shares\"."
+              },
+              "balance": {
+                "type": "string",
+                "description": "The share's balance, as displayed — for example \"$2,499.00\"."
+              },
+              "status": {
+                "type": "string",
+                "description": "The share's status, as displayed — for example \"OPEN\" or \"HOLD [HOLD]\"."
+              }
+            },
+            "required": [
+              "shareId",
+              "type",
+              "balance",
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "description": "Every share on the member record, id / type / balance / status, in screen order."
+        }
+      },
+      "required": [
+        "shares"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "MEMBER RECORD"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "NOT_FOUND",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "MEMBER INQUIRY / SELECTION"
+                },
+                "exact": true
+              }
+            },
+            {
+              "kind": "absent",
+              "locator": {
+                "role": "cell",
+                "name": {
+                  "kind": "literal",
+                  "value": "Member No."
+                },
+                "exact": true
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "Member Number"
+            }
+          }
+        },
+        {
+          "id": "fill-value",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-shares",
+          "action": {
+            "kind": "readEach",
+            "rows": {
+              "role": "row",
+              "name": {
+                "kind": "literal",
+                "value": "$"
+              }
+            },
+            "columns": {
+              "shareId": {
+                "role": "cell",
+                "ordinal": 0
+              },
+              "type": {
+                "role": "cell",
+                "ordinal": 1
+              },
+              "balance": {
+                "role": "cell",
+                "ordinal": 2
+              },
+              "status": {
+                "role": "cell",
+                "ordinal": 3
+              }
+            },
+            "bind": "shares"
+          }
+        }
+      ]
+    }
+  ]
+}
