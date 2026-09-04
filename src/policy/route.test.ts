@@ -82,3 +82,69 @@ describe("classifying a URL against a Surface profile", () => {
     expect(routeOf(profile, "http://localhost:8080/parabank/billpay.htm").allowed).toBe(false);
   });
 });
+
+/**
+ * MERIDIAN parameterises its member-servicing routes by member number
+ * (`/members/100234/transfer/review`), so the allowlist lists path *patterns*
+ * with a `:id` parameter rather than one literal per member. A route's
+ * read/mutate class is decided by its verb segments (`/transfer`, `/review`),
+ * never by which member it names (ADR 0009).
+ */
+const meridian: SurfaceProfile = {
+  id: "meridian",
+  baseUrl: "https://meridian.test/console",
+  allowedOrigins: ["https://meridian.test"],
+  actions: ["navigate", "click", "fill", "select", "read", "waitFor"],
+  routes: {
+    "read-only": ["/members/:id", "/members/:id/balances"],
+    mutating: ["/members/:id/transfer/review", "/members/:id/transfer/post"],
+  },
+  recoverableConditions: [],
+};
+
+describe("classifying a parameterised route against a Surface profile", () => {
+  it("classifies a parameterised path by its pattern, whatever the id", () => {
+    // Two different members, same route, same verdict — the id is data, not a
+    // route, so it cannot change the read/mutate class.
+    expect(routeOf(meridian, "https://meridian.test/console/members/100234/balances")).toEqual({
+      allowed: true,
+      route: "/members/100234/balances",
+      mutates: false,
+    });
+    expect(routeOf(meridian, "https://meridian.test/console/members/999999/balances")).toEqual({
+      allowed: true,
+      route: "/members/999999/balances",
+      mutates: false,
+    });
+  });
+
+  it("lets the verb segments decide read vs mutate, not the id", () => {
+    expect(
+      routeOf(meridian, "https://meridian.test/console/members/100234/transfer/review"),
+    ).toEqual({ allowed: true, route: "/members/100234/transfer/review", mutates: true });
+  });
+
+  it("looks past a session token attached to a parameter segment", () => {
+    // The strip runs before matching, so a token on any segment — the id
+    // included — does not stop the pattern from matching.
+    expect(
+      routeOf(meridian, "https://meridian.test/console/members/100234;jsessionid=ABC/balances"),
+    ).toMatchObject({ allowed: true, route: "/members/100234/balances", mutates: false });
+  });
+
+  it("refuses a parameterised path no pattern classifies", () => {
+    // Deny-by-default survives the move to patterns: an unlisted verb is still
+    // refused, not assumed safe.
+    expect(
+      routeOf(meridian, "https://meridian.test/console/members/100234/close").allowed,
+    ).toBe(false);
+  });
+
+  it("does not let a parameter swallow a differing segment count", () => {
+    // `:id` matches exactly one segment; a path with an extra segment is a
+    // different route and stays unclassified.
+    expect(
+      routeOf(meridian, "https://meridian.test/console/members/100234/balances/history").allowed,
+    ).toBe(false);
+  });
+});
