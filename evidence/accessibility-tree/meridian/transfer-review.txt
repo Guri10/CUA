@@ -1,0 +1,47 @@
+URL: https://web-sample.interface-hiring.com/members/100234/transfer/review
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "CONFIRM FUNDS TRANSFER Member: 100234 - Lovelace, Ada From: 100234-S0001-26 ($9.00) To: 100234-S0001-25 ($11.00) Amount: $1.00 Memo: capture probe This will post immediately and cannot be reversed from this screen. Post Transfer Cancel"':
+      - 'cell "CONFIRM FUNDS TRANSFER Member: 100234 - Lovelace, Ada From: 100234-S0001-26 ($9.00) To: 100234-S0001-25 ($11.00) Amount: $1.00 Memo: capture probe This will post immediately and cannot be reversed from this screen. Post Transfer Cancel"':
+        - heading "CONFIRM FUNDS TRANSFER" [level=1]
+        - table:
+          - rowgroup:
+            - 'row "Member: 100234 - Lovelace, Ada"':
+              - cell "Member:"
+              - cell "100234 - Lovelace, Ada"
+            - 'row "From: 100234-S0001-26 ($9.00)"':
+              - cell "From:"
+              - cell "100234-S0001-26 ($9.00)"
+            - 'row "To: 100234-S0001-25 ($11.00)"':
+              - cell "To:"
+              - cell "100234-S0001-25 ($11.00)"
+            - 'row "Amount: $1.00"':
+              - cell "Amount:"
+              - cell "$1.00"
+            - 'row "Memo: capture probe"':
+              - cell "Memo:"
+              - cell "capture probe"
+        - text: This will post immediately and cannot be reversed from this screen.
+        - button "Post Transfer"
+        - link "Cancel":
+          - /url: /members/100234/transfer
+    - row "OPR TELLER1 | BR MAIN-001 | 09/04/2026 23:13:55 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/04/2026 23:13:55 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

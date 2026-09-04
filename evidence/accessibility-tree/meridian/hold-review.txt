@@ -1,0 +1,44 @@
+URL: https://web-sample.interface-hiring.com/members/100234/hold/review
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "CONFIRM ACCOUNT HOLD IRREVERSIBLE ACTION Member: 100234 - Lovelace, Ada Share: 100234-S0001-18 - Regular Shares Reason: FRAUD Notes: (none) Apply Hold Cancel"':
+      - 'cell "CONFIRM ACCOUNT HOLD IRREVERSIBLE ACTION Member: 100234 - Lovelace, Ada Share: 100234-S0001-18 - Regular Shares Reason: FRAUD Notes: (none) Apply Hold Cancel"':
+        - heading "CONFIRM ACCOUNT HOLD" [level=1]
+        - text: IRREVERSIBLE ACTION
+        - table:
+          - rowgroup:
+            - 'row "Member: 100234 - Lovelace, Ada"':
+              - cell "Member:"
+              - cell "100234 - Lovelace, Ada"
+            - 'row "Share: 100234-S0001-18 - Regular Shares"':
+              - cell "Share:"
+              - cell "100234-S0001-18 - Regular Shares"
+            - 'row "Reason: FRAUD"':
+              - cell "Reason:"
+              - cell "FRAUD"
+            - 'row "Notes: (none)"':
+              - cell "Notes:"
+              - cell "(none)"
+        - button "Apply Hold"
+        - link "Cancel":
+          - /url: /members/100234
+    - row "OPR SUPER1 | BR MAIN-001 | 09/04/2026 23:26:27 | SID [REDACTED]":
+      - cell "OPR SUPER1 | BR MAIN-001 | 09/04/2026 23:26:27 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

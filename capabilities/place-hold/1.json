@@ -1,0 +1,337 @@
+{
+  "id": "place-hold",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Place a hold on one of a member's shares, walking form → review → post, and return the confirmation number.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        },
+        "shareId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The share to hold, exactly as the hold form's \"Share\" combobox lists it — for example \"100234-S0001 - Regular Shares\"."
+        },
+        "reasonCode": {
+          "type": "string",
+          "enum": [
+            "FRAUD - Suspected fraud",
+            "LEGAL - Legal / levy",
+            "DECEASED - Member deceased"
+          ],
+          "description": "The hold reason, as the \"Reason Code\" combobox lists it."
+        },
+        "notes": {
+          "default": "",
+          "description": "Optional notes recorded with the hold; pass an empty string for none.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberNumber",
+        "shareId",
+        "reasonCode",
+        "notes"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "confirmationNumber": {
+          "type": "string",
+          "description": "The applied hold's confirmation number — for example \"CN480245\"."
+        }
+      },
+      "required": [
+        "confirmationNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "ACCOUNT HOLD APPLIED"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "SUPERVISOR_OVERRIDE_REQUIRED",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "SUPERVISOR OVERRIDE REQUIRED"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "Member Number"
+            }
+          }
+        },
+        {
+          "id": "fill-member-number",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "open-hold",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Place Account Hold"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-form",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "PLACE ACCOUNT HOLD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "choose-share",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "shareId"
+            }
+          }
+        },
+        {
+          "id": "choose-reason",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            },
+            "option": {
+              "kind": "input",
+              "input": "reasonCode"
+            }
+          }
+        },
+        {
+          "id": "fill-notes",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "notes"
+            }
+          }
+        },
+        {
+          "id": "continue",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Continue"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-review",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "CONFIRM ACCOUNT HOLD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "apply",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Apply Hold"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-applied",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "ACCOUNT HOLD APPLIED"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-confirmation",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Confirmation:"
+                },
+                "within": {
+                  "role": "table",
+                  "ordinal": 1
+                }
+              }
+            },
+            "bind": "confirmationNumber"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,367 @@
+{
+  "id": "funds-transfer",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Transfer an amount between two of a member's shares, walking form → review → post, and return the confirmation number.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        },
+        "fromShare": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The share to debit, exactly as the transfer form's \"From Share\" combobox lists it — for example \"100234-S0001-14 - Regular Shares ($100.00)\"."
+        },
+        "toShare": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The share to credit, exactly as the \"To Share\" combobox lists it."
+        },
+        "amount": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The amount to transfer, as typed into the form — for example \"1.00\"."
+        },
+        "memo": {
+          "default": "",
+          "description": "An optional memo recorded with the transfer; pass an empty string for none.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberNumber",
+        "fromShare",
+        "toShare",
+        "amount",
+        "memo"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "confirmationNumber": {
+          "type": "string",
+          "description": "The posted transfer's confirmation number — for example \"CN480242\"."
+        }
+      },
+      "required": [
+        "confirmationNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "TRANSFER POSTED"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "SOURCE_ON_HOLD",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "Source share is HOLD and cannot be debited."
+            }
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "INSUFFICIENT_FUNDS",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "Insufficient available balance in the source share."
+            }
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "Member Number"
+            }
+          }
+        },
+        {
+          "id": "fill-member-number",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "open-transfer",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Funds Transfer"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-form",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "FUNDS TRANSFER"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "choose-from",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "fromShare"
+            }
+          }
+        },
+        {
+          "id": "choose-to",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            },
+            "option": {
+              "kind": "input",
+              "input": "toShare"
+            }
+          }
+        },
+        {
+          "id": "fill-amount",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "amount"
+            }
+          }
+        },
+        {
+          "id": "fill-memo",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            },
+            "value": {
+              "kind": "input",
+              "input": "memo"
+            }
+          }
+        },
+        {
+          "id": "continue",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Continue"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-review",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "CONFIRM FUNDS TRANSFER"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "post",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Post Transfer"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-posted",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "TRANSFER POSTED"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-confirmation",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Confirmation:"
+                },
+                "within": {
+                  "role": "table",
+                  "ordinal": 1
+                }
+              }
+            },
+            "bind": "confirmationNumber"
+          }
+        }
+      ]
+    }
+  ]
+}

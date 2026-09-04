@@ -13,6 +13,8 @@ import { accountLookupCapability } from "../src/capability/parabank/account-look
 import { signOnCapability } from "../src/capability/meridian/sign-on.js";
 import { memberLookupCapability } from "../src/capability/meridian/member-lookup.js";
 import { memberBalanceCapability } from "../src/capability/meridian/member-balance.js";
+import { fundsTransferCapability } from "../src/capability/meridian/funds-transfer.js";
+import { placeHoldCapability } from "../src/capability/meridian/place-hold.js";
 import { capabilitiesDir, saveCapability } from "../src/capability/storage.js";
 
 const root = capabilitiesDir();
@@ -22,6 +24,8 @@ for (const capability of [
   signOnCapability(),
   memberLookupCapability(),
   memberBalanceCapability(),
+  fundsTransferCapability(),
+  placeHoldCapability(),
 ]) {
   console.log(`wrote ${await saveCapability(root, capability)}`);
 }

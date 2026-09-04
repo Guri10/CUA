@@ -131,6 +131,206 @@ export function meridianMemberLookupScript(outcome: MemberLookupOutcome): Script
 }
 
 /**
+ * Which ending a funds-transfer Replay should reach: the posted confirmation, or
+ * one of the two refusals the review step turns a bad request back with. The
+ * three are different scripts, not one screen read three ways — the fake fires a
+ * transition on the control acted on, so the "Continue" click leads to whichever
+ * screen this outcome names, exactly as the member-lookup outcomes do.
+ */
+export type FundsTransferOutcome = "posted" | "source-on-hold" | "insufficient-funds";
+
+/**
+ * The transfer screens, wired for one outcome.
+ *
+ * Every tree is a real capture. The flow reaches the form the long way — search,
+ * the unique result, the record, then the record's "Funds Transfer" link — so
+ * the same `members-search` / `members-unique` / `member-100234` captures the
+ * lookup Capabilities use are reused here. On the form the "Continue" click leads
+ * to the review on the `posted` path and straight to a refusal screen on the
+ * other two; only the review carries a further "Post Transfer" transition, to the
+ * posted confirmation.
+ */
+export function meridianTransferScript(outcome: FundsTransferOutcome): Script {
+  const member = CAPTURED_MEMBER;
+  const search: ScriptedScreen = {
+    name: "search",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members`,
+    tree: capturedMeridianTree("members-search"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "button", name: "Search" } }, to: "result" },
+    ],
+  };
+  const result: ScriptedScreen = {
+    name: "result",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=${member}`,
+    tree: capturedMeridianTree("members-unique"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "link", name: "Select", exact: true } }, to: "record" },
+    ],
+  };
+  const record: ScriptedScreen = {
+    name: "record",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}`,
+    tree: capturedMeridianTree(`member-${member}`),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "link", name: "Funds Transfer", exact: true } },
+        to: "form",
+      },
+    ],
+  };
+
+  const form: ScriptedScreen = {
+    name: "form",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/transfer`,
+    tree: capturedMeridianTree("transfer"),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "button", name: "Continue" } },
+        // The review on the posted path; the refusal screen on the others.
+        to: outcome === "posted" ? "review" : "outcome",
+      },
+    ],
+  };
+
+  const prefix = [search, result, record, form];
+
+  if (outcome === "posted") {
+    return {
+      screens: [
+        ...prefix,
+        {
+          name: "review",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/transfer/review`,
+          tree: capturedMeridianTree("transfer-review"),
+          transitions: [
+            {
+              when: { kind: "click", locator: { role: "button", name: "Post Transfer" } },
+              to: "posted",
+            },
+          ],
+        },
+        {
+          name: "posted",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/transfer/post`,
+          tree: capturedMeridianTree("transfer-complete"),
+        },
+      ],
+    };
+  }
+
+  const slug =
+    outcome === "source-on-hold" ? "transfer-source-on-hold" : "transfer-insufficient-funds";
+  return {
+    screens: [
+      ...prefix,
+      {
+        name: "outcome",
+        url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/transfer/review`,
+        tree: capturedMeridianTree(slug),
+      },
+    ],
+  };
+}
+
+/**
+ * Which ending a place-hold Replay should reach: the applied confirmation a
+ * supervisor session posts, or the supervisor-override-required screen a teller
+ * session is stopped at. As with the transfer outcomes these are different
+ * scripts — the "Continue" click leads to whichever screen the session's
+ * authority would actually produce.
+ */
+export type PlaceHoldOutcome = "applied" | "override-required";
+
+/**
+ * The hold screens, wired for one outcome.
+ *
+ * Every tree is a real capture. The flow reaches the form the long way — search,
+ * the unique result, the record, then the record's "Place Account Hold" link — so
+ * the same lookup captures are reused. On the form "Continue" leads to the review
+ * on the `applied` path and to the override screen on the other; only the review
+ * carries a further "Apply Hold" transition, to the applied confirmation.
+ */
+export function meridianHoldScript(outcome: PlaceHoldOutcome): Script {
+  const member = CAPTURED_MEMBER;
+  const search: ScriptedScreen = {
+    name: "search",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members`,
+    tree: capturedMeridianTree("members-search"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "button", name: "Search" } }, to: "result" },
+    ],
+  };
+  const result: ScriptedScreen = {
+    name: "result",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=${member}`,
+    tree: capturedMeridianTree("members-unique"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "link", name: "Select", exact: true } }, to: "record" },
+    ],
+  };
+  const record: ScriptedScreen = {
+    name: "record",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}`,
+    tree: capturedMeridianTree(`member-${member}`),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "link", name: "Place Account Hold", exact: true } },
+        to: "form",
+      },
+    ],
+  };
+  const form: ScriptedScreen = {
+    name: "form",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/hold`,
+    tree: capturedMeridianTree("hold"),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "button", name: "Continue" } },
+        to: outcome === "applied" ? "review" : "outcome",
+      },
+    ],
+  };
+
+  const prefix = [search, result, record, form];
+
+  if (outcome === "applied") {
+    return {
+      screens: [
+        ...prefix,
+        {
+          name: "review",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/hold/review`,
+          tree: capturedMeridianTree("hold-review"),
+          transitions: [
+            {
+              when: { kind: "click", locator: { role: "button", name: "Apply Hold" } },
+              to: "applied",
+            },
+          ],
+        },
+        {
+          name: "applied",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/hold/post`,
+          tree: capturedMeridianTree("hold-complete"),
+        },
+      ],
+    };
+  }
+
+  return {
+    screens: [
+      ...prefix,
+      {
+        name: "outcome",
+        url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/hold/review`,
+        tree: capturedMeridianTree("hold-override-required"),
+      },
+    ],
+  };
+}
+
+/**
  * One committed MERIDIAN snapshot, by slug, scrubbed and with its `URL:` header
  * stripped.
  *

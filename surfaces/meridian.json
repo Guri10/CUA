@@ -14,7 +14,11 @@
     ],
     "mutating": [
       "/members/:id/transfer",
+      "/members/:id/transfer/review",
+      "/members/:id/transfer/post",
       "/members/:id/hold",
+      "/members/:id/hold/review",
+      "/members/:id/hold/post",
       "/members/:id/open-share",
       "/members/:id/update"
     ]
