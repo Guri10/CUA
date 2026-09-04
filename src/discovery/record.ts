@@ -164,7 +164,7 @@ export function recordCapability(plan: RecordingPlan, taken: readonly TakenStep[
     contract: {
       summary: plan.summary,
       inputs: textSchemaFor(Object.keys(plan.inputs)),
-      outputs: textSchemaFor(plan.outputs),
+      outputs: outputsSchemaFor(plan.outputs, identified),
       effects: effectsOf(plan, taken),
       terminalStates: [success],
     },
@@ -202,12 +202,15 @@ function keptSteps(taken: readonly TakenStep[], outputs: readonly string[]): Tak
   const declared = new Set(outputs);
   const lastReadFor = new Map<string, TakenStep>();
   for (const step of succeeded) {
-    if (step.action.kind !== "read") continue;
+    if (step.action.kind !== "read" && step.action.kind !== "readEach") continue;
     if (step.bind === undefined || !declared.has(step.bind)) continue;
     lastReadFor.set(step.bind, step);
   }
   const bound = new Set(lastReadFor.values());
-  const useful = succeeded.filter((step) => step.action.kind !== "read" || bound.has(step));
+  const useful = succeeded.filter(
+    (step) =>
+      (step.action.kind !== "read" && step.action.kind !== "readEach") || bound.has(step),
+  );
 
   return withoutSupersededSteps(useful);
 }
@@ -534,7 +537,9 @@ function unusedInputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
  */
 function unreadOutputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
   const bound = new Set(
-    steps.flatMap((step) => (step.action.kind === "read" ? [step.action.bind] : [])),
+    steps.flatMap((step) =>
+      step.action.kind === "read" || step.action.kind === "readEach" ? [step.action.bind] : [],
+    ),
   );
 
   return plan.outputs
@@ -558,4 +563,36 @@ function unreadOutputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
  */
 function textSchemaFor(names: readonly string[]) {
   return jsonSchemaFor(z.object(Object.fromEntries(names.map((name) => [name, z.string()]))));
+}
+
+/**
+ * The output schema, shaped by the Step that reads each value.
+ *
+ * A value taken by a `read` is text, which the Contract coerces to its declared
+ * type at replay. A value taken by a `readEach` is a list — one record per row,
+ * a string field per column the Step read. The recorder knows which is which
+ * because the reading Step carries the shape, so the schema follows the
+ * Recording rather than a guess about what a name ought to mean. The column
+ * names are the record's fields, which is why the model is asked to key them.
+ */
+function outputsSchemaFor(outputs: readonly string[], steps: readonly Step[]) {
+  const listColumns = new Map<string, readonly string[]>();
+  for (const step of steps) {
+    if (step.action.kind === "readEach") {
+      listColumns.set(step.action.bind, Object.keys(step.action.columns));
+    }
+  }
+
+  return jsonSchemaFor(
+    z.object(
+      Object.fromEntries(
+        outputs.map((name) => {
+          const columns = listColumns.get(name);
+          if (columns === undefined) return [name, z.string()];
+          const record = z.object(Object.fromEntries(columns.map((field) => [field, z.string()])));
+          return [name, z.array(record)];
+        }),
+      ),
+    ),
+  );
 }
