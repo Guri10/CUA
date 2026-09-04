@@ -150,11 +150,15 @@ export async function replayCapability(
       return { ...attempt.failure, observed: `${attempt.failure.observed}; ${refusal}` };
     }
 
-    // The session is re-established, and then the whole Recording runs again
-    // from its first Step. Re-running rather than resuming, because the Steps
-    // already taken were taken in a session that no longer exists — the screen
-    // they left the run on went with it.
-    await options.reestablishSession?.();
+    // Absorbed, and then the whole Recording runs again from its first Step.
+    // Re-running rather than resuming, because the screen the run was left
+    // standing on is not one any Step expected to be on. A `re-establish-session`
+    // condition means the old session is gone, so a new one is signed in first;
+    // a `retry` condition (MERIDIAN's transient maintenance page) leaves the
+    // session intact, so the run is simply attempted again.
+    if (attempt.condition.recover === "re-establish-session") {
+      await options.reestablishSession?.();
+    }
   }
 }
 
@@ -175,7 +179,9 @@ function whyNotAbsorbed(
 ): string | undefined {
   const met = `the "${condition.name}" Recoverable Condition matched`;
 
-  if (options.reestablishSession === undefined) {
+  // Only re-establishing needs credentials the caller may not have handed over;
+  // a `retry` condition is absorbed with nothing but another pass.
+  if (condition.recover === "re-establish-session" && options.reestablishSession === undefined) {
     return `${met}, and this run was given no way to re-establish a session`;
   }
   if (capability.contract.effects !== "read-only") {

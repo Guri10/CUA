@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
 import { capabilitySchema, type Capability } from "../capability/schema.js";
-import { loadSurfaceProfile, surfacesDir } from "../policy/profile.js";
+import { loadSurfaceProfile, surfacesDir, type RecoverableCondition } from "../policy/profile.js";
 import { FakeSurface, type Script, type ScriptedScreen } from "../surface/fake-surface.js";
 import { logInToParabank } from "../surface/parabank/login.js";
 import { parabankScript, PARABANK_CAPTURED_BASE_URL as BASE } from "../surface/parabank/fake-script.js";
@@ -162,6 +162,33 @@ describe("a Recoverable Condition during a Replay", () => {
     expect(result.kind === "hard-failure" && result.observed).toContain(
       `the "SESSION_EXPIRED" Recoverable Condition matched again, and this run may absorb only 1`,
     );
+  });
+
+  it("absorbs a `retry` condition without re-establishing a session", async () => {
+    // MERIDIAN's transient maintenance page (ADR 0005's middle class, the other
+    // recovery kind): the session is intact, so the run is simply attempted
+    // again — with no credentials handed over, which a `re-establish-session`
+    // condition would have been refused for. The once-only expiry stands in for
+    // the transient screen here; what is under test is that `retry` needs no
+    // `reestablishSession` to be absorbed.
+    const surface = new FakeSurface(expiringParabank());
+    const maintenance: RecoverableCondition = {
+      name: "MAINTENANCE",
+      when: { kind: "present", locator: { role: "button", name: { kind: "literal", value: "Log In" } } },
+      recover: "retry",
+    };
+
+    const result = await replayCapability(
+      surface,
+      accountLookupCapability(),
+      { accountId: CAPTURED_ACCOUNT },
+      { baseUrl: BASE, recoverableConditions: [maintenance] },
+    );
+
+    expect(result).toEqual({
+      kind: "success",
+      outputs: { accountType: "CHECKING", balance: "-$2300.00" },
+    });
   });
 
   it("leaves a screen no profile describes as a Hard Failure", async () => {

@@ -1,0 +1,161 @@
+{
+  "id": "sign-on",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Sign on as an operator and reach the MERIDIAN main menu.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "operator": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The operator id, e.g. \"teller1\"."
+        },
+        "password": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The operator's password. A Secret — never persisted."
+        },
+        "branch": {
+          "type": "string",
+          "enum": [
+            "MAIN-001 - Main Office",
+            "WEST-014 - Westside",
+            "EAST-022 - Eastgate"
+          ],
+          "description": "The branch, as the sign-on combobox lists it."
+        }
+      },
+      "required": [
+        "operator",
+        "password",
+        "branch"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "MAIN MENU"
+            }
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "BAD_LOGIN",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "OPERATOR SIGN ON"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-sign-on",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/signon"
+            }
+          }
+        },
+        {
+          "id": "fill-operator",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "operator"
+            }
+          }
+        },
+        {
+          "id": "fill-password",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            },
+            "value": {
+              "kind": "input",
+              "input": "password"
+            }
+          }
+        },
+        {
+          "id": "choose-branch",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "branch"
+            }
+          }
+        },
+        {
+          "id": "sign-on",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Sign On"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-menu",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MAIN MENU"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

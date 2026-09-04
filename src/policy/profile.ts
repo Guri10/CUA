@@ -43,23 +43,33 @@ export const ACTION_KINDS = ["navigate", "click", "fill", "select", "read", "wai
  * instead of what was asked for" is written in the one vocabulary ADR 0001
  * allows, and matched by the same resolver.
  *
- * `recover` has one value today, and the reason is worth writing down rather
- * than leaving as an apparent oversight. ADR 0005 names three kinds of
- * Recoverable Condition; the other two need no entry here. A slow load is
- * waited out by the Step that is waiting for the control, which is where a wait
- * belongs and where its timeout is already declared. An interstitial to dismiss
- * would be a list of Actions — and ParaBank has none, so writing the variant
- * now would be writing config nothing serves. Adding either is additive.
+ * `recover` has two values — see its own doc below for what each does and why
+ * a third ADR 0005 kind still needs no entry. A slow load is waited out by the
+ * Step that is waiting for the control, which is where a wait belongs and where
+ * its timeout is already declared; an interstitial to dismiss would be a list
+ * of Actions, and neither target serves one, so writing that variant now would
+ * be writing config nothing reads. Adding it is additive.
  */
 export const recoverableConditionSchema = z.object({
   name: z.string().regex(CONDITION_NAME),
   when: predicateSchema,
   /**
-   * How to absorb it. Re-establishing a session needs credentials, which ADR
-   * 0006 classes a Secret and no checked-in file holds — so the profile says
-   * that this is what the condition needs, and the caller supplies the doing.
+   * How to absorb it.
+   *
+   * `re-establish-session` needs credentials, which ADR 0006 classes a Secret
+   * and no checked-in file holds — so the profile says that this is what the
+   * condition needs, and the caller supplies the doing. `retry` needs nothing:
+   * the session is intact and the screen was transient (MERIDIAN's maintenance
+   * page, served on a `503` but recognised by its heading like any other
+   * condition — nothing here inspects an HTTP status), so the run is simply
+   * attempted again from the start.
+   *
+   * Replay branches on this to decide whether to re-establish before re-running
+   * (`replay.ts`). The budget that bounds how many times either kind may be
+   * absorbed, and the escalation when it runs out, is #26's to harden; the two
+   * kinds and their mechanics are declared here.
    */
-  recover: z.enum(["re-establish-session"]),
+  recover: z.enum(["re-establish-session", "retry"]),
 });
 
 export type RecoverableCondition = z.infer<typeof recoverableConditionSchema>;

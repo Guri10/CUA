@@ -1,0 +1,40 @@
+{
+  "id": "meridian",
+  "baseUrl": "https://web-sample.interface-hiring.com",
+  "allowedOrigins": ["https://web-sample.interface-hiring.com"],
+  "actions": ["navigate", "click", "fill", "select", "read", "waitFor"],
+  "routes": {
+    "read-only": [
+      "/signon",
+      "/menu",
+      "/members",
+      "/members/:id",
+      "/settings",
+      "/signoff"
+    ],
+    "mutating": [
+      "/members/:id/transfer",
+      "/members/:id/hold",
+      "/members/:id/open-share",
+      "/members/:id/update"
+    ]
+  },
+  "recoverableConditions": [
+    {
+      "name": "SESSION_EXPIRED",
+      "when": {
+        "kind": "present",
+        "locator": { "role": "heading", "name": { "kind": "literal", "value": "Session Ended" } }
+      },
+      "recover": "re-establish-session"
+    },
+    {
+      "name": "MAINTENANCE",
+      "when": {
+        "kind": "present",
+        "locator": { "role": "heading", "name": { "kind": "literal", "value": "System Maintenance" } }
+      },
+      "recover": "retry"
+    }
+  ]
+}

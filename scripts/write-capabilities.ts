@@ -10,10 +10,11 @@
  * the module that produced it.
  */
 import { accountLookupCapability } from "../src/capability/parabank/account-lookup.js";
+import { signOnCapability } from "../src/capability/meridian/sign-on.js";
 import { capabilitiesDir, saveCapability } from "../src/capability/storage.js";
 
 const root = capabilitiesDir();
 
-for (const capability of [accountLookupCapability()]) {
+for (const capability of [accountLookupCapability(), signOnCapability()]) {
   console.log(`wrote ${await saveCapability(root, capability)}`);
 }
