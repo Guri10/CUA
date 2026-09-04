@@ -1,0 +1,161 @@
+URL: https://web-sample.interface-hiring.com/members/100234
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - row:
+      - cell:
+        - heading "MEMBER RECORD" [level=1]
+        - table:
+          - rowgroup:
+            - 'row "Member No.: 100234 Name: Lovelace, Ada"':
+              - cell "Member No.:"
+              - cell "100234"
+              - cell "Name:"
+              - cell "Lovelace, Ada"
+            - 'row "E-mail: jane@example.com Phone: 555-0142"':
+              - cell "E-mail:"
+              - cell "jane@example.com"
+              - cell "Phone:"
+              - cell "555-0142"
+            - 'row "Address: 22 Harbor Lane, Arlington"':
+              - cell "Address:"
+              - cell "22 Harbor Lane, Arlington"
+        - text: SHARES / BALANCES
+        - table:
+          - rowgroup:
+            - row "Share ID Type Balance Status":
+              - cell "Share ID"
+              - cell "Type"
+              - cell "Balance"
+              - cell "Status"
+            - row "100234-S0001 Regular Shares $2,499.00 HOLD [HOLD]":
+              - cell "100234-S0001"
+              - cell "Regular Shares"
+              - cell "$2,499.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-S0070 Share Draft (Checking) $1,240.55 HOLD [HOLD]":
+              - cell "100234-S0070"
+              - cell "Share Draft (Checking)"
+              - cell "$1,240.55"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-3 Money Market $11.00 HOLD [HOLD]":
+              - cell "100234-MMKT-3"
+              - cell "Money Market"
+              - cell "$11.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-4 Money Market $25.00 HOLD [HOLD]":
+              - cell "100234-MMKT-4"
+              - cell "Money Market"
+              - cell "$25.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-S0001-5 Regular Shares $23.00 HOLD [HOLD]":
+              - cell "100234-S0001-5"
+              - cell "Regular Shares"
+              - cell "$23.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-S0001-6 Regular Shares $40.00 OPEN":
+              - cell "100234-S0001-6"
+              - cell "Regular Shares"
+              - cell "$40.00"
+              - cell "OPEN"
+            - row "100234-MMKT-7 Money Market $30.00 HOLD [HOLD]":
+              - cell "100234-MMKT-7"
+              - cell "Money Market"
+              - cell "$30.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-8 Money Market $15.00 HOLD [HOLD]":
+              - cell "100234-MMKT-8"
+              - cell "Money Market"
+              - cell "$15.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-9 Money Market $201.00 HOLD [HOLD]":
+              - cell "100234-MMKT-9"
+              - cell "Money Market"
+              - cell "$201.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-10 Money Market $20.00 HOLD [HOLD]":
+              - cell "100234-MMKT-10"
+              - cell "Money Market"
+              - cell "$20.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-11 Money Market $21.00 OPEN":
+              - cell "100234-MMKT-11"
+              - cell "Money Market"
+              - cell "$21.00"
+              - cell "OPEN"
+            - row "100234-S0001-12 Regular Shares $50.00 OPEN":
+              - cell "100234-S0001-12"
+              - cell "Regular Shares"
+              - cell "$50.00"
+              - cell "OPEN"
+            - row "100234-S0001-13 Regular Shares $10.00 OPEN":
+              - cell "100234-S0001-13"
+              - cell "Regular Shares"
+              - cell "$10.00"
+              - cell "OPEN"
+            - row "100234-S0001-14 Regular Shares $100.00 OPEN":
+              - cell "100234-S0001-14"
+              - cell "Regular Shares"
+              - cell "$100.00"
+              - cell "OPEN"
+            - row "100234-CERT-15 Certificate $500.00 HOLD [HOLD]":
+              - cell "100234-CERT-15"
+              - cell "Certificate"
+              - cell "$500.00"
+              - cell "HOLD [HOLD]"
+            - row "100234-MMKT-16 Money Market $25.00 OPEN":
+              - cell "100234-MMKT-16"
+              - cell "Money Market"
+              - cell "$25.00"
+              - cell "OPEN"
+            - row "100234-S0070-17 Share Draft (Checking) $50.00 OPEN":
+              - cell "100234-S0070-17"
+              - cell "Share Draft (Checking)"
+              - cell "$50.00"
+              - cell "OPEN"
+            - row "100234-S0001-18 Regular Shares $11.00 OPEN":
+              - cell "100234-S0001-18"
+              - cell "Regular Shares"
+              - cell "$11.00"
+              - cell "OPEN"
+            - row "100234-S0001-19 Regular Shares $99.00 OPEN":
+              - cell "100234-S0001-19"
+              - cell "Regular Shares"
+              - cell "$99.00"
+              - cell "OPEN"
+            - row "100234-S0001-20 Regular Shares $25.00 OPEN":
+              - cell "100234-S0001-20"
+              - cell "Regular Shares"
+              - cell "$25.00"
+              - cell "OPEN"
+        - text: ACTIONS
+        - link "Funds Transfer":
+          - /url: /members/100234/transfer
+        - text: ·
+        - link "Open New Share":
+          - /url: /members/100234/open-share
+        - text: ·
+        - link "Update Member Information":
+          - /url: /members/100234/update
+        - text: ·
+        - link "Place Account Hold":
+          - /url: /members/100234/hold
+    - row "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:33 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:33 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

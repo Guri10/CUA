@@ -1,0 +1,65 @@
+URL: https://web-sample.interface-hiring.com/menu
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - row "MAIN MENU Signed on as J. TELLER (TELLER) 1. Member Inquiry / Selection 2. Funds Transfer 3. Open New Share 4. Update Member Information 5. Place Account Hold 8. System Settings (error injection) 9. Sign Off Type or click a menu option to continue.":
+      - cell "MAIN MENU Signed on as J. TELLER (TELLER) 1. Member Inquiry / Selection 2. Funds Transfer 3. Open New Share 4. Update Member Information 5. Place Account Hold 8. System Settings (error injection) 9. Sign Off Type or click a menu option to continue.":
+        - heading "MAIN MENU" [level=1]
+        - text: Signed on as J. TELLER (TELLER)
+        - table:
+          - rowgroup:
+            - row "1. Member Inquiry / Selection":
+              - cell "1."
+              - cell "Member Inquiry / Selection":
+                - link "Member Inquiry / Selection":
+                  - /url: /members
+            - row "2. Funds Transfer":
+              - cell "2."
+              - cell "Funds Transfer":
+                - link "Funds Transfer":
+                  - /url: /members?next=transfer
+            - row "3. Open New Share":
+              - cell "3."
+              - cell "Open New Share":
+                - link "Open New Share":
+                  - /url: /members?next=open-share
+            - row "4. Update Member Information":
+              - cell "4."
+              - cell "Update Member Information":
+                - link "Update Member Information":
+                  - /url: /members?next=update
+            - row "5. Place Account Hold":
+              - cell "5."
+              - cell "Place Account Hold":
+                - link "Place Account Hold":
+                  - /url: /members?next=hold
+            - row "8. System Settings (error injection)":
+              - cell "8."
+              - cell "System Settings (error injection)":
+                - link "System Settings (error injection)":
+                  - /url: /settings
+            - row "9. Sign Off":
+              - cell "9."
+              - cell "Sign Off":
+                - link "Sign Off":
+                  - /url: /signoff
+        - text: Type or click a menu option to continue.
+    - row "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:33 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:33 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"
