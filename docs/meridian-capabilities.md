@@ -27,7 +27,7 @@ enum option values and any further Business Outcomes are confirmed while recordi
 | Capability | Effects | Inputs (typed) | Outputs (typed) | Terminal states |
 |---|---|---|---|---|
 | `sign-on` | session | `operator` (non-secret id), `password` (Secret, server-side), `branch` (`MAIN-001` \| `WEST-014` \| `EAST-022`) | `operatorRole` (target's assertion, e.g. `TELLER`/`SUPERVISOR`), `signedOn` | success = menu banner "Signed on as …"; `BAD_LOGIN` |
-| `member-lookup` | read-only | `by` (`number` \| `name`), `q` | `member` `{ number, name }` **or** `candidates[]` | success = member record; `NOT_FOUND`; `MULTIPLE_MATCHES` (candidate list) |
+| `member-lookup` | read-only | `by` (`Member Number` \| `Last Name`), `q` | `memberNumber`, `name` (on success) | success = member record; `NOT_FOUND`; `MULTIPLE_MATCHES` (caller narrows the search) |
 | `member-balance` | read-only | `memberNumber` | `shares[]` `{ shareId, type, balance, status }` | success = member record; `NOT_FOUND` |
 | `funds-transfer` | mutating | `memberNumber`, `fromShare`, `toShare`, `amount`, `memo?` | `confirmationNumber`, `posted` | success = post confirmation; `SOURCE_ON_HOLD`, `INSUFFICIENT_FUNDS`, `NOT_FOUND` |
 | `open-share` | mutating | `memberNumber`, `shareType`, `initialDeposit` | `newShareId`, `confirmationNumber` | success = confirmation; `NOT_FOUND` (deposit/validation rejections discovered while recording) |
