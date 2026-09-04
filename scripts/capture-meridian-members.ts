@@ -187,7 +187,7 @@ function parseRequests(args: string[]): Request[] {
       const rest = arg.slice("search:".length);
       const [slug, by, ...valueParts] = rest.split(":");
       const value = valueParts.join(":");
-      if (slug === undefined || by === undefined || value === "") {
+      if (slug === undefined || by === undefined || by === "" || value === "") {
         throw new Error(`Expected search:<slug>:<by>:<value>, got "${arg}".`);
       }
       if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
