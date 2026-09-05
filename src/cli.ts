@@ -27,6 +27,9 @@ import { discover, type DiscoveryResult, type TakenStep } from "./discovery/disc
 import { handOverToHuman } from "./escalation/handover.js";
 import { DEFAULT_RESUME_PORT } from "./escalation/resume-endpoint.js";
 import { startCatalog, DEFAULT_CATALOG_PORT, type InvokeCapability } from "./catalog/serve.js";
+import { catalogClient } from "./chatbot/catalog-client.js";
+import { createChatbot } from "./chatbot/chatbot.js";
+import { modelIntentRouter } from "./chatbot/intent-router.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { discoveryMandate, mandateFor, type Mandate } from "./policy/mandate.js";
@@ -49,6 +52,7 @@ const USAGE = `Usage:
   npm run discover -- --goal "..." [options]
   npm run replay -- --capability <id>[@<version>] --input <name>=<value> [options]
   npm run serve [-- --port <n>] [options]
+  npm run chat -- --message "..." [--catalog <url>]
 
 discover options:
   --goal <text>          What the run is trying to accomplish, in plain language.
@@ -81,6 +85,14 @@ serve options:
                          Each invoke drives a real browser, exactly as replay does,
                          so --base-url and --evidence-redaction apply to it.
 
+chat options:
+  --message <text>       The request, in plain language. The chatbot turns it into
+                         catalog invocation(s), chains them as needed, and prints the
+                         outcome. Calls only the catalog — it enforces no guardrails.
+  --catalog <url>        Where a running catalog (npm run serve) is listening. Defaults
+                         to http://127.0.0.1:8788. Needs CHATBOT_API_KEY in the
+                         environment for the intent router.
+
 All:
 ${SHARED_USAGE}`;
 
@@ -89,6 +101,7 @@ async function main(argv: string[]): Promise<number> {
   if (command === "discover") return await discoverCommand(parseArguments(rest, DISCOVER_OPTIONS));
   if (command === "replay") return await replayCommand(parseArguments(rest, REPLAY_OPTIONS));
   if (command === "serve") return await serveCommand(parseArguments(rest, SERVE_OPTIONS));
+  if (command === "chat") return await chatCommand(parseArguments(rest, CHAT_OPTIONS));
 
   const complaint = command === undefined ? "No command given." : `Unknown command "${command}".`;
   process.stderr.write(`${complaint}\n\n${USAGE}`);
@@ -365,6 +378,48 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     process.once("SIGTERM", resolve);
   });
   await server.close();
+  return 0;
+}
+
+/**
+ * The chatbot: a plain-language request in, an answer out, and nothing between
+ * but calls to a running catalog.
+ *
+ * It is the demo layer, not a new boundary. The catalog (`npm run serve`) still
+ * owns risk, effects, and approval; this command turns a sentence into
+ * invocation(s) against that catalog, chains them (resolve a member, then act),
+ * and prints what came back in plain language. Its one credential is the chatbot
+ * API key, read from the environment and never defaulted — a separate key from
+ * the discovery path's, so a missing one fails here rather than borrowing
+ * another.
+ */
+async function chatCommand(args: Map<string, string[]>): Promise<number> {
+  const message = single(args, "message");
+  if (message === undefined || message.trim() === "") {
+    process.stderr.write(`--message is required and cannot be blank.\n\n${USAGE}`);
+    return 2;
+  }
+
+  const apiKey = process.env["CHATBOT_API_KEY"];
+  if (apiKey === undefined || apiKey === "") {
+    process.stderr.write("CHATBOT_API_KEY is not set. Add it to .env; it is the chatbot's own key.\n");
+    return 2;
+  }
+
+  const catalogUrl = single(args, "catalog") ?? `http://127.0.0.1:${DEFAULT_CATALOG_PORT}`;
+  const chatbot = createChatbot({ client: catalogClient(catalogUrl), router: modelIntentRouter(apiKey) });
+
+  // A refused connection is not an outcome the chatbot can phrase — there is no
+  // catalog to answer — so it surfaces here as a plain hint rather than a bare
+  // `fetch failed` from the top-level catch. Everything the catalog *can* answer,
+  // including a refusal, the chatbot has already turned into plain language.
+  try {
+    process.stdout.write(`${await chatbot.ask(message)}\n`);
+  } catch (thrown) {
+    const detail = thrown instanceof Error ? thrown.message : String(thrown);
+    process.stderr.write(`Couldn't reach the catalog at ${catalogUrl}. Is \`npm run serve\` running? (${detail})\n`);
+    return 1;
+  }
   return 0;
 }
 
@@ -775,6 +830,13 @@ const REPLAY_OPTIONS = {
 const SERVE_OPTIONS = {
   ...SHARED,
   port: "value",
+} as const;
+
+// The chatbot calls only a running catalog over HTTP, so it shares none of the
+// browser-run options — no --base-url, no --headed, no --evidence-redaction.
+const CHAT_OPTIONS = {
+  message: "value",
+  catalog: "value",
 } as const;
 
 const DISCOVER_OPTIONS = {
