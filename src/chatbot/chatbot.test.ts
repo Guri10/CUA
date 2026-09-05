@@ -176,6 +176,26 @@ describe("the chatbot over the catalog", () => {
     expect(answer).not.toContain("memberNumber: 100234");
   });
 
+  it("reports the success when a chain finishes exactly at the step cap", async () => {
+    // Exactly MAX_STEPS (6) successful invocations, then the scripted router is
+    // done. The chain fills the cap but does not want to cross it, so its final
+    // result is the answer — not the "couldn't finish" a chain that wanted more
+    // earns. Before the fix, the 6th success set ranOut unconditionally and this
+    // legitimate completion was reported as a failure.
+    const exactlyAtCap = scriptedRouter(
+      Array.from({ length: 6 }, (): NextAction => ({
+        kind: "invoke",
+        invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } },
+      })),
+    );
+
+    const answer = await (await chatbotAsking(exactlyAtCap))("look that up right up to the limit");
+
+    expect(answer).toMatch(/done/i);
+    expect(answer).toContain("memberNumber: 100234");
+    expect(answer).not.toMatch(/couldn't finish/i);
+  });
+
   it("relays the catalog's escalation for a mutating draft, enforcing no guardrail of its own", async () => {
     // A mutating draft on disk, invoked by ref — bypassing catalog discovery,
     // which lists approved-only. The chatbot does not refuse it; it invokes it

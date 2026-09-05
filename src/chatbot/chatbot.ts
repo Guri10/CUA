@@ -59,7 +59,17 @@ export function createChatbot(options: ChatbotOptions): Chatbot {
         // A success is a foothold the next step can stand on; anything else is
         // where the chain ends and what the caller is told about.
         if (outcome.kind !== "success") break;
-        if (step === MAX_STEPS - 1) ranOut = true;
+
+        // On the last allowed step a success is only "ran out" if the router still
+        // wants to act. Ask it once more: if it is done, the chain finished exactly
+        // at the cap and this success is the answer; if it wants another invoke, we
+        // have genuinely hit the ceiling mid-chain. Without this, a request that
+        // legitimately completes on the MAX_STEPS-th step is reported as unfinished
+        // and its correct result thrown away.
+        if (step === MAX_STEPS - 1) {
+          const next = await options.router(utterance, catalog, history);
+          if (next.kind !== "done") ranOut = true;
+        }
       }
 
       if (ranOut) {
