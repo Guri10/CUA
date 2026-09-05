@@ -2,7 +2,7 @@
   "id": "meridian",
   "baseUrl": "https://web-sample.interface-hiring.com",
   "allowedOrigins": ["https://web-sample.interface-hiring.com"],
-  "actions": ["navigate", "click", "fill", "select", "read", "waitFor"],
+  "actions": ["navigate", "click", "fill", "select", "read", "readEach", "waitFor"],
   "routes": {
     "read-only": [
       "/signon",
