@@ -27,6 +27,7 @@ import { discover, type DiscoveryResult, type TakenStep } from "./discovery/disc
 import { handOverToHuman } from "./escalation/handover.js";
 import { DEFAULT_RESUME_PORT } from "./escalation/resume-endpoint.js";
 import { startCatalog, DEFAULT_CATALOG_PORT, type InvokeCapability } from "./catalog/serve.js";
+import { startDashboard, DEFAULT_DASHBOARD_PORT } from "./dashboard/serve.js";
 import { catalogClient } from "./chatbot/catalog-client.js";
 import { createChatbot } from "./chatbot/chatbot.js";
 import { modelIntentRouter } from "./chatbot/intent-router.js";
@@ -84,6 +85,9 @@ serve options:
                          /capabilities/<id>/invoke with a JSON body of typed inputs.
                          Each invoke drives a real browser, exactly as replay does,
                          so --base-url and --evidence-redaction apply to it.
+  --dashboard-port <n>   Where the read-only dashboard listens, on loopback. Defaults
+                         to 8789. Open it in a browser to watch the catalog and the
+                         run history; it shows what the core emits and drives nothing.
 
 chat options:
   --message <text>       The request, in plain language. The chatbot turns it into
@@ -362,22 +366,44 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
   };
 
   const server = await startCatalog({ root: capabilitiesDir(), invoke, port });
+
+  // The dashboard is the human-facing half of the same process: read-only, its
+  // own port, watching the catalog and the run history the core writes. It owns
+  // no risk — the catalog above is still the only place effects and approval are
+  // decided — so it is started here rather than behind a flag, and a person gets
+  // a window on the system without another command to run.
+  const dashboardPort = wholeNumber(single(args, "dashboard-port"), "--dashboard-port", DEFAULT_DASHBOARD_PORT);
+  let dashboard;
+  try {
+    dashboard = await startDashboard({
+      capabilitiesRoot: capabilitiesDir(),
+      runsDir: evidenceRunsDir(),
+      port: dashboardPort,
+    });
+  } catch (thrown) {
+    // The catalog already bound; if the dashboard cannot, close the catalog so a
+    // failed boot leaves no listening socket behind rather than half a server.
+    await server.close();
+    throw thrown;
+  }
+
   process.stdout.write(
     [
       `Capability catalog on ${server.url}`,
       `  list:   GET  ${server.url}/capabilities`,
       `  invoke: POST ${server.url}/capabilities/<id>/invoke`,
+      `Dashboard (read-only) on ${dashboard.url}`,
       "",
     ].join("\n"),
   );
 
-  // The server holds the process open; this settles when a signal asks it to
+  // The servers hold the process open; this settles when a signal asks it to
   // stop, which is the one way a long-running command ends cleanly.
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
   });
-  await server.close();
+  await Promise.all([server.close(), dashboard.close()]);
   return 0;
 }
 
@@ -830,6 +856,7 @@ const REPLAY_OPTIONS = {
 const SERVE_OPTIONS = {
   ...SHARED,
   port: "value",
+  "dashboard-port": "value",
 } as const;
 
 // The chatbot calls only a running catalog over HTTP, so it shares none of the
