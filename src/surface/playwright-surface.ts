@@ -1,11 +1,16 @@
 /**
  * The Surface backed by a real browser.
  *
- * Playwright is transport and nothing more (ADR 0001). It executes Locators
- * through its role-based query API; no CSS or XPath expression appears here,
- * and `no-css-or-xpath.test.ts` keeps it that way. Every method below is a
- * translation from the accessibility vocabulary into whatever Playwright calls
- * the same idea, which is exactly the layer a desktop Surface would replace.
+ * Playwright is transport and nothing more (ADR 0001). Every Locator — to read
+ * or to act — is resolved against the one perceived accessibility tree (ADR
+ * 0011), never through Playwright's role-based element counting, which counted a
+ * legacy wrapper row the snapshot leaves nameless and so disagreed with the fake
+ * Surface and the Checkpoints. Playwright's role query survives only as the way a
+ * node already resolved in the tree is turned into a physical handle to click or
+ * type — built from that node's own role/name/ordinal path (`locatorForNode`),
+ * counted the way the tree counts, so a click lands on the node the resolver
+ * chose and not on whatever a fresh role count would find. No CSS or XPath
+ * expression appears here, and `no-css-or-xpath.test.ts` keeps it that way.
  *
  * It deliberately does not redact anything. ADR 0006 makes redaction a rule
  * about what is stored, never about what is observed, so the session token in a
@@ -13,8 +18,9 @@
  * the way to disk.
  */
 import { chromium, type Browser, type Locator as BrowserLocator, type Page } from "playwright";
-import { readAriaSnapshot } from "./aria-snapshot.js";
+import { readAriaSnapshot, type AriaNode } from "./aria-snapshot.js";
 import { actionFrom, injectableCaptureScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
+import { locatorForNode } from "./locator-for-node.js";
 import { readControlValue } from "./read-value.js";
 import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
@@ -34,12 +40,13 @@ export interface PlaywrightSurfaceOptions {
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 /**
- * How often a read re-snapshots while waiting for its value to arrive. Every
- * MERIDIAN table and record cell fills after the screen renders, so a read waits
- * on the value rather than the screen (ADR 0001); short enough to feel prompt,
- * long enough not to churn ariaSnapshot pointlessly.
+ * How often a Locator is re-resolved against a fresh perceived tree while waiting
+ * for its control to arrive. Every MERIDIAN table and record cell fills after the
+ * screen renders, so both a read and an action wait on the control appearing in
+ * the tree rather than on the screen (ADR 0001); short enough to feel prompt, long
+ * enough not to churn ariaSnapshot pointlessly.
  */
-const READ_POLL_INTERVAL_MS = 200;
+const RESOLVE_POLL_INTERVAL_MS = 200;
 
 export class PlaywrightSurface implements Surface {
   readonly #page: Page;
@@ -155,35 +162,35 @@ export class PlaywrightSurface implements Surface {
       return { kind: "ok" };
     }
 
-    // Reads resolve against the one perceived tree, not through getByRole (ADR
-    // 0011): the role-based lens counts a legacy wrapper row the snapshot leaves
-    // nameless, landing a read on a label cell. Acting still resolves through
-    // getByRole for now — named controls do not diverge.
+    // readEach takes one perception; every other Locator action resolves the same
+    // way — against the one perceived tree (ADR 0011), waiting for the control to
+    // arrive, then acting on the node it resolved via the node-to-handle mapping.
     if (action.kind === "readEach") return await this.#readEach(action);
-    if (action.kind === "read") return await this.#read(action);
 
-    const control = this.#locate(action.locator);
     const timeoutMs =
       action.kind === "waitFor" ? (action.timeoutMs ?? this.#timeoutMs) : this.#timeoutMs;
 
-    const resolved = await this.#resolveToOne(action.locator, control, timeoutMs);
-    if (resolved.kind !== "ok") return resolved;
+    const resolved = await this.#resolve(action.locator, timeoutMs);
+    if (resolved.kind !== "resolved") return resolved;
+    const { nodes, index } = resolved;
 
-    const one = control.first();
     switch (action.kind) {
       case "waitFor":
         return { kind: "ok" };
 
+      case "read":
+        return { kind: "ok", value: readControlValue(nodes, index) };
+
       case "click":
-        await one.click({ timeout: timeoutMs });
+        await this.#handleFor(nodes, index).click({ timeout: timeoutMs });
         return { kind: "ok" };
 
       case "fill":
-        await one.fill(action.value, { timeout: timeoutMs });
+        await this.#handleFor(nodes, index).fill(action.value, { timeout: timeoutMs });
         return { kind: "ok" };
 
       case "select":
-        return await this.#select(action.locator, one, action.option, timeoutMs);
+        return await this.#select(action.locator, this.#handleFor(nodes, index), action.option, timeoutMs);
     }
   }
 
@@ -192,82 +199,79 @@ export class PlaywrightSurface implements Surface {
   }
 
   /**
-   * Waits for the control to appear, then decides whether the Locator actually
-   * picked exactly one out.
+   * Resolves a Locator against the one perceived tree, waiting for its control to
+   * arrive, and reports which node it landed on — or the same miss the fake
+   * Surface reports, so an interaction resolves identically offline and live.
    *
-   * The wait has to come first. Counting straight away would call a control
-   * absent whenever it simply had not rendered yet, which in this application
-   * is most of them — every table here fills from a request that finishes after
-   * the screen does.
+   * The wait has to come first, and it is a wait on the tree: every table here
+   * fills from a request that finishes after the screen does, so it re-snapshots
+   * until the Locator resolves or the timeout lapses rather than calling a
+   * not-yet-rendered control absent. Exactly one match is the node to act on;
+   * none by the deadline is `not-found`; more than one is `ambiguous` — a miss a
+   * Terminal State can catch (this is how `MULTIPLE_MATCHES` is reached) and,
+   * where no outcome claims it, the Hard Failure Replay raises naming the Step.
+   * Never a silent pick of the first.
    *
-   * Only visible matches are counted, because only visible ones were waited
-   * for. Counting every attached match would report a control duplicated in
-   * some hidden region as ambiguous in the browser while the fake, which reads
-   * an accessibility tree that hidden elements never reach, called the same
-   * Locator unambiguous.
+   * Only what the accessibility tree carries is counted, so a control in a hidden
+   * region — which the tree never reaches — cannot make a Locator read ambiguous
+   * live while the fake, reading the same tree, calls it unique.
    */
-  async #resolveToOne(
+  async #resolve(
     locator: Locator,
-    control: BrowserLocator,
     timeoutMs: number,
-  ): Promise<ActionResult> {
-    try {
-      await control.first().waitFor({ state: "visible", timeout: timeoutMs });
-    } catch {
-      return { kind: "not-found", locator };
+  ): Promise<
+    | { readonly kind: "resolved"; readonly nodes: readonly AriaNode[]; readonly index: number }
+    | { readonly kind: "not-found"; readonly locator: Locator }
+    | { readonly kind: "ambiguous"; readonly locator: Locator; readonly matches: number }
+  > {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const { nodes } = await this.snapshot();
+      const matches = resolveLocatorIndices(nodes, locator);
+      if (matches.length === 1) return { kind: "resolved", nodes, index: matches[0]! };
+      if (matches.length > 1) return { kind: "ambiguous", locator, matches: matches.length };
+      if (Date.now() >= deadline) return { kind: "not-found", locator };
+      await this.#page.waitForTimeout(RESOLVE_POLL_INTERVAL_MS);
     }
+  }
 
-    const matches = await control.filter({ visible: true }).count();
-    if (locator.ordinal === undefined && matches > 1) {
-      return { kind: "ambiguous", locator, matches };
-    }
-    return { kind: "ok" };
+  /**
+   * The live handle for a node the resolver landed on: its own role/name/ordinal
+   * path (`locatorForNode`) built as a Playwright role query — counted the way the
+   * tree counts, never re-found by a fresh role count, which is what re-imports
+   * the wrapper divergence ADR 0011 removes. This is the one place a resolved node
+   * becomes something to physically click or type, and it stays inside ADR 0001's
+   * vocabulary: a role, an accessible name, an ordinal — no CSS, no XPath.
+   *
+   * A uniquely-named path carries no ordinal, and deliberately gets no `.first()`:
+   * `#resolve` already proved the tree holds exactly one such node, so if the live
+   * role query nonetheless matches several, that is a real divergence between the
+   * two lenses and Playwright's strict mode throws — the loud failure ADR 0011
+   * wants, never the silent pick-the-first the old acting path made.
+   */
+  #handleFor(nodes: readonly AriaNode[], index: number): BrowserLocator {
+    const path = locatorForNode(nodes, index);
+    const byRole = this.#page.getByRole(path.role, {
+      ...(path.name === undefined ? {} : { name: path.name }),
+      ...(path.exact === undefined ? {} : { exact: path.exact }),
+    });
+    return path.ordinal === undefined ? byRole : byRole.nth(path.ordinal);
   }
 
   async #select(
     locator: Locator,
-    control: BrowserLocator,
+    handle: BrowserLocator,
     option: string,
     timeoutMs: number,
   ): Promise<ActionResult> {
     try {
-      await control.selectOption({ label: option }, { timeout: timeoutMs });
+      await handle.selectOption({ label: option }, { timeout: timeoutMs });
       return { kind: "ok" };
     } catch {
       // An option the control does not offer, reported as the Locator that
       // would have named it — the same result the scripted fake produces, so
       // an interaction fails identically on both.
       return { kind: "not-found", locator: optionLocator(locator, option) };
-    }
-  }
-
-  /**
-   * Reads one control's value from the one perceived tree (ADR 0011), by the
-   * same resolver and value rule the fake Surface and Checkpoint matching use —
-   * so a read means the same thing offline and live. Nothing is read through
-   * getByRole or the DOM: the value comes from the resolved node, which is what
-   * lets this survive the move to a Surface with no DOM at all.
-   *
-   * It waits for the perceived tree to settle, not the screen: every MERIDIAN
-   * record cell and table fills after the screen renders (ADR 0001), so it
-   * re-snapshots until the Locator resolves or the timeout lapses. Once the node
-   * resolves it returns whatever that node holds — a blank resolved cell is a
-   * value, the same one the fake would return, so it is never waited out; a field
-   * that fills late is waited for by a `waitFor` Step before this read. A Locator
-   * that never resolves is `not-found`; more than one match is `ambiguous`, the
-   * same miss any single read reports — never a silent wrong pick.
-   */
-  async #read(action: Extract<Action, { kind: "read" }>): Promise<ActionResult> {
-    const deadline = Date.now() + this.#timeoutMs;
-    for (;;) {
-      const { nodes } = await this.snapshot();
-      const matches = resolveLocatorIndices(nodes, action.locator);
-      if (matches.length === 1) return { kind: "ok", value: readControlValue(nodes, matches[0]!) };
-      if (matches.length > 1) {
-        return { kind: "ambiguous", locator: action.locator, matches: matches.length };
-      }
-      if (Date.now() >= deadline) return { kind: "not-found", locator: action.locator };
-      await this.#page.waitForTimeout(READ_POLL_INTERVAL_MS);
     }
   }
 
@@ -300,20 +304,5 @@ export class PlaywrightSurface implements Surface {
       records.push(record);
     }
     return { kind: "ok", records };
-  }
-
-  /**
-   * A Locator, in Playwright's vocabulary. Scoping recurses, so a parent that
-   * matches several controls is searched in all of them — the rule the scripted
-   * fake follows too. `base` is the scope to resolve in, the page unless a
-   * `readEach` is reading a column inside one particular row.
-   */
-  #locate(locator: Locator, base: Page | BrowserLocator = this.#page): BrowserLocator {
-    const scope = locator.within === undefined ? base : this.#locate(locator.within, base);
-    const found = scope.getByRole(locator.role, {
-      ...(locator.name === undefined ? {} : { name: locator.name }),
-      ...(locator.exact === undefined ? {} : { exact: locator.exact }),
-    });
-    return locator.ordinal === undefined ? found : found.nth(locator.ordinal);
   }
 }

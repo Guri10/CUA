@@ -130,6 +130,34 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
     expect(name).not.toMatch(/^Name:?$/);
   });
 
+  it("reaches NOT_FOUND live when no member matches", async () => {
+    // A read-only run whose search click resolves through the perceived tree and
+    // whose wait-for-results misses — the miss Replay reads as the NOT_FOUND
+    // Business Outcome, not a Hard Failure. Posts nothing.
+    const result = await replayCapability(
+      surface,
+      memberLookupCapability(),
+      { by: "Member Number", q: "999999" },
+      { baseUrl: BASE_URL, recoverableConditions: profile.recoverableConditions },
+    );
+
+    expect(result).toMatchObject({ kind: "business-outcome", name: "NOT_FOUND" });
+  });
+
+  it("reaches MULTIPLE_MATCHES live when several members match", async () => {
+    // Several matches make the "Select" link ambiguous, so the click misses and
+    // the run is left on the results screen — MULTIPLE_MATCHES. This exercises the
+    // ambiguity semantics on the acting path now that it resolves through the tree.
+    const result = await replayCapability(
+      surface,
+      memberLookupCapability(),
+      { by: "Last Name", q: "o" },
+      { baseUrl: BASE_URL, recoverableConditions: profile.recoverableConditions },
+    );
+
+    expect(result).toMatchObject({ kind: "business-outcome", name: "MULTIPLE_MATCHES" });
+  });
+
   it("signs on, looks up a member's shares, and posts a real transfer", async () => {
     // Lookup: the read-only leg of the happy path. Its success leaves the Surface
     // on the member record, one click from the transfer form.
