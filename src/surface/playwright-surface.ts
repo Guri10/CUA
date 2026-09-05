@@ -16,6 +16,7 @@ import { chromium, type Browser, type Locator as BrowserLocator, type Page } fro
 import { readAriaSnapshot } from "./aria-snapshot.js";
 import { actionFrom, injectableCaptureScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
 import { readControlValue } from "./read-value.js";
+import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
 
 export interface PlaywrightSurfaceOptions {
@@ -31,6 +32,14 @@ export interface PlaywrightSurfaceOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+
+/**
+ * How often a read re-snapshots while waiting for its value to arrive. Every
+ * MERIDIAN table and record cell fills after the screen renders, so a read waits
+ * on the value rather than the screen (ADR 0001); short enough to feel prompt,
+ * long enough not to churn ariaSnapshot pointlessly.
+ */
+const READ_POLL_INTERVAL_MS = 200;
 
 export class PlaywrightSurface implements Surface {
   readonly #page: Page;
@@ -146,7 +155,12 @@ export class PlaywrightSurface implements Surface {
       return { kind: "ok" };
     }
 
+    // Reads resolve against the one perceived tree, not through getByRole (ADR
+    // 0011): the role-based lens counts a legacy wrapper row the snapshot leaves
+    // nameless, landing a read on a label cell. Acting still resolves through
+    // getByRole for now — named controls do not diverge.
     if (action.kind === "readEach") return await this.#readEach(action);
+    if (action.kind === "read") return await this.#read(action);
 
     const control = this.#locate(action.locator);
     const timeoutMs =
@@ -170,9 +184,6 @@ export class PlaywrightSurface implements Surface {
 
       case "select":
         return await this.#select(action.locator, one, action.option, timeoutMs);
-
-      case "read":
-        return { kind: "ok", value: await this.#read(one) };
     }
   }
 
@@ -231,45 +242,60 @@ export class PlaywrightSurface implements Surface {
   }
 
   /**
-   * Reads the control's own accessibility tree and answers from that, by the
-   * same rule the fake answers with. Nothing is read through the DOM: a value
-   * fetched from an input element would be the one thing here that a Surface
-   * driving a desktop application could not do.
+   * Reads one control's value from the one perceived tree (ADR 0011), by the
+   * same resolver and value rule the fake Surface and Checkpoint matching use —
+   * so a read means the same thing offline and live. Nothing is read through
+   * getByRole or the DOM: the value comes from the resolved node, which is what
+   * lets this survive the move to a Surface with no DOM at all.
+   *
+   * It waits for the perceived tree to settle, not the screen: every MERIDIAN
+   * record cell and table fills after the screen renders (ADR 0001), so it
+   * re-snapshots until the Locator resolves or the timeout lapses. Once the node
+   * resolves it returns whatever that node holds — a blank resolved cell is a
+   * value, the same one the fake would return, so it is never waited out; a field
+   * that fills late is waited for by a `waitFor` Step before this read. A Locator
+   * that never resolves is `not-found`; more than one match is `ambiguous`, the
+   * same miss any single read reports — never a silent wrong pick.
    */
-  async #read(control: BrowserLocator): Promise<string> {
-    return readControlValue(readAriaSnapshot(await control.ariaSnapshot()), 0);
+  async #read(action: Extract<Action, { kind: "read" }>): Promise<ActionResult> {
+    const deadline = Date.now() + this.#timeoutMs;
+    for (;;) {
+      const { nodes } = await this.snapshot();
+      const matches = resolveLocatorIndices(nodes, action.locator);
+      if (matches.length === 1) return { kind: "ok", value: readControlValue(nodes, matches[0]!) };
+      if (matches.length > 1) {
+        return { kind: "ambiguous", locator: action.locator, matches: matches.length };
+      }
+      if (Date.now() >= deadline) return { kind: "not-found", locator: action.locator };
+      await this.#page.waitForTimeout(READ_POLL_INTERVAL_MS);
+    }
   }
 
   /**
-   * Read each matching row into a record of its columns — `readEach`, in
-   * Playwright's vocabulary and by the same rules the scripted fake follows.
+   * Read each matching row into a record of its columns — `readEach`, resolved
+   * against the one perceived tree by the very functions the fake Surface uses,
+   * so list reads and single reads cannot drift onto different lenses (ADR 0011).
    *
-   * Only visible rows are counted and iterated, the same restriction the single
-   * reads make, so the fake — which reads an accessibility tree hidden elements
-   * never reach — and the browser agree on how many rows there are. Each column
-   * is located *inside* its row, so a field can only come from that row. A column
-   * matching none or several of a row's controls is the same miss any read would
-   * be, reported against the column's Locator. No visible rows is an empty list,
-   * which is a value: the table was there, it just had no data rows. The wait for
-   * the rows to arrive belongs to a `waitFor` Step before this, exactly as it
-   * does for the single reads — every table here fills after the screen does.
+   * Each column is resolved *inside* its row, so a field can only come from that
+   * row. A column matching none or several of a row's controls is the same miss
+   * any read would be, reported against the column's Locator. Unlike a single
+   * read it takes one perception and does not poll: no matching rows is an empty
+   * list, which is a value (ADR 0010) — a table present but with no data rows,
+   * not a control to keep waiting on — so the wait for a late-filling table
+   * belongs to a `waitFor` Step before this, never to a self-poll that would turn
+   * an empty table into a timeout.
    */
   async #readEach(action: Extract<Action, { kind: "readEach" }>): Promise<ActionResult> {
-    const rows = this.#locate(action.rows).filter({ visible: true });
-    const count = await rows.count();
+    const { nodes } = await this.snapshot();
 
     const records: Record<string, string>[] = [];
-    for (let i = 0; i < count; i++) {
-      const row = rows.nth(i);
+    for (const row of resolveLocatorIndices(nodes, action.rows)) {
       const record: Record<string, string> = {};
       for (const [field, column] of Object.entries(action.columns)) {
-        const cell = this.#locate(column, row).filter({ visible: true });
-        const matches = await cell.count();
-        if (matches === 0) return { kind: "not-found", locator: column };
-        if (matches > 1 && column.ordinal === undefined) {
-          return { kind: "ambiguous", locator: column, matches };
-        }
-        record[field] = await this.#read(cell.first());
+        const cells = resolveLocatorIndicesWithin(nodes, column, row);
+        if (cells.length === 0) return { kind: "not-found", locator: column };
+        if (cells.length > 1) return { kind: "ambiguous", locator: column, matches: cells.length };
+        record[field] = readControlValue(nodes, cells[0]!);
       }
       records.push(record);
     }

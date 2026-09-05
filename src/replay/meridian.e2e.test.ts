@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fundsTransferCapability } from "../capability/meridian/funds-transfer.js";
 import { memberBalanceCapability } from "../capability/meridian/member-balance.js";
+import { memberLookupCapability } from "../capability/meridian/member-lookup.js";
 import { placeHoldCapability } from "../capability/meridian/place-hold.js";
 import { capabilitiesDir } from "../capability/storage.js";
 import { startCatalog, type CatalogServer, type Escalated } from "../catalog/serve.js";
@@ -105,6 +106,28 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
 
   afterAll(async () => {
     await surface.close();
+  });
+
+  it("looks up a member and reads the record's values, not its field labels", async () => {
+    // The headline bug this proves fixed (ADR 0011): under the old getByRole read
+    // lens member-lookup returned "Member No.:"/"Name:" — the labels — because the
+    // wrapper row's content-derived name matched the label cell. Resolving through
+    // the one perceived tree reads the value cells (ordinals 1 and 3) instead.
+    const lookup = await replayCapability(
+      surface,
+      memberLookupCapability(),
+      { by: "Member Number", q: CAPTURED_MEMBER },
+      { baseUrl: BASE_URL },
+    );
+    expect(lookup).toMatchObject({ kind: "success" });
+    if (lookup.kind !== "success") return;
+
+    expect(lookup.outputs["memberNumber"]).toBe(CAPTURED_MEMBER);
+    const name = lookup.outputs["name"] as string;
+    expect(name.trim().length).toBeGreaterThan(0);
+    // The regression guard: a value, never the label that sits beside it.
+    expect(name).not.toMatch(/^Member No\.?:?$/);
+    expect(name).not.toMatch(/^Name:?$/);
   });
 
   it("signs on, looks up a member's shares, and posts a real transfer", async () => {
