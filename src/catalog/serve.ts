@@ -22,6 +22,13 @@
  * shape a direct replay returns — success and Business Outcome as answers, a
  * Hard Failure as the screen the run could not interpret.
  *
+ * The refusal is not a bare error: it surfaces as an `escalated` terminal status
+ * carrying context — which Capability, where it stopped, and why — the
+ * Intervention Request an operator would read, minus the observed screen a
+ * refusal before a run never has. That is the deliberate difference from the
+ * CLI's live handover: over HTTP there is no browser to give a person, so the
+ * escalation is the status and its context, returned to the caller.
+ *
  * How the run happens is injected. In production it drives a real browser; in a
  * test it drives a Fake Surface. The server does not know which, which is what
  * lets its two guarantees be tested without a browser.
@@ -33,7 +40,32 @@ import { parseContractValues } from "../replay/contract-values.js";
 import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import { mandateFor } from "../policy/mandate.js";
 import type { ReplayResult } from "../replay/replay.js";
+import type { EscalationContext } from "../escalation/intervention-request.js";
 import { listCatalog } from "./catalog.js";
+
+/**
+ * How an invoke ended, as the catalog returns it: the Replay union plus the one
+ * terminal status the catalog can reach that a Replay cannot — an escalation.
+ *
+ * The spec asked whether the existing union already carries `escalated`. It does
+ * not, and should not: a gate refusal *during* a Replay is a Hard Failure — the
+ * run reached a screen it could not act on — while escalation as a terminal
+ * status is the *pre-run* gate refusing a mutating draft, which happens in this
+ * file, before any run. So the union widens here, at the boundary that owns the
+ * gate, rather than in `replay`.
+ */
+export interface Escalated {
+  readonly kind: "escalated";
+  /** Which Capability, where it stopped, and why. See `EscalationContext`. */
+  readonly context: EscalationContext;
+}
+
+/**
+ * Where a pre-run refusal "stopped". Not a Recording Step — the run never
+ * started — but the policy gate itself. The Intervention Request wants a place
+ * the operator can name, and for a refusal before a run this is the honest one.
+ */
+const POLICY_GATE_STEP = "the policy gate, before the run started";
 
 /**
  * A cap on the invoke body, so one caller streaming an endless request cannot
@@ -169,9 +201,18 @@ async function invoke(
   // Decided before the runner is even called, from two declared fields (ADR
   // 0007): a mutating Capability nobody has signed off does not get as far as a
   // screen. The same decision `replay` makes, in the same place — before a
-  // browser exists.
+  // browser exists. The refusal surfaces as an escalated terminal status with
+  // context rather than a bare error, so a caller reads a stopped-with-context
+  // result the same shape it reads every other ending. Still a 403: the run was
+  // forbidden, and the body says why in a form the caller can act on.
   const mandate = mandateFor(capability);
-  if (!mandate.allowed) return reply(outgoing, 403, { error: mandate.reason });
+  if (!mandate.allowed) {
+    const escalated: Escalated = {
+      kind: "escalated",
+      context: { capability: named, step: POLICY_GATE_STEP, reason: mandate.reason },
+    };
+    return reply(outgoing, 403, escalated);
+  }
 
   const body = await readJson(incoming);
   if (body.kind === "invalid") return reply(outgoing, 400, { error: body.reason });

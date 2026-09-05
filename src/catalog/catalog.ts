@@ -1,5 +1,5 @@
 /**
- * The catalog: every saved Capability, projected to the part a calling agent
+ * The catalog: every approved Capability, projected to the part a calling agent
  * reads.
  *
  * A caller discovers what it can invoke by reading this list and nothing else.
@@ -10,9 +10,17 @@
  * would leak the how, and a caller that read it would be coupling to Steps
  * rather than to the Contract.
  *
- * One entry per id at its highest version, because a bare id invokes the
- * highest version and that is the one a caller should see. The history is on
- * disk for review; it is not part of what is offered.
+ * Approved only. A draft is an authoring artifact — a Capability the recorder
+ * wrote that nobody has signed off — and the whole point of the catalog is that
+ * an agent invokes what it finds there, so a draft found there is a draft
+ * invoked. Approval, not effects, is the line: a read-only draft is still a
+ * draft, and it stays out until somebody has put their name to it.
+ *
+ * One entry per id at its highest version, because a bare id invokes the highest
+ * version and that is the one a caller should see. An id whose highest version
+ * is a draft drops out entirely rather than advertising an older approved one a
+ * bare-id invoke would not run. The history is on disk for review; it is not
+ * part of what is offered.
  */
 import { listCapabilities, loadCapabilityRef } from "../capability/storage.js";
 import type { Contract } from "../capability/schema.js";
@@ -24,12 +32,13 @@ export interface CatalogEntry {
   readonly contract: Contract;
 }
 
-/** Every Capability on disk, highest version each, in id order. */
+/** Every approved Capability on disk, highest version each, in id order. */
 export async function listCatalog(root: string): Promise<CatalogEntry[]> {
   const ids = await listCapabilities(root);
   const entries: CatalogEntry[] = [];
   for (const id of ids) {
     const capability = await loadCapabilityRef(root, id);
+    if (capability.approval !== "approved") continue;
     entries.push({ id: capability.id, version: capability.version, contract: capability.contract });
   }
   return entries;

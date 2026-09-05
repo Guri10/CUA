@@ -59,8 +59,11 @@ describe("Capability catalog server", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("lists every Capability with its Contract as JSON Schema", async () => {
-    await saveCapability(root, accountLookupCapability());
+  /** A signed-off Capability: the only kind the catalog lists. */
+  const approved = (capability: Capability): Capability => ({ ...capability, approval: "approved" });
+
+  it("lists every approved Capability with its Contract as JSON Schema", async () => {
+    await saveCapability(root, approved(accountLookupCapability()));
     const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
 
     const response = await fetch(`${url}/capabilities`);
@@ -71,6 +74,18 @@ describe("Capability catalog server", () => {
     expect(body[0].id).toBe("account-lookup");
     expect(body[0].contract.inputs.type).toBe("object");
     expect(body[0].contract.inputs.properties.accountId.type).toBe("string");
+  });
+
+  it("does not expose a draft over GET /capabilities", async () => {
+    // On disk but not signed off: the catalog the agent reads leaves it out, so
+    // the agent never invokes a Capability nobody has reviewed.
+    await saveCapability(root, accountLookupCapability());
+    const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
+
+    const response = await fetch(`${url}/capabilities`);
+
+    expect(response.status).toBe(200);
+    expect(await bodyOf(response)).toEqual([]);
   });
 
   it("invokes by name with typed arguments and returns the result", async () => {
@@ -151,7 +166,7 @@ describe("Capability catalog server", () => {
     expect(invoke.calls).toEqual([]);
   });
 
-  it("refuses a mutating draft before any run starts", async () => {
+  it("refuses a mutating draft before any run, as an escalated status with context", async () => {
     await saveCapability(root, openAccountDraft());
     const invoke = recordingInvoke({ kind: "success", outputs: {} });
     const url = await serve(invoke);
@@ -160,9 +175,18 @@ describe("Capability catalog server", () => {
       method: "POST",
       body: JSON.stringify({ inputs: {} }),
     });
+    const body = await bodyOf(response);
 
+    // A structured stopped-with-context result, not a live handover: the run
+    // never started, so there is no screen to observe and no session to hand
+    // over — only which Capability, where it stopped, and why.
     expect(response.status).toBe(403);
-    expect((await bodyOf(response)).error).toMatch(/draft/i);
+    expect(body.kind).toBe("escalated");
+    expect(body.context.capability).toBe("open-account@1");
+    expect(body.context.reason).toMatch(/draft/i);
+    expect(typeof body.context.step).toBe("string");
+    expect(body.context).not.toHaveProperty("observed");
+    // Refused before the runner was ever called.
     expect(invoke.calls).toEqual([]);
   });
 
