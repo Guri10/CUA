@@ -2,20 +2,26 @@
  * The command line. Two commands — `discover` and `replay` — with `serve` to
  * follow.
  *
- * Everything about establishing a session lives here rather than in the
- * executor. Logging in is a property of the application, not of any one
- * Capability: the day ParaBank's form gains a field, one description changes
- * instead of every Recording. ADR 0005 puts the same event mid-run — an expired
- * session — in the Surface profile, which is where it is now declared; what
- * stays here is the one part a checked-in file cannot hold, the credentials.
- * So this command hands the executor both a signed-in Surface and the means of
- * signing in again.
+ * Establishing a session lives in the sign-on adapter (`surface/session.ts`),
+ * chosen by the Surface profile, rather than in the executor. Logging in is a
+ * property of the application, not of any one Capability: the day a sign-on form
+ * gains a field, one description changes instead of every Recording. ADR 0005
+ * puts the same event mid-run — an expired session — in the Surface profile,
+ * which is where it is declared; the one part a checked-in file cannot hold, the
+ * credentials, the adapter reads from the environment. So this command hands the
+ * executor both a signed-in Surface and the means of signing in again.
  *
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
-import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
+import { sessionEstablisherFor } from "./surface/session.js";
 import type { Surface } from "./surface/surface.js";
-import { capabilitiesDir, listVersions, loadCapabilityRef, saveCapability } from "./capability/storage.js";
+import {
+  capabilitiesDir,
+  listCapabilities,
+  listVersions,
+  loadCapabilityRef,
+  saveCapability,
+} from "./capability/storage.js";
 import type { Capability } from "./capability/schema.js";
 import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
 import { handOverToHuman } from "./escalation/handover.js";
@@ -30,8 +36,9 @@ import { coerceTextValues, parseContractValues } from "./replay/contract-values.
 import { describeAction, describeMiss } from "./replay/describe.js";
 import { replayCapability, type ReplayResult } from "./replay/replay.js";
 
-const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
-                         Surface profile's own. The profile's allowlist still governs it.
+const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $<SURFACE>_BASE_URL (e.g.
+                         $MERIDIAN_BASE_URL), then to the Surface profile's own. The profile's
+                         allowlist still governs it.
   --headed               Show the browser window.
   --evidence-redaction <on|off>
                          Whether to mask Sensitive values in this run's evidence. On by
@@ -122,7 +129,6 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
 
   const variant = single(args, "variant");
   const masking = maskingSetting(single(args, "evidence-redaction"));
-  const credentials = credentialsFromEnv();
 
   const { result } = await runCapability({
     capability,
@@ -133,7 +139,6 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
     baseUrl,
     ...(variant === undefined ? {} : { variant }),
     masking,
-    credentials,
     headless: !args.has("headed"),
   });
 
@@ -178,7 +183,6 @@ interface RunCapabilityInput {
   readonly baseUrl: string;
   readonly variant?: string;
   readonly masking: "on" | "off";
-  readonly credentials: ParabankCredentials;
   readonly headless: boolean;
 }
 
@@ -198,8 +202,14 @@ interface RunCapabilityInput {
 async function runCapability(
   input: RunCapabilityInput,
 ): Promise<{ result: ReplayResult; evidenceDir: string }> {
-  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, credentials, headless } = input;
+  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, headless } = input;
   const ident = `${capability.id}@${capability.version}`;
+
+  // How this installation is signed into, chosen from its profile. Resolved
+  // before the evidence run and the browser, so a missing credential costs a
+  // sentence rather than a Chromium — and so its Secret is known in time to
+  // redact it.
+  const session = sessionEstablisherFor(profile);
 
   // Opened before the browser is, so that signing in is logged too. The login
   // form is the one place this run types the application password, which makes
@@ -217,9 +227,9 @@ async function runCapability(
     },
     redaction: {
       // ADR 0006's Secrets, in the only two forms this run holds them: the
-      // password it was handed, and the session token ParaBank puts in its URLs
+      // application password, and the session token the target puts in its URLs
       // — which `stripSecrets` matches by pattern rather than by value.
-      secrets: [credentials.password],
+      secrets: [session.secret],
       // This run's own inputs. They are substituted into Locators, so they turn
       // up in fields that are Plain by position.
       sensitive: Object.values(given),
@@ -231,7 +241,7 @@ async function runCapability(
   // for, here or anywhere else — `no-ungated-surface.test.ts` keeps that true.
   const { surface, close } = await openBrowserSurface(profile, mandate, evidence, { headless });
   try {
-    await establishSession(surface, baseUrl, credentials);
+    await session.establish(surface, baseUrl);
 
     const result = await replayCapability(surface, capability, inputs, {
       baseUrl,
@@ -240,7 +250,7 @@ async function runCapability(
       // says which screens are interruptions, and the caller — the one place
       // holding credentials — says how to answer the one that needs a session.
       recoverableConditions: profile.recoverableConditions,
-      reestablishSession: () => establishSession(surface, baseUrl, credentials),
+      reestablishSession: () => session.establish(surface, baseUrl),
     });
 
     if (result.kind === "success") {
@@ -301,11 +311,14 @@ async function runCapability(
  */
 async function serveCommand(args: Map<string, string[]>): Promise<number> {
   const port = wholeNumber(single(args, "port"), "--port", DEFAULT_CATALOG_PORT);
-  // Read once, at start, so a missing `.env` fails the whole server loudly
-  // rather than every invoke quietly — the same reason a replay reads them
-  // before launching a browser.
-  const credentials = credentialsFromEnv();
   const masking = maskingSetting(single(args, "evidence-redaction"));
+
+  // Fail on boot, not on the first invoke: check every surface this catalog will
+  // sign into has its credentials in the environment now, the same reason a
+  // replay reads them before launching a browser. serve is multi-surface, so it
+  // is the served Capabilities' own surfaces that are checked, not one
+  // hardcoded installation.
+  await assertSignOnReady(capabilitiesDir());
 
   const invoke: InvokeCapability = async (capability, inputs, options) => {
     // The Capability names its Surface profile; the profile says where that
@@ -330,7 +343,6 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
       baseUrl,
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       masking,
-      credentials,
       headless: !args.has("headed"),
     });
     return result;
@@ -391,7 +403,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   const outputs = args.get("output") ?? [];
   const plan = await recordingPlan(args, { goal, profile, baseUrl, inputs: given, outputs });
 
-  const credentials = credentialsFromEnv();
+  const session = sessionEstablisherFor(profile);
 
   const evidence = await EvidenceRun.start({
     root: evidenceRunsDir(),
@@ -416,7 +428,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
       ...Object.fromEntries(Object.entries(given).map(([name, value]) => [`input.${name}`, value])),
     },
     redaction: {
-      secrets: [credentials.password],
+      secrets: [session.secret],
       // This run's declared inputs, exactly as a replay's are. A Discovery Run
       // used to have none — it was the thing that worked out what the inputs
       // should be — and an account number the model picked off the screen and
@@ -446,7 +458,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   );
 
   try {
-    await establishSession(surface, baseUrl, credentials);
+    await session.establish(surface, baseUrl);
 
     // Imported here rather than at the top of the file, and this is the whole
     // reason: `cli.ts` serves both commands, so a static import would load the
@@ -681,24 +693,6 @@ async function recordingPlan(
 }
 
 /**
- * Signing in before Step one.
- *
- * The executor is handed a Surface that already has a session and knows nothing
- * about how it got one — which is what keeps login out of every Recording.
- */
-async function establishSession(
-  surface: Surface,
-  baseUrl: string,
-  credentials: ParabankCredentials,
-): Promise<void> {
-  for (const action of logInToParabank(baseUrl, credentials)) {
-    const result = await surface.perform(action);
-    if (result.kind === "ok") continue;
-    throw new Error(`Could not sign in to ${baseUrl}: ${describeMiss(result)}`);
-  }
-}
-
-/**
  * `--evidence-redaction`, which is the only thing that moves ADR 0006's middle
  * kind. On unless told otherwise, and a value that is neither is refused rather
  * than read as "off" — the setting that writes real balances to disk is not one
@@ -711,29 +705,36 @@ function maskingSetting(value: string | undefined): "on" | "off" {
 }
 
 /**
- * Where the application is, normalised once for both commands.
- *
- * `absoluteUrl` strips a trailing slash and `logInToParabank` concatenates raw,
- * so a base URL ending in one would sign in at `//index.htm` and take Steps at
- * `/overview.htm`. An override still answers to the profile's allowed origins —
- * the gate refuses it otherwise, which is the point of the allowlist being
- * checked-in rather than passed in.
+ * Every surface the catalog will invoke has its sign-on ready, checked at serve
+ * startup. Constructing an establisher reads and validates that surface's
+ * credentials, so a missing one throws here — before the server reports itself
+ * healthy — rather than on the invoke that first needs it.
  */
-function resolveBaseUrl(args: Map<string, string[]>, profile: SurfaceProfile): string {
-  const given = single(args, "base-url") ?? process.env["PARABANK_BASE_URL"] ?? profile.baseUrl;
-  return given.replace(/\/+$/, "");
+async function assertSignOnReady(root: string): Promise<void> {
+  const surfaces = new Set<string>();
+  for (const id of await listCapabilities(root)) {
+    surfaces.add((await loadCapabilityRef(root, id)).surface);
+  }
+  for (const surface of surfaces) {
+    sessionEstablisherFor(await loadSurfaceProfile(surfacesDir(), surface));
+  }
 }
 
 /**
- * Read before a browser launches, for the same reason inputs are checked there:
- * a missing `.env` should cost a sentence, not a Chromium.
+ * Where the application is, normalised once for both commands.
+ *
+ * The env default is keyed to the surface — `$MERIDIAN_BASE_URL` for the meridian
+ * profile, `$PARABANK_BASE_URL` for parabank — so pointing one target elsewhere
+ * does not move the other. The trailing slash is stripped because the login
+ * builders concatenate the path raw, so a base URL ending in one would sign in at
+ * `//signon`. An override still answers to the profile's allowed origins — the
+ * gate refuses it otherwise, which is the point of the allowlist being checked-in
+ * rather than passed in.
  */
-function credentialsFromEnv(): ParabankCredentials {
-  return {
-    username: required("PARABANK_USERNAME"),
-    // ADR 0006 classes this a Secret: handed in at run time, never written.
-    password: required("PARABANK_PASSWORD"),
-  };
+function resolveBaseUrl(args: Map<string, string[]>, profile: SurfaceProfile): string {
+  const envVar = `${profile.id.replace(/[^a-z0-9]+/gi, "_").toUpperCase()}_BASE_URL`;
+  const given = single(args, "base-url") ?? process.env[envVar] ?? profile.baseUrl;
+  return given.replace(/\/+$/, "");
 }
 
 /** A count or a duration from the command line, refused rather than coerced. */
@@ -744,14 +745,6 @@ function wholeNumber(value: string | undefined, option: string, fallback: number
     throw new Error(`${option} takes a whole number of at least 1, not "${value}".`);
   }
   return parsed;
-}
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    throw new Error(`${name} is not set. Copy .env.example to .env and fill it in.`);
-  }
-  return value;
 }
 
 /**
