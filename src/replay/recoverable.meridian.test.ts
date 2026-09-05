@@ -58,8 +58,10 @@ describe("a MERIDIAN Recoverable Condition during a Replay", () => {
       }),
     );
 
-    // The answer the run was asked for, not "it recovered": a Recoverable
-    // Condition that survives into the result is not one that was absorbed.
+    // The answer the run was asked for — the outputs are that answer. The run
+    // also absorbed the interstitial to get there; that it recovered is surfaced
+    // on the result (see recoverable.test.ts) rather than hidden, but the outputs
+    // remain what the caller reads.
     expect(result.kind).toBe("success");
     expect(result.kind === "success" && (result.outputs["shares"] as unknown[])).toHaveLength(20);
     // The session was re-established exactly once — without this the test would

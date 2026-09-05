@@ -91,7 +91,22 @@ const DEFAULT_MAX_RECOVERIES = 1;
  * correctly, and a caller reads which outcome it was rather than catching it.
  */
 export type ReplayResult =
-  | { readonly kind: "success"; readonly outputs: Record<string, unknown> }
+  | {
+      readonly kind: "success";
+      readonly outputs: Record<string, unknown>;
+      /**
+       * The Recoverable Conditions this run absorbed before it succeeded, by name
+       * and in the order first met — `["SESSION_EXPIRED"]` for the common case.
+       * Absent when the run never hit one, which is the ordinary success.
+       *
+       * The outputs are still the answer; this is annotation beside it. A run that
+       * recovered produced exactly what it was asked for, but *that* it had to
+       * recover is worth surfacing — the evidence marks it, and the dashboard shows
+       * it as recovered rather than as a plain success that hides the blip it rode
+       * through. Absorbing a condition is no longer invisible in the result.
+       */
+      readonly recovered?: readonly string[];
+    }
   | {
       readonly kind: "business-outcome";
       /** As the Contract declares it: `ACCOUNT_NOT_FOUND`. */
@@ -165,7 +180,16 @@ export async function replayCapability(
 
   for (;;) {
     const attempt = await runOnce(surface, capability, steps, values, options, ref);
-    if (attempt.kind !== "interrupted") return attempt;
+    if (attempt.kind !== "interrupted") {
+      // A success reached after absorbing one or more conditions carries their
+      // names, so the run that recovered can be told from the run that never
+      // stumbled. The budget map already holds exactly the conditions absorbed,
+      // in the order first met.
+      if (attempt.kind === "success" && absorbed.size > 0) {
+        return { ...attempt, recovered: [...absorbed.keys()] };
+      }
+      return attempt;
+    }
 
     const already = absorbed.get(attempt.condition.name) ?? 0;
     const refusal = whyNotAbsorbed(capability, attempt.condition, already, options);

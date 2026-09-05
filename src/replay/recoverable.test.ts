@@ -84,12 +84,14 @@ describe("a Recoverable Condition during a Replay", () => {
       await parabankOptions({ reestablishSession: signInAgain(surface) }),
     );
 
-    // Not "it recovered" — the run produced the answer it was asked for. A
-    // Recoverable Condition that shows up in the result is not one that was
-    // absorbed.
+    // The run produced the answer it was asked for — the outputs are that answer.
+    // It also names the condition it absorbed to get there: recovery is no longer
+    // invisible in the result, so a run that rode through an expiry can be told
+    // from one that never stumbled (and shown as recovered downstream).
     expect(result).toEqual({
       kind: "success",
       outputs: { accountType: "CHECKING", balance: "-$2300.00" },
+      recovered: ["SESSION_EXPIRED"],
     });
   });
 
@@ -188,6 +190,7 @@ describe("a Recoverable Condition during a Replay", () => {
     expect(result).toEqual({
       kind: "success",
       outputs: { accountType: "CHECKING", balance: "-$2300.00" },
+      recovered: ["MAINTENANCE"],
     });
   });
 
