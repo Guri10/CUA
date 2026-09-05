@@ -20,6 +20,7 @@
     "capture:a11y": "tsx --env-file-if-exists=.env scripts/capture-accessibility-tree.ts",
     "capture:meridian": "tsx --env-file-if-exists=.env scripts/capture-meridian-members.ts",
     "capture:meridian-txn": "tsx --env-file-if-exists=.env scripts/capture-meridian-transactions.ts",
+    "capture:meridian-account": "tsx --env-file-if-exists=.env scripts/capture-meridian-account.ts",
     "capability:write": "tsx scripts/write-capabilities.ts",
     "parabank:start": "docker run -d -p 8080:8080 --name parabank parasoft/parabank",
     "parabank:stop": "docker rm -f parabank",

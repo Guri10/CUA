@@ -20,6 +20,8 @@
       "/members/:id/hold/review",
       "/members/:id/hold/post",
       "/members/:id/open-share",
+      "/members/:id/open-share/review",
+      "/members/:id/open-share/post",
       "/members/:id/update"
     ]
   },

@@ -1,0 +1,345 @@
+{
+  "id": "open-share",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Open a new share for a member, walking form → review → post, and return the confirmation number and new share id.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        },
+        "shareType": {
+          "type": "string",
+          "enum": [
+            "S0001 - Regular Shares",
+            "S0070 - Share Draft (Checking)",
+            "MMKT - Money Market",
+            "CERT - Certificate"
+          ],
+          "description": "The type of share to open, exactly as the form's \"Share Type\" combobox lists it."
+        },
+        "initialDeposit": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The opening deposit, as typed into the form — for example \"5.00\". MERIDIAN requires at least $5.00; a smaller amount is refused as MINIMUM_DEPOSIT."
+        }
+      },
+      "required": [
+        "memberNumber",
+        "shareType",
+        "initialDeposit"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "confirmationNumber": {
+          "type": "string",
+          "description": "The opened share's confirmation number — for example \"CN480249\"."
+        },
+        "newShareId": {
+          "type": "string",
+          "description": "The new share's id — for example \"100234-S0001-30\"."
+        }
+      },
+      "required": [
+        "confirmationNumber",
+        "newShareId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "SHARE OPENED"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "MINIMUM_DEPOSIT",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "A minimum opening deposit of $5.00 is required."
+            }
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "Member Number"
+            }
+          }
+        },
+        {
+          "id": "fill-member-number",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "open-share-form",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Open New Share"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-form",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "OPEN NEW SHARE"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "choose-share-type",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "shareType"
+            }
+          }
+        },
+        {
+          "id": "fill-deposit",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "initialDeposit"
+            }
+          }
+        },
+        {
+          "id": "continue",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Continue"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-review",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "CONFIRM NEW SHARE"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "open-share",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Open Share"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-opened",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "SHARE OPENED"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-confirmation",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Confirmation:"
+                },
+                "within": {
+                  "role": "table",
+                  "ordinal": 1
+                }
+              }
+            },
+            "bind": "confirmationNumber"
+          }
+        },
+        {
+          "id": "read-share-id",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 1,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "New Share ID:"
+                },
+                "within": {
+                  "role": "table",
+                  "ordinal": 1
+                }
+              }
+            },
+            "bind": "newShareId"
+          }
+        }
+      ]
+    }
+  ]
+}

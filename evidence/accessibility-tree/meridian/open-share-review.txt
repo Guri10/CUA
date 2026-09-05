@@ -1,0 +1,40 @@
+URL: https://web-sample.interface-hiring.com/members/100234/open-share/review
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "CONFIRM NEW SHARE Member: 100234 - Lovelace, Ada Share Type: S0001 - Regular Shares Initial Deposit: $5.00 Open Share Cancel"':
+      - 'cell "CONFIRM NEW SHARE Member: 100234 - Lovelace, Ada Share Type: S0001 - Regular Shares Initial Deposit: $5.00 Open Share Cancel"':
+        - heading "CONFIRM NEW SHARE" [level=1]
+        - table:
+          - rowgroup:
+            - 'row "Member: 100234 - Lovelace, Ada"':
+              - cell "Member:"
+              - cell "100234 - Lovelace, Ada"
+            - 'row "Share Type: S0001 - Regular Shares"':
+              - cell "Share Type:"
+              - cell "S0001 - Regular Shares"
+            - 'row "Initial Deposit: $5.00"':
+              - cell "Initial Deposit:"
+              - cell "$5.00"
+        - button "Open Share"
+        - link "Cancel":
+          - /url: /members/100234/open-share
+    - row "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:00 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:00 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

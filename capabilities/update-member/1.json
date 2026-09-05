@@ -1,0 +1,290 @@
+{
+  "id": "update-member",
+  "version": 1,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Update a member's e-mail, phone, and mailing address in a single step, and confirm the change was saved.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's number, as the record shows it — for example \"100234\"."
+        },
+        "email": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's e-mail address, as typed into the form — for example \"ada@example.com\". An address not in a valid format is refused as INVALID_EMAIL."
+        },
+        "phone": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's phone number, as typed into the form — for example \"555-0155\". A number that is not valid is refused as INVALID_PHONE."
+        },
+        "mailingAddress": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The member's mailing address, as typed into the form."
+        }
+      },
+      "required": [
+        "memberNumber",
+        "email",
+        "phone",
+        "mailingAddress"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "heading",
+            "name": {
+              "kind": "literal",
+              "value": "MEMBER INFORMATION UPDATED"
+            },
+            "exact": true
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "INVALID_EMAIL",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "E-mail address is not in a valid format."
+            }
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "INVALID_PHONE",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "Phone number is not valid."
+            }
+          }
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "open-inquiry",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/members"
+            }
+          }
+        },
+        {
+          "id": "choose-search-by",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "literal",
+              "value": "Member Number"
+            }
+          }
+        },
+        {
+          "id": "fill-member-number",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "run-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-results",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "cell",
+              "name": {
+                "kind": "literal",
+                "value": "Member No."
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "select-member",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "open-update-form",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Update Member Information"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-form",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "UPDATE MEMBER INFORMATION"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "fill-email",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "email"
+            }
+          }
+        },
+        {
+          "id": "fill-phone",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            },
+            "value": {
+              "kind": "input",
+              "input": "phone"
+            }
+          }
+        },
+        {
+          "id": "fill-address",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 2
+            },
+            "value": {
+              "kind": "input",
+              "input": "mailingAddress"
+            }
+          }
+        },
+        {
+          "id": "save",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Save Changes"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-saved",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER INFORMATION UPDATED"
+              },
+              "exact": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

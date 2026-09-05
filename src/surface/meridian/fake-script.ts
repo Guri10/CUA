@@ -331,6 +331,182 @@ export function meridianHoldScript(outcome: PlaceHoldOutcome): Script {
 }
 
 /**
+ * Which ending an open-share Replay should reach: the opened confirmation, or
+ * the minimum-deposit refusal the review step turns a bad request back with. As
+ * with the transfer and hold outcomes these are different scripts — the
+ * "Continue" click leads to whichever screen the deposit would actually produce.
+ */
+export type OpenShareOutcome = "opened" | "min-deposit";
+
+/**
+ * The open-share screens, wired for one outcome.
+ *
+ * Every tree is a real capture. The flow reaches the form the long way — search,
+ * the unique result, the record, then the record's "Open New Share" link — so the
+ * same lookup captures are reused. On the form "Continue" leads to the review on
+ * the `opened` path and to the minimum-deposit refusal on the other; only the
+ * review carries a further "Open Share" transition, to the opened confirmation.
+ */
+export function meridianOpenShareScript(outcome: OpenShareOutcome): Script {
+  const member = CAPTURED_MEMBER;
+  const search: ScriptedScreen = {
+    name: "search",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members`,
+    tree: capturedMeridianTree("members-search"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "button", name: "Search" } }, to: "result" },
+    ],
+  };
+  const result: ScriptedScreen = {
+    name: "result",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=${member}`,
+    tree: capturedMeridianTree("members-unique"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "link", name: "Select", exact: true } }, to: "record" },
+    ],
+  };
+  const record: ScriptedScreen = {
+    name: "record",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}`,
+    tree: capturedMeridianTree(`member-${member}`),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "link", name: "Open New Share", exact: true } },
+        to: "form",
+      },
+    ],
+  };
+  const form: ScriptedScreen = {
+    name: "form",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/open-share`,
+    tree: capturedMeridianTree("open-share"),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "button", name: "Continue" } },
+        to: outcome === "opened" ? "review" : "outcome",
+      },
+    ],
+  };
+
+  const prefix = [search, result, record, form];
+
+  if (outcome === "opened") {
+    return {
+      screens: [
+        ...prefix,
+        {
+          name: "review",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/open-share/review`,
+          tree: capturedMeridianTree("open-share-review"),
+          transitions: [
+            {
+              when: { kind: "click", locator: { role: "button", name: "Open Share" } },
+              to: "opened",
+            },
+          ],
+        },
+        {
+          name: "opened",
+          url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/open-share/post`,
+          tree: capturedMeridianTree("open-share-complete"),
+        },
+      ],
+    };
+  }
+
+  return {
+    screens: [
+      ...prefix,
+      {
+        name: "outcome",
+        url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/open-share/review`,
+        tree: capturedMeridianTree("open-share-min-deposit"),
+      },
+    ],
+  };
+}
+
+/**
+ * Which ending an update-member Replay should reach: the saved confirmation, or
+ * one of the two validation refusals "Save Changes" turns a bad request back
+ * with. update-member is single-step — there is no review — so "Save Changes"
+ * leads straight to whichever screen this outcome names.
+ */
+export type UpdateMemberOutcome = "saved" | "invalid-email" | "invalid-phone";
+
+/**
+ * The update-member screens, wired for one outcome.
+ *
+ * Every tree is a real capture. The flow reaches the form the long way — search,
+ * the unique result, the record, then the record's "Update Member Information"
+ * link — so the same lookup captures are reused. On the form "Save Changes" leads
+ * to the saved confirmation on the `saved` path and to a refusal screen on the
+ * other two; there is no further transition, because there is no review step.
+ */
+export function meridianUpdateMemberScript(outcome: UpdateMemberOutcome): Script {
+  const member = CAPTURED_MEMBER;
+  const search: ScriptedScreen = {
+    name: "search",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members`,
+    tree: capturedMeridianTree("members-search"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "button", name: "Search" } }, to: "result" },
+    ],
+  };
+  const result: ScriptedScreen = {
+    name: "result",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members?by=number&q=${member}`,
+    tree: capturedMeridianTree("members-unique"),
+    transitions: [
+      { when: { kind: "click", locator: { role: "link", name: "Select", exact: true } }, to: "record" },
+    ],
+  };
+  const record: ScriptedScreen = {
+    name: "record",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}`,
+    tree: capturedMeridianTree(`member-${member}`),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "link", name: "Update Member Information", exact: true } },
+        to: "form",
+      },
+    ],
+  };
+  const form: ScriptedScreen = {
+    name: "form",
+    url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/update`,
+    tree: capturedMeridianTree("update"),
+    transitions: [
+      {
+        when: { kind: "click", locator: { role: "button", name: "Save Changes" } },
+        to: "outcome",
+      },
+    ],
+  };
+
+  const slug =
+    outcome === "saved"
+      ? "update-complete"
+      : outcome === "invalid-email"
+        ? "update-invalid-email"
+        : "update-invalid-phone";
+
+  return {
+    screens: [
+      search,
+      result,
+      record,
+      form,
+      {
+        name: "outcome",
+        url: `${MERIDIAN_CAPTURED_BASE_URL}/members/${member}/update`,
+        tree: capturedMeridianTree(slug),
+      },
+    ],
+  };
+}
+
+/**
  * One committed MERIDIAN snapshot, by slug, scrubbed and with its `URL:` header
  * stripped.
  *

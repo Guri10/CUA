@@ -15,6 +15,8 @@ import { memberLookupCapability } from "../src/capability/meridian/member-lookup
 import { memberBalanceCapability } from "../src/capability/meridian/member-balance.js";
 import { fundsTransferCapability } from "../src/capability/meridian/funds-transfer.js";
 import { placeHoldCapability } from "../src/capability/meridian/place-hold.js";
+import { openShareCapability } from "../src/capability/meridian/open-share.js";
+import { updateMemberCapability } from "../src/capability/meridian/update-member.js";
 import { capabilitiesDir, saveCapability } from "../src/capability/storage.js";
 
 const root = capabilitiesDir();
@@ -26,6 +28,8 @@ for (const capability of [
   memberBalanceCapability(),
   fundsTransferCapability(),
   placeHoldCapability(),
+  openShareCapability(),
+  updateMemberCapability(),
 ]) {
   console.log(`wrote ${await saveCapability(root, capability)}`);
 }

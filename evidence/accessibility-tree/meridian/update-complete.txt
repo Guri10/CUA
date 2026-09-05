@@ -1,0 +1,32 @@
+URL: https://web-sample.interface-hiring.com/members/100234/update
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - row "MEMBER INFORMATION UPDATED CHANGES SAVED Member 100234 contact information has been updated as of 09/05/2026 01:01:06. Return to Member Record · Main Menu":
+      - cell "MEMBER INFORMATION UPDATED CHANGES SAVED Member 100234 contact information has been updated as of 09/05/2026 01:01:06. Return to Member Record · Main Menu":
+        - heading "MEMBER INFORMATION UPDATED" [level=1]
+        - text: CHANGES SAVED Member 100234 contact information has been updated as of 09/05/2026 01:01:06.
+        - link "Return to Member Record":
+          - /url: /members/100234
+        - text: ·
+        - link "Main Menu":
+          - /url: /menu
+    - row "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:06 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:06 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

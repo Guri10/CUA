@@ -1,0 +1,47 @@
+URL: https://web-sample.interface-hiring.com/members/100234/update
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "UPDATE MEMBER INFORMATION Member 100234 - Lovelace, Ada * E-mail: replay-verify@example.com * Phone: 555-0155 * Mailing Address: 9 Verify Lane, Checkstown Save Changes Cancel"':
+      - 'cell "UPDATE MEMBER INFORMATION Member 100234 - Lovelace, Ada * E-mail: replay-verify@example.com * Phone: 555-0155 * Mailing Address: 9 Verify Lane, Checkstown Save Changes Cancel"':
+        - heading "UPDATE MEMBER INFORMATION" [level=1]
+        - text: Member 100234 - Lovelace, Ada
+        - table:
+          - rowgroup:
+            - 'row "* E-mail: replay-verify@example.com"':
+              - cell "* E-mail:"
+              - cell "replay-verify@example.com":
+                - textbox: replay-verify@example.com
+            - 'row "* Phone: 555-0155"':
+              - cell "* Phone:"
+              - cell "555-0155":
+                - textbox: 555-0155
+            - 'row "* Mailing Address: 9 Verify Lane, Checkstown"':
+              - cell "* Mailing Address:"
+              - cell "9 Verify Lane, Checkstown":
+                - textbox: 9 Verify Lane, Checkstown
+            - row "Save Changes Cancel":
+              - cell
+              - cell "Save Changes Cancel":
+                - button "Save Changes"
+                - link "Cancel":
+                  - /url: /members/100234
+    - row "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:02 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:02 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"
