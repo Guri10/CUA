@@ -1,0 +1,28 @@
+URL: https://web-sample.interface-hiring.com/members/100234?inject=maintenance
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - row "SCHEDULED MAINTENANCE IN PROGRESS The host is temporarily unavailable while nightly batch posting completes. This window normally clears within a few moments. Continue":
+      - cell "SCHEDULED MAINTENANCE IN PROGRESS The host is temporarily unavailable while nightly batch posting completes. This window normally clears within a few moments. Continue":
+        - text: SCHEDULED MAINTENANCE IN PROGRESS The host is temporarily unavailable while nightly batch posting completes. This window normally clears within a few moments.
+        - link "Continue":
+          - /url: /menu
+    - row "OPR SUPER1 | BR MAIN-001 | 09/05/2026 01:56:21 | SID [REDACTED]":
+      - cell "OPR SUPER1 | BR MAIN-001 | 09/05/2026 01:56:21 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

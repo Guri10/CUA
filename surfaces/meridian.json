@@ -30,7 +30,7 @@
       "name": "SESSION_EXPIRED",
       "when": {
         "kind": "present",
-        "locator": { "role": "heading", "name": { "kind": "literal", "value": "Session Ended" } }
+        "locator": { "role": "cell", "name": { "kind": "literal", "value": "YOUR SESSION HAS TIMED OUT" } }
       },
       "recover": "re-establish-session"
     },
@@ -38,7 +38,7 @@
       "name": "MAINTENANCE",
       "when": {
         "kind": "present",
-        "locator": { "role": "heading", "name": { "kind": "literal", "value": "System Maintenance" } }
+        "locator": { "role": "cell", "name": { "kind": "literal", "value": "SCHEDULED MAINTENANCE IN PROGRESS" } }
       },
       "recover": "retry"
     }

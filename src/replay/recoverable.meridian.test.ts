@@ -8,6 +8,7 @@ import {
   type ScriptedTransition,
 } from "../surface/fake-surface.js";
 import {
+  capturedMeridianTree,
   meridianMemberLookupScript,
   MERIDIAN_CAPTURED_BASE_URL as BASE,
   CAPTURED_MEMBER,
@@ -257,57 +258,36 @@ function interruptedInTurn(occurrences: readonly ScriptedScreen[]): Script {
 }
 
 /**
- * MERIDIAN's fault-path interstitials, synthesized rather than captured.
+ * MERIDIAN's fault-path interstitials, from real captures.
  *
- * The functional screens the fake serves are real captures (`fake-script.ts`).
- * These are not: they appear only on a 440 / 503, which the capture pass never
- * triggered — so, exactly as `parabank/fixtures.ts` synthesizes the body of an
- * injected server error, they are written here. Each carries the one thing the
- * profile's predicate reads — the heading — inside the same banner-and-table
- * chrome every MERIDIAN page shows, plus the return control the real page would
- * offer. No Locator addresses a control on them, so there is nothing here to get
- * wrong against the real application; only the heading has to be what the 440
- * and 503 pages show, which is what the profile's conditions were written from.
+ * They appear only under fault — a session timeout, a maintenance window, a
+ * server error — which the functional capture passes never triggered. MERIDIAN's
+ * own `/settings` fault injection forces them per request, and
+ * `capture:meridian-recoverable` snapshots the real trees under
+ * `evidence/accessibility-tree/meridian/`. The fake answers from those, the same
+ * rule every MERIDIAN fixture follows: a hand-written tree would quietly describe
+ * the application we wish we had — and, as it happens, did: the real screens
+ * carry their message as a `cell`, with no `heading` node at all, which is why
+ * the profile's conditions match a cell rather than a heading.
+ *
+ * Each URL keeps its `?inject=…` so it cannot collide with a functional screen's
+ * address when the re-run navigates back to the inquiry form.
  */
 const SESSION_ENDED: ScriptedScreen = {
   name: "session-ended",
-  url: `${BASE}/signon?expired=1`,
-  tree: interstitialTree("Session Ended", "Your session has ended. Please sign on again."),
+  url: `${BASE}/members/${CAPTURED_MEMBER}?inject=timeout`,
+  tree: capturedMeridianTree("session-ended"),
 };
 
 const SYSTEM_MAINTENANCE: ScriptedScreen = {
   name: "system-maintenance",
-  url: `${BASE}/maintenance`,
-  tree: interstitialTree(
-    "System Maintenance",
-    "MERIDIAN Core is briefly unavailable for scheduled maintenance. Please try again.",
-  ),
+  url: `${BASE}/members/${CAPTURED_MEMBER}?inject=maintenance`,
+  tree: capturedMeridianTree("system-maintenance"),
 };
 
-/** A screen matching neither declared condition — the injected rejection. */
+/** A real server error — the screen no declared condition describes. */
 const SYSTEM_ERROR: ScriptedScreen = {
-  name: "system-error",
-  url: `${BASE}/error`,
-  tree: interstitialTree("System Error", "An unexpected error has occurred."),
+  name: "server-error",
+  url: `${BASE}/members/${CAPTURED_MEMBER}?inject=server`,
+  tree: capturedMeridianTree("server-error"),
 };
-
-/**
- * One synthesized interstitial, in the accessibility-tree shape MERIDIAN's real
- * captures use (`readAriaSnapshot`'s format): the platform banner row, then a
- * content cell holding the heading, the message, and a Sign On link.
- */
-function interstitialTree(heading: string, message: string): string {
-  const banner = "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™";
-  return [
-    "- table:",
-    "  - rowgroup:",
-    `    - row "${banner}":`,
-    `      - cell "${banner}"`,
-    `    - row "${heading} ${message} Sign On":`,
-    `      - cell "${heading} ${message} Sign On":`,
-    `        - heading "${heading}" [level=1]`,
-    `        - text: ${message}`,
-    `        - link "Sign On":`,
-    "          - /url: /signon",
-  ].join("\n");
-}

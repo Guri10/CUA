@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { loadSurfaceProfile, surfacesDir } from "./profile.js";
 import { routeOf } from "./route.js";
+import { matchesPredicate } from "../replay/predicate.js";
+import { readAriaSnapshot } from "../surface/aria-snapshot.js";
+import { capturedMeridianTree } from "../surface/meridian/fake-script.js";
 
 /**
  * The MERIDIAN Surface profile: the second installation described as data.
@@ -55,5 +58,28 @@ describe("the MERIDIAN Surface profile", () => {
       ["SESSION_EXPIRED", "re-establish-session"],
       ["MAINTENANCE", "retry"],
     ]);
+  });
+
+  it("matches each Recoverable Condition against the real screen it names, and no other", async () => {
+    // The check that a declared predicate is worth anything: it holds on the
+    // interstitial MERIDIAN actually serves (captured under
+    // `evidence/accessibility-tree/meridian/`), and does not hold on the other
+    // condition's screen or on a plain server error. These real screens carry
+    // their message as a `cell`, with no `heading` node — which is why matching a
+    // heading, as the profile first did, matched nothing.
+    const profile = await loadSurfaceProfile(surfacesDir(), "meridian");
+    const holds = (slug: string, name: string): boolean => {
+      const condition = profile.recoverableConditions.find((candidate) => candidate.name === name);
+      if (condition === undefined) throw new Error(`no condition "${name}"`);
+      return matchesPredicate(readAriaSnapshot(capturedMeridianTree(slug)), condition.when, {});
+    };
+
+    expect(holds("session-ended", "SESSION_EXPIRED")).toBe(true);
+    expect(holds("system-maintenance", "MAINTENANCE")).toBe(true);
+    expect(holds("system-maintenance", "SESSION_EXPIRED")).toBe(false);
+    expect(holds("session-ended", "MAINTENANCE")).toBe(false);
+    // A server error is nobody's Recoverable Condition — it must fall through.
+    expect(holds("server-error", "SESSION_EXPIRED")).toBe(false);
+    expect(holds("server-error", "MAINTENANCE")).toBe(false);
   });
 });
