@@ -25,14 +25,15 @@
  *
  * "Recoverable" is not a terminal status the core emits — a recovered run ends in
  * one of the real outcomes, and recovery is absorbed inside `replayCapability`.
- * So it is *derived*, not invented, and derived from what the log already carries
- * for a real recovered run: a success that captured a `failure.png` on the way.
- * A run that never missed an Action captures no screen, so a `success` with one is
- * a run that hit a fault and re-established from it — exactly a Recoverable
- * Condition. That signal is present without the core writing anything new, so a
- * live recovered replay shows as `recovered` and not as a plain success. When the
- * finish record also carries a `recovered` marker (the e2e harness writes the
- * condition name, e.g. `SESSION_EXPIRED`), that names what it recovered from.
+ * So it is a `success` shown differently, decided from what the run recorded. The
+ * authoritative signal is the `recovered` marker the finish record now carries
+ * (#37): `replayCapability` returns which Recoverable Conditions it absorbed, and
+ * `runCapability` writes their names onto the finish `about`, so a real recovered
+ * replay says so as a fact and names what it re-established from (e.g.
+ * `SESSION_EXPIRED`). As a fallback for a run that recorded no marker, a `success`
+ * that also captured a `failure.png` is treated as recovered too: a run that never
+ * missed an Action captures no screen, so a success with one rode through a fault.
+ * The marker is preferred because only it carries the condition's name.
  * A pre-run gate escalation (#27) writes no run at all, so it never appears here;
  * the only escalations shown are discovery handovers.
  */

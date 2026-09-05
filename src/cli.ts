@@ -271,7 +271,12 @@ async function runCapability(
     });
 
     if (result.kind === "success") {
-      await evidence.finish("success", {});
+      // A run that absorbed a Recoverable Condition on its way to success records
+      // which one, so the evidence — and the dashboard reading it — can mark the
+      // run as recovered rather than as a plain success. An ordinary success that
+      // never stumbled writes no marker.
+      const recovered = result.recovered ?? [];
+      await evidence.finish("success", recovered.length > 0 ? { recovered: recovered.join(", ") } : {});
     } else if (result.kind === "business-outcome") {
       // The screen is captured all the same, and by this branch rather than only
       // by the decorator underneath. An outcome recognised because a Step missed
