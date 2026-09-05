@@ -31,6 +31,7 @@ import { startDashboard, DEFAULT_DASHBOARD_PORT } from "./dashboard/serve.js";
 import { catalogClient } from "./chatbot/catalog-client.js";
 import { createChatbot } from "./chatbot/chatbot.js";
 import { modelIntentRouter } from "./chatbot/intent-router.js";
+import { startChatUi, DEFAULT_CHAT_PORT, type ChatServer } from "./chatbot/serve.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { discoveryMandate, mandateFor, type Mandate } from "./policy/mandate.js";
@@ -88,6 +89,9 @@ serve options:
   --dashboard-port <n>   Where the read-only dashboard listens, on loopback. Defaults
                          to 8789. Open it in a browser to watch the catalog and the
                          run history; it shows what the core emits and drives nothing.
+  --chat-port <n>        Where the chatbot page listens, on loopback. Defaults to 8790.
+                         Started only when CHATBOT_API_KEY is set; open it in a browser
+                         to ask in plain language. It calls the catalog, not a side door.
 
 chat options:
   --message <text>       The request, in plain language. The chatbot turns it into
@@ -392,12 +396,35 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     throw thrown;
   }
 
+  // The chatbot page is the other human-facing half, on its own port. It is a
+  // caller of the catalog above, not a second boundary, so it is started here too
+  // — but only when the operator's model key is present, since a chatbot with no
+  // key can answer nothing. Its absence leaves the catalog and dashboard running
+  // and says so, rather than failing the whole boot for the one optional part.
+  const chatPort = wholeNumber(single(args, "chat-port"), "--chat-port", DEFAULT_CHAT_PORT);
+  const chatKey = process.env["CHATBOT_API_KEY"];
+  let chat: ChatServer | undefined;
+  if (chatKey !== undefined && chatKey !== "") {
+    const chatbot = createChatbot({ client: catalogClient(server.url), router: modelIntentRouter(chatKey) });
+    try {
+      chat = await startChatUi({ chatbot, port: chatPort, dashboardUrl: dashboard.url });
+    } catch (thrown) {
+      // Same reason the dashboard closes the catalog on a bind failure: a failed
+      // boot should leave no listening socket behind.
+      await Promise.all([server.close(), dashboard.close()]);
+      throw thrown;
+    }
+  }
+
   process.stdout.write(
     [
       `Capability catalog on ${server.url}`,
       `  list:   GET  ${server.url}/capabilities`,
       `  invoke: POST ${server.url}/capabilities/<id>/invoke`,
       `Dashboard (read-only) on ${dashboard.url}`,
+      chat !== undefined
+        ? `Chatbot on ${chat.url}`
+        : "Chatbot UI off — set CHATBOT_API_KEY in .env to enable it.",
       "",
     ].join("\n"),
   );
@@ -408,7 +435,7 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
   });
-  await Promise.all([server.close(), dashboard.close()]);
+  await Promise.all([server.close(), dashboard.close(), ...(chat !== undefined ? [chat.close()] : [])]);
   return 0;
 }
 
@@ -862,6 +889,7 @@ const SERVE_OPTIONS = {
   ...SHARED,
   port: "value",
   "dashboard-port": "value",
+  "chat-port": "value",
 } as const;
 
 // The chatbot calls only a running catalog over HTTP, so it shares none of the

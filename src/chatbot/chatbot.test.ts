@@ -82,6 +82,19 @@ describe("the chatbot over the catalog", () => {
     return (utterance) => bot.ask(utterance);
   }
 
+  /** The chatbot itself, for the structured `run` the served UI calls. */
+  async function chatbotFor(router: IntentRouter): Promise<ReturnType<typeof createChatbot>> {
+    server = await startCatalog({ root, invoke, port: 0 });
+    return createChatbot({ client: catalogClient(server.url), router });
+  }
+
+  /** Returns the transfer while nothing has run yet, then stops — idempotent across
+   * the two stateless requests a confirm makes. */
+  const transferThenDone: IntentRouter = async (_utterance, _catalog, history) =>
+    history.length === 0
+      ? { kind: "invoke", invocation: { ref: "funds-transfer", inputs: { memberNumber: "100234", ...TRANSFER } } }
+      : { kind: "done" };
+
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), "cua-chatbot-"));
     await saveCapability(root, approved(memberLookupCapability()));
@@ -214,5 +227,65 @@ describe("the chatbot over the catalog", () => {
 
     expect(answer).toMatch(/sign off/i);
     expect(answer).toMatch(/draft/i);
+  });
+
+  it("previews a mutating step — the plan, with nothing invoked", async () => {
+    const bot = await chatbotFor(transferThenDone);
+
+    const result = await bot.run("transfer $1 for 100234", { preview: true });
+
+    expect(result.steps).toHaveLength(0);
+    expect(result.pending).toBeDefined();
+    expect(result.pending!.reason).toBe("preview");
+    expect(result.pending!.ref).toBe("funds-transfer");
+    expect(result.answer).toMatch(/preview/i);
+  });
+
+  it("holds a mutating step for confirmation, then posts exactly what was shown", async () => {
+    const bot = await chatbotFor(transferThenDone);
+
+    const held = await bot.run("transfer $1 for 100234", { confirmMutating: true });
+    expect(held.steps).toHaveLength(0);
+    expect(held.pending!.reason).toBe("confirm");
+
+    // Proceed with the exact invocation the pause reported — the post binds to
+    // what the caller confirmed, not to whatever the router would say now.
+    const posted = await bot.run("transfer $1 for 100234", {
+      confirmMutating: true,
+      proceed: true,
+      confirmed: held.pending!.invocation,
+    });
+    expect(posted.pending).toBeUndefined();
+    expect(posted.steps).toHaveLength(1);
+    expect(posted.steps[0]!.invocation).toEqual(held.pending!.invocation);
+    expect(posted.answer).toContain("confirmationNumber: CN480243");
+  });
+
+  it("runs the confirmed invocation as-is, not one the router re-derives", async () => {
+    // The router is done — it would invoke nothing. A confirmed proceed must still
+    // run the action the caller clicked, which is what binds the confirm to the
+    // screen rather than to a second model call.
+    const bot = await chatbotFor(scriptedRouter([]));
+    const confirmed = { ref: "funds-transfer", inputs: { memberNumber: "100234", ...TRANSFER } };
+
+    const posted = await bot.run("post it", { proceed: true, confirmed });
+
+    expect(posted.steps).toHaveLength(1);
+    expect(posted.steps[0]!.invocation).toEqual(confirmed);
+    expect(posted.steps[0]!.outcome.kind).toBe("success");
+  });
+
+  it("never holds a read-only step — preview only pauses a mutating one", async () => {
+    const bot = await chatbotFor(
+      scriptedRouter([
+        { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } } },
+      ]),
+    );
+
+    const result = await bot.run("look up 100234", { preview: true });
+
+    expect(result.pending).toBeUndefined();
+    expect(result.steps).toHaveLength(1);
+    expect(result.steps[0]!.outcome.kind).toBe("success");
   });
 });
