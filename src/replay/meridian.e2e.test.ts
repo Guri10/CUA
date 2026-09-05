@@ -2,9 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fundsTransferCapability } from "../capability/meridian/funds-transfer.js";
 import { memberBalanceCapability } from "../capability/meridian/member-balance.js";
 import { memberLookupCapability } from "../capability/meridian/member-lookup.js";
+import { openShareCapability } from "../capability/meridian/open-share.js";
 import { placeHoldCapability } from "../capability/meridian/place-hold.js";
+import { updateMemberCapability } from "../capability/meridian/update-member.js";
 import { capabilitiesDir } from "../capability/storage.js";
 import { startCatalog, type CatalogServer, type Escalated } from "../catalog/serve.js";
+import { logInToMeridian } from "../surface/meridian/login.js";
 import { loadSurfaceProfile, surfacesDir, type SurfaceProfile } from "../policy/profile.js";
 import { headless } from "../surface/headless.js";
 import { PlaywrightSurface } from "../surface/playwright-surface.js";
@@ -245,6 +248,105 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
     // is the same either way; where it is first seen is the target's to decide.
     expect(result).toMatchObject({ kind: "business-outcome", name: "SUPERVISOR_OVERRIDE_REQUIRED" });
   });
+
+  it("opens a share for the member and returns the new share id", async () => {
+    // A real posted mutation a teller is allowed to make: the select of the share
+    // type, the fill of the deposit, and the Continue/Confirm clicks all resolve
+    // through the perceived tree. Success returns the confirmation and the new id.
+    const result = await replayCapability(
+      surface,
+      openShareCapability(),
+      {
+        memberNumber: CAPTURED_MEMBER,
+        shareType: "MMKT - Money Market",
+        initialDeposit: "5.00",
+      },
+      { baseUrl: BASE_URL },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+    if (result.kind !== "success") return;
+    expect(result.outputs["confirmationNumber"]).toMatch(/^CN\d+$/);
+    expect((result.outputs["newShareId"] as string).length).toBeGreaterThan(0);
+  });
+
+  it("updates the member's contact information", async () => {
+    // A teller-permitted mutating post over three filled fields. The values are the
+    // valid ones the capture recorded, so it posts rather than being turned back as
+    // INVALID_EMAIL / INVALID_PHONE.
+    const result = await replayCapability(
+      surface,
+      updateMemberCapability(),
+      {
+        memberNumber: CAPTURED_MEMBER,
+        email: "replay-verify@example.com",
+        phone: "555-0155",
+        mailingAddress: "9 Verify Lane, Checkstown",
+      },
+      { baseUrl: BASE_URL },
+    );
+
+    expect(result).toMatchObject({ kind: "success" });
+  });
+});
+
+describe("replaying place-hold against live MERIDIAN as a supervisor", () => {
+  let surface: PlaywrightSurface;
+
+  beforeAll(async () => {
+    surface = await PlaywrightSurface.launch({ headless: headless(), defaultTimeoutMs: TIMEOUT_MS });
+    // A separate session signed on as the supervisor operator, so the same hold a
+    // teller is turned back from (SUPERVISOR_OVERRIDE_REQUIRED) posts here — the
+    // authorization decision is MERIDIAN's, read from which operator signed on.
+    const credentials = {
+      operator: requiredEnv("MERIDIAN_SUPERVISOR_OPERATOR"),
+      password: requiredEnv("MERIDIAN_SUPERVISOR_PASSWORD"),
+      branch: requiredEnv("MERIDIAN_BRANCH"),
+    };
+    for (const action of logInToMeridian(BASE_URL, credentials)) {
+      const result = await surface.perform(action);
+      expect(result).toEqual({ kind: "ok" });
+    }
+  });
+
+  afterAll(async () => {
+    await surface.close();
+  });
+
+  it("posts the hold a teller is turned back from", async () => {
+    // Read the shares live and hold an OPEN one — a share already on HOLD is not a
+    // clean subject for a new hold. The share is named the way the hold form lists
+    // it: id and type.
+    const lookup = await replayCapability(
+      surface,
+      memberBalanceCapability(),
+      { memberNumber: CAPTURED_MEMBER },
+      { baseUrl: BASE_URL },
+    );
+    expect(lookup).toMatchObject({ kind: "success" });
+    if (lookup.kind !== "success") return;
+    const shares = lookup.outputs["shares"] as ReadonlyArray<Record<string, string>>;
+    const open = shares.find((s) => s["status"] === "OPEN");
+    expect(open, "the member needs an OPEN share to hold").toBeDefined();
+
+    const result = await replayCapability(
+      surface,
+      placeHoldCapability(),
+      {
+        memberNumber: CAPTURED_MEMBER,
+        shareId: `${open!["shareId"]} - ${open!["type"]}`,
+        reasonCode: "FRAUD - Suspected fraud",
+        notes: "e2e supervisor hold",
+      },
+      { baseUrl: BASE_URL },
+    );
+
+    // Authorization is MERIDIAN's to answer (ADR 0008): the supervisor reaches the
+    // confirmation the teller never does.
+    expect(result).toMatchObject({ kind: "success" });
+    if (result.kind !== "success") return;
+    expect(result.outputs["confirmationNumber"]).toMatch(/^CN\d+$/);
+  });
 });
 
 describe("the policy gate escalating a mutating draft over the catalog", () => {
@@ -335,4 +437,13 @@ function parseTransferOption(label: string): { readonly label: string; readonly 
     id: label.slice(0, separator),
     balance: Number(balanceMatch[1]!.replace(/,/g, "")),
   };
+}
+
+/** A required environment value, failing loudly before a browser opens if unset. */
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value === "") {
+    throw new Error(`${name} is not set. Copy .env.example to .env and fill it in.`);
+  }
+  return value;
 }
