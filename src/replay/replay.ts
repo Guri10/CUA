@@ -55,17 +55,31 @@ export interface ReplayOptions {
    * failing to recognise a screen it can in fact name.
    */
   reestablishSession?(): Promise<void>;
-  /** How many times one run may absorb a condition. Defaults to two. */
+  /**
+   * How many times one run may absorb each condition before it escalates.
+   * Defaults to one: a Recoverable Condition that recurs after it was already
+   * absorbed is a loop, not a recovery, because Replay re-runs the whole
+   * Recording from Step one each time — nothing is carried past the
+   * interruption, so meeting the same condition again means the re-establish or
+   * the retry moved the run nowhere. Counted per condition, which also bounds
+   * the run: there are finitely many declared conditions, each absorbable this
+   * many times, so a run cannot recover forever — not even one flapping between
+   * two conditions.
+   */
   readonly maxRecoveries?: number;
 }
 
 /**
- * A run that kept meeting the same interruption is not recovering, it is
- * looping. Two, because a session expiring once mid-run is ordinary and a
- * second one is bad luck, but a run still being interrupted after it has twice
- * re-established a session is not making progress and should say so.
+ * How many times one run may absorb each condition before it is escalating a
+ * loop rather than recovering from a blip. One, because a session that expires
+ * once mid-run is ordinary and is absorbed — but a run that meets that same
+ * condition again, after it re-established or retried and re-ran from the start,
+ * has been moved nowhere by the recovery and should say so rather than absorb it
+ * a second time. Per condition (ADR 0005), so this also caps the whole run:
+ * finitely many declared conditions, each absorbable a fixed number of times,
+ * cannot recover forever.
  */
-const DEFAULT_MAX_RECOVERIES = 2;
+const DEFAULT_MAX_RECOVERIES = 1;
 
 /**
  * How a run ended.
@@ -141,11 +155,20 @@ export async function replayCapability(
 
   const steps = resolveRecording(capability, options.variant);
 
-  for (let recovered = 0; ; recovered += 1) {
+  // How many times each condition has been absorbed this run. A budget kept per
+  // condition rather than as one shared total: a session that expires once and a
+  // maintenance page shown once are two ordinary blips, not a loop. It also
+  // bounds the run — finitely many declared conditions, each absorbable a fixed
+  // number of times — so a run flapping between two conditions still terminates
+  // rather than recovering forever.
+  const absorbed = new Map<string, number>();
+
+  for (;;) {
     const attempt = await runOnce(surface, capability, steps, values, options, ref);
     if (attempt.kind !== "interrupted") return attempt;
 
-    const refusal = whyNotAbsorbed(capability, attempt.condition, recovered, options);
+    const already = absorbed.get(attempt.condition.name) ?? 0;
+    const refusal = whyNotAbsorbed(capability, attempt.condition, already, options);
     if (refusal !== undefined) {
       return { ...attempt.failure, observed: `${attempt.failure.observed}; ${refusal}` };
     }
@@ -156,6 +179,7 @@ export async function replayCapability(
     // condition means the old session is gone, so a new one is signed in first;
     // a `retry` condition (MERIDIAN's transient maintenance page) leaves the
     // session intact, so the run is simply attempted again.
+    absorbed.set(attempt.condition.name, already + 1);
     if (attempt.condition.recover === "re-establish-session") {
       await options.reestablishSession?.();
     }
@@ -174,7 +198,7 @@ export async function replayCapability(
 function whyNotAbsorbed(
   capability: Capability,
   condition: RecoverableCondition,
-  recovered: number,
+  alreadyAbsorbed: number,
   options: ReplayOptions,
 ): string | undefined {
   const met = `the "${condition.name}" Recoverable Condition matched`;
@@ -188,9 +212,17 @@ function whyNotAbsorbed(
     return `${met}, and a mutating Capability is not re-run from the start`;
   }
 
+  // This condition matching after it was already absorbed as many times as it
+  // may be. Kept per condition, so a different interruption does not spend this
+  // one's budget.
   const budget = options.maxRecoveries ?? DEFAULT_MAX_RECOVERIES;
-  if (recovered >= budget) {
-    return `${met} again, and this run may absorb ${budget === 0 ? "none" : `only ${budget}`}`;
+  if (alreadyAbsorbed >= budget) {
+    // "again" only when it truly recurred: a budget of zero refuses the very
+    // first sighting, and saying "again" then would report a recurrence that did
+    // not happen.
+    const recurred = alreadyAbsorbed > 0 ? " again" : "";
+    const allowance = budget === 0 ? "none" : `only ${budget}`;
+    return `${met}${recurred}, and this run may absorb ${allowance}`;
   }
   return undefined;
 }
