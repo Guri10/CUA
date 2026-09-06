@@ -169,6 +169,15 @@ Recording. The demoable escalation for MERIDIAN is the terminal `escalated` 403 
   current label per invocation (re-read via `member-balance` first). The real fix is the target's (a
   stable option name) or a relaxation of ADR 0001 (reaching for the DOM `<option value>`), which I
   rejected. Documented in `docs/meridian-capabilities.md`.
+- **Partial member updates.** `update-member` writes e-mail, phone, and mailing address as a single
+  form — there is no partial update. When a request names only some of them, the chatbot asks for the
+  rest rather than guessing (the same look-then-ask move as the ambiguous-share case), which is the
+  safe direction. But a request to change one field and "keep the rest the same" cannot be honoured,
+  because no read-only Capability returns a member's current contact record — `member-lookup` gives
+  the number and name, `member-balance` gives the shares, and neither reads the e-mail, phone, or
+  address. So today the caller has to restate all three. The fix is a read that returns the current
+  contact fields (a `member-contact` Capability) for the chatbot to pre-fill the unchanged ones, or an
+  update that accepts a partial patch; the former keeps the whole-form Recording intact.
 - **Reach.** No second tenant variant (the per-step override mechanism is built and tested, just not
   exercised with a branded profile). Catalog, chatbot, and dashboard are loopback-only with no auth.
   Escalation over the API is terminal rather than a remote live handoff.
