@@ -16,6 +16,7 @@
  * and reports whatever comes back — including a refusal, in plain language.
  */
 import type { CatalogEntry } from "../catalog/catalog.js";
+import type { LoginSession } from "../surface/login-session.js";
 import type { CatalogClient } from "./catalog-client.js";
 import type { ChatLogger } from "./log.js";
 import { report } from "./report.js";
@@ -28,6 +29,10 @@ import type { IntentRouter, Invocation, Step } from "./types.js";
  */
 const MAX_STEPS = 6;
 
+/** What the chatbot answers when no one is signed on, or the session has timed out. */
+const SIGNED_OFF_MESSAGE =
+  "You're not signed on. Open the sign-on portal and sign on as an operator before I can look anything up or act.";
+
 export interface ChatbotOptions {
   /** The one dependency: how the chatbot reaches `serve`. */
   readonly client: CatalogClient;
@@ -39,6 +44,13 @@ export interface ChatbotOptions {
    * the chatbot does not depend on it.
    */
   readonly log?: ChatLogger;
+  /**
+   * The served login gate (#51). When present, a query is refused in plain
+   * language until a person has signed on at the portal, and each admitted query
+   * resets the idle clock. Omitted for the CLI chat command and in tests, where
+   * there is no portal in the loop.
+   */
+  readonly session?: LoginSession;
 }
 
 /**
@@ -100,6 +112,16 @@ export interface Chatbot {
 
 export function createChatbot(deps: ChatbotOptions): Chatbot {
   async function run(utterance: string, options: RunOptions = {}): Promise<ChatResult> {
+    // The served login gate, before anything is read or run (#51): a query is
+    // refused in plain language until a person has signed on at the portal, and an
+    // admitted one resets the idle clock. Nothing reaches the catalog while locked
+    // out — the catalog is gated too, but this is the friendly answer.
+    if (deps.session !== undefined && !deps.session.admit()) {
+      const result: ChatResult = { steps: [], answer: SIGNED_OFF_MESSAGE, ranOut: false };
+      deps.log?.({ utterance, options, result });
+      return result;
+    }
+
     // A confirmed action runs exactly as it was shown: the invocation the caller
     // clicked, not one re-derived by asking the router again. This is what binds
     // the confirm to the screen — the catalog still gates it, the same as any

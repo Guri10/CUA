@@ -41,6 +41,7 @@ import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import { mandateFor } from "../policy/mandate.js";
 import type { ReplayResult } from "../replay/replay.js";
 import type { EscalationContext } from "../escalation/intervention-request.js";
+import type { LoginSession } from "../surface/login-session.js";
 import { listCatalog } from "./catalog.js";
 
 /**
@@ -100,6 +101,13 @@ export interface CatalogServerOptions {
   readonly root: string;
   /** How to run one. Injected so the run can be a real browser or a fake. */
   readonly invoke: InvokeCapability;
+  /**
+   * The served login gate (#51). When present, both routes refuse until a person
+   * has signed on at the portal, and each admitted request resets the idle clock.
+   * Omitted where there is no portal (a ParaBank-only serve, and the tests that
+   * exercise the routes without a login), leaving the catalog open as before.
+   */
+  readonly session?: LoginSession;
   /** Zero asks the operating system for a free one, which is what tests use. */
   readonly port?: number;
 }
@@ -154,11 +162,13 @@ async function handle(
   const path = new URL(incoming.url ?? "/", "http://127.0.0.1").pathname;
 
   if (incoming.method === "GET" && path === "/capabilities") {
+    if (!admitted(options, outgoing)) return;
     return reply(outgoing, 200, await listCatalog(options.root));
   }
 
   const ref = invokeRef(path);
   if (incoming.method === "POST" && ref !== undefined) {
+    if (!admitted(options, outgoing)) return;
     return await invoke(incoming, outgoing, options, ref);
   }
 
@@ -167,6 +177,20 @@ async function handle(
     list: "GET /capabilities",
     invoke: "POST /capabilities/<id>[@<version>]/invoke",
   });
+}
+
+/**
+ * Whether this request may proceed past the login gate (#51). With no session
+ * configured the catalog is open, as it was before. With one, an admitted request
+ * resets the idle clock; a locked-out one gets a 401 and goes no further — the
+ * caller has not signed on, or the session timed out, so it names the portal.
+ */
+function admitted(options: CatalogServerOptions, outgoing: ServerResponse): boolean {
+  if (options.session === undefined || options.session.admit()) return true;
+  reply(outgoing, 401, {
+    error: "Not signed in. Open the sign-on portal and sign on before using the catalog.",
+  });
+  return false;
 }
 
 /** `/capabilities/<ref>/invoke` → the decoded `<ref>`, or undefined if not that shape. */

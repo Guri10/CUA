@@ -6,6 +6,7 @@ import { accountLookupCapability } from "../capability/parabank/account-lookup.j
 import type { Capability } from "../capability/schema.js";
 import { saveCapability } from "../capability/storage.js";
 import type { ReplayResult } from "../replay/replay.js";
+import { LoginSession } from "../surface/login-session.js";
 import { startCatalog, type CatalogServer, type InvokeCapability } from "./serve.js";
 
 /**
@@ -230,5 +231,47 @@ describe("Capability catalog server", () => {
     const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
 
     expect((await fetch(`${url}/`)).status).toBe(404);
+  });
+
+  describe("with a login gate (#51)", () => {
+    async function serveGated(invoke: InvokeCapability, session: LoginSession): Promise<string> {
+      server = await startCatalog({ root, invoke, session, port: 0 });
+      return server.url;
+    }
+
+    it("refuses both routes with a 401 until someone has signed on", async () => {
+      await saveCapability(root, approved(accountLookupCapability()));
+      const invoke = recordingInvoke({ kind: "success", outputs: {} });
+      const url = await serveGated(invoke, new LoginSession({ idleMs: 60_000 }));
+
+      const list = await fetch(`${url}/capabilities`);
+      expect(list.status).toBe(401);
+      expect((await bodyOf(list)).error).toMatch(/sign/i);
+
+      const run = await fetch(`${url}/capabilities/account-lookup/invoke`, {
+        method: "POST",
+        body: JSON.stringify({ inputs: { accountId: "12345" } }),
+      });
+      expect(run.status).toBe(401);
+      // The gate is before the run: the invoke was never called.
+      expect(invoke.calls).toEqual([]);
+    });
+
+    it("lists and invokes once signed on, and refuses again after sign-off", async () => {
+      await saveCapability(root, approved(accountLookupCapability()));
+      const session = new LoginSession({ idleMs: 60_000 });
+      const url = await serveGated(recordingInvoke({ kind: "success", outputs: {} }), session);
+
+      session.signOn({ operator: "teller1", branch: "MAIN-001 - Main Office" });
+      expect((await fetch(`${url}/capabilities`)).status).toBe(200);
+      const run = await fetch(`${url}/capabilities/account-lookup/invoke`, {
+        method: "POST",
+        body: JSON.stringify({ inputs: { accountId: "12345" } }),
+      });
+      expect(run.status).toBe(200);
+
+      session.signOff();
+      expect((await fetch(`${url}/capabilities`)).status).toBe(401);
+    });
   });
 });

@@ -22,6 +22,15 @@ export class SecretStore {
   get(operatorId: string): string | undefined {
     return this.#byOperator.get(operatorId);
   }
+
+  /**
+   * Drop any password held for `operatorId`; a no-op when none is. The login
+   * session (#51) calls this when a served session expires or signs off, so a
+   * locked-out session cannot re-sign from a password nobody re-entered.
+   */
+  clear(operatorId: string): void {
+    this.#byOperator.delete(operatorId);
+  }
 }
 
 /**

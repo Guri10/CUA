@@ -1,6 +1,7 @@
 import { request } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SecretStore } from "../surface/secret-store.js";
+import { LoginSession } from "../surface/login-session.js";
 import { startSignOnPortal, type SignOn, type SignOnPortal } from "./serve.js";
 
 /**
@@ -106,45 +107,95 @@ describe("the sign-on portal", () => {
     expect(store.get("super1")).toBeUndefined();
   });
 
-  it("refuses an operator or branch the runs would not read, storing nothing", async () => {
-    // Configured for super1 at MAIN-001; the runs look the password up by that
-    // operator id, so a sign-on for anyone else must not appear to succeed.
-    const { signOn, calls } = fakeSignOn();
+  it("marks the served session live as the operator who signed on (#51)", async () => {
+    const { signOn } = fakeSignOn();
     const store = new SecretStore();
-    portal = await startSignOnPortal({
-      signOn,
-      store,
-      expected: { operator: "super1", branch: "MAIN-001 - Main Office" },
-      port: 0,
-    });
+    const session = new LoginSession({ idleMs: 60_000, store });
+    portal = await startSignOnPortal({ signOn, store, session, port: 0 });
 
-    const wrongOperator = await post(portal.url, { ...GOOD, operator: "teller1" });
-    expect(wrongOperator.status).toBe(409);
-
-    const wrongBranch = await post(portal.url, { ...GOOD, branch: "WEST-002 - West Office" });
-    expect(wrongBranch.status).toBe(409);
-
-    // Neither reached the validator, and neither left anything in the store.
-    expect(calls).toEqual([]);
-    expect(store.get("teller1")).toBeUndefined();
-    expect(store.get("super1")).toBeUndefined();
-  });
-
-  it("accepts the configured operator and branch when they match", async () => {
-    const { signOn, calls } = fakeSignOn();
-    const store = new SecretStore();
-    portal = await startSignOnPortal({
-      signOn,
-      store,
-      expected: { operator: "super1", branch: "MAIN-001 - Main Office" },
-      port: 0,
-    });
-
+    expect(session.isLive()).toBe(false);
     const response = await post(portal.url, GOOD);
 
     expect(response.status).toBe(200);
+    expect(session.isLive()).toBe(true);
+    expect(session.identity()).toEqual({ operator: "super1", branch: "MAIN-001 - Main Office" });
+  });
+
+  it("refuses a different operator once one is locked in, without driving the browser (#51)", async () => {
+    // Any operator is accepted first; the second, different one is refused until
+    // restart — one operator per boot — and never reaches the validator.
+    const { signOn, calls } = fakeSignOn();
+    const store = new SecretStore();
+    const session = new LoginSession({ idleMs: 60_000, store });
+    portal = await startSignOnPortal({ signOn, store, session, port: 0 });
+
+    expect((await post(portal.url, GOOD)).status).toBe(200); // locks onto super1
+    const different = await post(portal.url, { ...GOOD, operator: "teller1" });
+
+    expect(different.status).toBe(409);
+    expect(((await different.json()) as { error?: string }).error).toMatch(/until it restarts/i);
+    // Only the first, accepted sign-on reached the validator.
     expect(calls).toEqual([GOOD]);
-    expect(store.get("super1")).toBe("s3cr3t");
+    expect(store.get("teller1")).toBeUndefined();
+  });
+
+  it("stores no losing operator's password when two different sign-ons race (#51)", async () => {
+    // Both submissions pass the pre-validation `accepts` check while nothing is
+    // locked; the winner takes the lock, and the loser must be refused *before*
+    // its validated password is stored, so no orphan lingers.
+    const store = new SecretStore();
+    const session = new LoginSession({ idleMs: 60_000, store });
+    const release = new Map<string, () => void>();
+    const signOn: SignOn = (req) =>
+      new Promise((resolve) => release.set(req.operator, () => resolve({ operator: req.operator, role: "TELLER" })));
+    portal = await startSignOnPortal({ signOn, store, session, port: 0 });
+
+    const first = post(portal.url, { ...GOOD, operator: "teller1" });
+    const second = post(portal.url, { ...GOOD, operator: "super1" });
+    await vi.waitFor(() => expect(release.size).toBe(2)); // both are in the validator
+
+    release.get("teller1")!(); // teller1 wins the lock
+    expect((await first).status).toBe(200);
+    release.get("super1")!(); // super1 loses
+    expect((await second).status).toBe(409);
+
+    expect(store.get("teller1")).toBe("s3cr3t");
+    expect(store.get("super1")).toBeUndefined(); // no orphaned password
+  });
+
+  it("signs off, clearing the session and dropping the password (#51)", async () => {
+    const { signOn } = fakeSignOn();
+    const store = new SecretStore();
+    const session = new LoginSession({ idleMs: 60_000, store });
+    portal = await startSignOnPortal({ signOn, store, session, port: 0 });
+
+    await post(portal.url, GOOD);
+    expect(session.isLive()).toBe(true);
+
+    const off = await fetch(`${portal.url}/signoff`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(off.status).toBe(200);
+    expect(session.isLive()).toBe(false);
+    expect(store.get("super1")).toBeUndefined();
+  });
+
+  it("requires a JSON content-type on sign-off, so a cross-origin POST cannot end the session (#51)", async () => {
+    const { signOn } = fakeSignOn();
+    const store = new SecretStore();
+    const session = new LoginSession({ idleMs: 60_000, store });
+    portal = await startSignOnPortal({ signOn, store, session, port: 0 });
+
+    await post(portal.url, GOOD);
+    expect(session.isLive()).toBe(true);
+
+    // A "simple" cross-origin POST carries no JSON content-type and needs no
+    // preflight — the CSRF defense is to refuse it.
+    const bare = await fetch(`${portal.url}/signoff`, { method: "POST" });
+    expect(bare.status).toBe(415);
+    expect(session.isLive()).toBe(true); // still signed on
   });
 
   it("turns away a body that is empty, not JSON, or not an object", async () => {

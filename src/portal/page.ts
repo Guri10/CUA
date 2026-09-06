@@ -35,14 +35,17 @@ export function signOnPage(): string {
 <p class="hint">Sign on once for this session. The password is held only in the
 server's memory and is never written to disk, evidence, or logs.</p>
 <form id="form" autocomplete="off">
-  <label for="operator">Operator ID</label>
+  <label for="operator">Operator ID <span class="hint">(e.g. teller1 or super1)</span></label>
   <input id="operator" name="operator" required />
   <label for="branch">Branch <span class="hint">(the whole label, e.g. "MAIN-001 - Main Office")</span></label>
   <input id="branch" name="branch" required />
   <label for="password">Password</label>
   <input id="password" name="password" type="password" required />
   <button type="submit">Sign on</button>
+  <button type="button" id="signoff">Sign off</button>
 </form>
+<p class="hint">This installation acts as the first operator you sign on as until it
+restarts. Sign off, or leave it idle, to lock it again.</p>
 <div id="result" hidden></div>
 <script>
   const form = document.getElementById("form");
@@ -76,6 +79,23 @@ server's memory and is never written to disk, evidence, or logs.</p>
         result.className = "err";
         result.textContent = body.error || "Sign-on failed.";
       }
+    } catch (error) {
+      result.className = "err";
+      result.textContent = "Could not reach the portal: " + error;
+    }
+  });
+  document.getElementById("signoff").addEventListener("click", async () => {
+    result.hidden = false;
+    result.className = "";
+    result.textContent = "Signing off…";
+    try {
+      const response = await fetch("/signoff", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      result.className = response.ok ? "ok" : "err";
+      result.textContent = response.ok ? "Signed off. The console is locked again." : "Sign-off failed.";
     } catch (error) {
       result.className = "err";
       result.textContent = "Could not reach the portal: " + error;

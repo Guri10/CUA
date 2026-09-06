@@ -15,8 +15,9 @@ import {
   meridianMemberLookupScript,
   meridianTransferScript,
 } from "../surface/meridian/fake-script.js";
-import { catalogClient } from "./catalog-client.js";
+import { catalogClient, type CatalogClient } from "./catalog-client.js";
 import { createChatbot } from "./chatbot.js";
+import { LoginSession } from "../surface/login-session.js";
 import type { IntentRouter, NextAction } from "./types.js";
 
 /**
@@ -314,5 +315,59 @@ describe("the chatbot over the catalog", () => {
     expect(result.pending).toBeUndefined();
     expect(result.steps).toHaveLength(1);
     expect(result.steps[0]!.outcome.kind).toBe("success");
+  });
+});
+
+/**
+ * The served login gate (#51): the chatbot refuses in plain language until a
+ * person has signed on at the portal, reaching nothing until it is admitted. A
+ * recording fake catalog client stands in — the point here is what the chatbot
+ * does before it ever reaches the catalog, not the run.
+ */
+describe("the chatbot login gate", () => {
+  function recordingClient(): { client: CatalogClient; calls: string[] } {
+    const calls: string[] = [];
+    const client: CatalogClient = {
+      async list() {
+        calls.push("list");
+        return [];
+      },
+      async invoke(invocation) {
+        calls.push(`invoke:${invocation.ref}`);
+        return { kind: "success", outputs: {} };
+      },
+    };
+    return { client, calls };
+  }
+
+  const doneRouter: IntentRouter = async () => ({ kind: "done" });
+
+  it("refuses in plain language and reaches nothing until someone is signed on", async () => {
+    const { client, calls } = recordingClient();
+    const session = new LoginSession({ idleMs: 60_000 });
+    const bot = createChatbot({ client, router: doneRouter, session });
+
+    const result = await bot.run("check the balance for 100234");
+
+    expect(result.steps).toEqual([]);
+    expect(result.answer).toMatch(/sign on/i);
+    expect(calls).toEqual([]); // never reached the catalog
+  });
+
+  it("lets a query through once signed on, and refuses again after sign-off", async () => {
+    const { client, calls } = recordingClient();
+    const session = new LoginSession({ idleMs: 60_000 });
+    const bot = createChatbot({ client, router: doneRouter, session });
+
+    session.signOn({ operator: "teller1", branch: "MAIN-001 - Main Office" });
+    const admitted = await bot.run("anything");
+    expect(admitted.answer).not.toMatch(/sign on/i);
+    expect(calls).toContain("list"); // the gate let it read the catalog
+
+    session.signOff();
+    calls.length = 0;
+    const locked = await bot.run("anything again");
+    expect(locked.answer).toMatch(/sign on/i);
+    expect(calls).toEqual([]);
   });
 });

@@ -15,6 +15,7 @@
  */
 import { sessionEstablisherFor, assertSignOnConfigured } from "./surface/session.js";
 import { secretStore } from "./surface/secret-store.js";
+import { LoginSession, type OperatorIdentity } from "./surface/login-session.js";
 import { startSignOnPortal, DEFAULT_SIGNON_PORT, type SignOnPortal } from "./portal/serve.js";
 import { browserSignOn } from "./portal/browser-sign-on.js";
 import { ensurePasswordInStore, terminalHiddenPrompt } from "./portal/password-prompt.js";
@@ -217,6 +218,12 @@ interface RunCapabilityInput {
   readonly variant?: string;
   readonly masking: "on" | "off";
   readonly headless: boolean;
+  /**
+   * Who to sign on as, for a served MERIDIAN run (#51): operator and branch from
+   * the portal login. Omitted on the CLI path, which reads them from the
+   * environment instead.
+   */
+  readonly identity?: OperatorIdentity;
 }
 
 /**
@@ -235,14 +242,15 @@ interface RunCapabilityInput {
 async function runCapability(
   input: RunCapabilityInput,
 ): Promise<{ result: ReplayResult; evidenceDir: string }> {
-  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, headless } = input;
+  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, headless, identity } = input;
   const ident = `${capability.id}@${capability.version}`;
 
   // How this installation is signed into, chosen from its profile. Resolved
   // before the evidence run and the browser, so a missing credential costs a
   // sentence rather than a Chromium — and so its Secret is known in time to
-  // redact it.
-  const session = sessionEstablisherFor(profile);
+  // redact it. A served MERIDIAN run passes the portal-chosen identity (#51); the
+  // CLI passes none and the establisher reads the environment.
+  const session = sessionEstablisherFor(profile, secretStore, identity);
 
   // Opened before the browser is, so that signing in is logged too. The login
   // form is the one place this run types the application password, which makes
@@ -358,6 +366,14 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
   // hardcoded installation.
   const servedSurfaces = await assertSignOnReady(capabilitiesDir());
 
+  // The served login gate (#51). MERIDIAN signs on per operator through the portal,
+  // so when it is among the served surfaces the catalog and chatbot are gated on a
+  // person having signed on, and every invoke acts as that operator. A serve with
+  // no MERIDIAN surface has no portal and stays open, as it was.
+  const loginSession = servedSurfaces.has("meridian")
+    ? new LoginSession({ idleMs: sessionIdleMs() })
+    : undefined;
+
   const invoke: InvokeCapability = async (capability, inputs, options) => {
     // The Capability names its Surface profile; the profile says where that
     // installation is and which of its routes may be touched.
@@ -372,6 +388,16 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     // this run's own Sensitive values are their string forms.
     const given = Object.fromEntries(Object.entries(inputs).map(([name, value]) => [name, String(value)]));
 
+    // Who to sign on as (#51): for a gated MERIDIAN run, the portal-chosen operator
+    // and branch, never the environment. The catalog gate admits only a live
+    // session, so this is set by the time an invoke runs; a defensive miss is a
+    // clean refusal rather than an env fallback that would bypass the login.
+    let identity: OperatorIdentity | undefined;
+    if (capability.surface === "meridian" && loginSession !== undefined) {
+      identity = loginSession.identity();
+      if (identity === undefined) throw new Error("Not signed in. Sign on at the portal before invoking.");
+    }
+
     const { result } = await runCapability({
       capability,
       inputs,
@@ -382,11 +408,12 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       masking,
       headless: !args.has("headed"),
+      ...(identity === undefined ? {} : { identity }),
     });
     return result;
   };
 
-  const server = await startCatalog({ root: capabilitiesDir(), invoke, port });
+  const server = await startCatalog({ root: capabilitiesDir(), invoke, ...(loginSession !== undefined ? { session: loginSession } : {}), port });
 
   // The dashboard is the human-facing half of the same process: read-only, its
   // own port, watching the catalog and the run history the core writes. It owns
@@ -421,6 +448,8 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
       client: catalogClient(server.url),
       router: modelIntentRouter(chatKey),
       log: fileChatLogger(chatbotLogsDir()),
+      // Refuse in plain language until someone has signed on at the portal (#51).
+      ...(loginSession !== undefined ? { session: loginSession } : {}),
     });
     try {
       chat = await startChatUi({ chatbot, port: chatPort, dashboardUrl: dashboard.url });
@@ -452,14 +481,10 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
           headless: !args.has("headed"),
         }),
         store: secretStore,
-        // The non-secret operator and branch this installation is configured for,
-        // required at boot by assertSignOnConfigured, so the portal refuses a
-        // sign-on the runs would not read (they look the password up by this
-        // operator id, #42).
-        expected: {
-          operator: process.env["MERIDIAN_OPERATOR"] ?? "",
-          branch: process.env["MERIDIAN_BRANCH"] ?? "",
-        },
+        // The served login session (#51): a good sign-on marks it live and records
+        // the operator, unlocking the catalog and chatbot and setting who every
+        // following invoke acts as; it also enforces one operator per boot.
+        ...(loginSession !== undefined ? { session: loginSession } : {}),
         port: signOnPort,
       });
     } catch (thrown) {
@@ -885,6 +910,23 @@ function maskingSetting(value: string | undefined): "on" | "off" {
   if (value === undefined || value === "on") return "on";
   if (value === "off") return "off";
   throw new Error(`--evidence-redaction takes "on" or "off", not "${value}".`);
+}
+
+/**
+ * How long a served sign-on stays valid with no activity before it times out
+ * (#51), from `MERIDIAN_SESSION_IDLE_MINUTES` and defaulting to 15. The brief's
+ * "sessions time out on idle": each served interaction resets the clock, and when
+ * it runs out the catalog and chatbot lock until a fresh portal sign-on. A value
+ * that is not a positive number is refused rather than read as "never expire".
+ */
+function sessionIdleMs(): number {
+  const raw = process.env["MERIDIAN_SESSION_IDLE_MINUTES"];
+  if (raw === undefined || raw.trim() === "") return 15 * 60_000;
+  const minutes = Number(raw);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error(`MERIDIAN_SESSION_IDLE_MINUTES must be a positive number of minutes, not "${raw}".`);
+  }
+  return minutes * 60_000;
 }
 
 /**

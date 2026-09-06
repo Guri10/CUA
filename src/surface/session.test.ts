@@ -80,6 +80,37 @@ describe("the session establisher for a Surface", () => {
     expect(store.get("super1")).toBe("meridian-secret");
   });
 
+  it("signs on as the portal-chosen operator when a served identity is given, never the environment", async () => {
+    // Served path (#51): identity carries the operator and branch; the env names a
+    // different operator, which must be ignored. The password is the store's.
+    process.env["MERIDIAN_OPERATOR"] = "teller1";
+    process.env["MERIDIAN_PASSWORD"] = "env-secret";
+    const store = new SecretStore();
+    store.set("super1", "portal-secret");
+    const profile = await loadSurfaceProfile(surfacesDir(), "meridian");
+    const session = sessionEstablisherFor(profile, store, { operator: "super1", branch: "EAST-022 - Eastgate" });
+
+    expect(session.secret).toBe("portal-secret");
+
+    const surface = new RecordingSurface();
+    await session.establish(surface, BASE);
+    expect(surface.performed).toEqual(
+      logInToMeridian(BASE, { operator: "super1", password: "portal-secret", branch: "EAST-022 - Eastgate" }),
+    );
+  });
+
+  it("does not fall back to the env password for a served identity", async () => {
+    // The seed exists, but a served run must not use it — only a portal-entered
+    // password, so the login gate cannot be bypassed.
+    process.env["MERIDIAN_PASSWORD"] = "env-secret";
+    const store = new SecretStore();
+    const profile = await loadSurfaceProfile(surfacesDir(), "meridian");
+
+    expect(() => sessionEstablisherFor(profile, store, { operator: "super1", branch: "MAIN-001 - Main Office" })).toThrow(
+      /No password for operator "super1" in the secret store/i,
+    );
+  });
+
   it("drives the ParaBank sign-on for the parabank profile", async () => {
     const profile = await loadSurfaceProfile(surfacesDir(), "parabank");
     const session = sessionEstablisherFor(profile);

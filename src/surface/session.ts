@@ -17,6 +17,7 @@
 import { logInToParabank, type ParabankCredentials } from "./parabank/login.js";
 import { logInToMeridian, type MeridianCredentials } from "./meridian/login.js";
 import { secretStore, type SecretStore } from "./secret-store.js";
+import type { OperatorIdentity } from "./login-session.js";
 import { describeMiss } from "../replay/describe.js";
 import type { SurfaceProfile } from "../policy/profile.js";
 import type { Action, Surface } from "./surface.js";
@@ -39,10 +40,14 @@ export interface SessionEstablisher {
 export function sessionEstablisherFor(
   profile: SurfaceProfile,
   store: SecretStore = secretStore,
+  identity?: OperatorIdentity,
 ): SessionEstablisher {
   switch (profile.id) {
     case "meridian": {
-      const credentials = meridianCredentials(store);
+      // Served (#51): the operator and branch come from the portal login, and the
+      // password from the store it filled — never the environment, so the gate
+      // cannot be bypassed by a seed. CLI: the environment, with the one-time seed.
+      const credentials = identity !== undefined ? servedMeridianCredentials(store, identity) : meridianCredentials(store);
       return {
         secret: credentials.password,
         establish: (surface, baseUrl) => signIn(surface, baseUrl, logInToMeridian(baseUrl, credentials)),
@@ -73,8 +78,9 @@ export function sessionEstablisherFor(
 export function assertSignOnConfigured(profile: SurfaceProfile): void {
   switch (profile.id) {
     case "meridian":
-      requiredEnv("MERIDIAN_OPERATOR");
-      requiredEnv("MERIDIAN_BRANCH");
+      // Nothing to require at boot (#51): the operator, branch, and password all
+      // arrive through the portal login, not the environment. Demanding an env
+      // operator or branch here would re-introduce the lock the portal replaces.
       return;
     case "parabank":
       sessionEstablisherFor(profile);
@@ -108,6 +114,25 @@ function parabankCredentialsFromEnv(): ParabankCredentials {
     // ADR 0006 classes this a Secret: handed in at run time, never written.
     password: requiredEnv("PARABANK_PASSWORD"),
   };
+}
+
+/**
+ * MERIDIAN credentials for a served run (#51): operator and branch from the
+ * portal login, password from the store the portal filled.
+ *
+ * Unlike the CLI path there is no `MERIDIAN_PASSWORD` seed — a served run signs on
+ * only with a password a person entered at the portal, so a seed cannot slip past
+ * the login gate. A store with none for this operator is a locked-out session, and
+ * a clear message beats a mystified login-screen miss.
+ */
+function servedMeridianCredentials(store: SecretStore, identity: OperatorIdentity): MeridianCredentials {
+  const password = store.get(identity.operator);
+  if (password === undefined) {
+    throw new Error(
+      `No password for operator "${identity.operator}" in the secret store. Sign on through the portal.`,
+    );
+  }
+  return { operator: identity.operator, password, branch: identity.branch };
 }
 
 function meridianCredentials(store: SecretStore): MeridianCredentials {

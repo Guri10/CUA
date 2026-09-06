@@ -22,6 +22,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import type { SecretStore } from "../surface/secret-store.js";
+import type { LoginSession } from "../surface/login-session.js";
 import { signOnPage } from "./page.js";
 
 /**
@@ -60,17 +61,14 @@ export interface SignOnPortalOptions {
   /** Where a validated password is put, keyed by operator id (#42). */
   readonly store: SecretStore;
   /**
-   * The non-secret operator id and branch this installation is configured for.
-   *
-   * The runs read these from configuration and look the password up by that
-   * operator id (#42), so a submission for a different operator or branch would
-   * store a password nothing reads and leave "signed on as …" saying one thing
-   * while runs act as another. When set, a mismatch is refused rather than
-   * stored — the portal supplies the secret for the configured operator, it does
-   * not switch which operator the runs act as. Omitted only by tests that drive
-   * the store contract directly.
+   * The served login session this portal drives (#51). A validated sign-on marks
+   * it live and records who signed on, so the catalog and chatbot unlock and act
+   * as that operator; `POST /signoff` ends it. The session also owns the
+   * one-operator-per-boot rule: a sign-on for a *different* operator than the one
+   * already locked is refused before the browser is ever driven. Omitted by tests
+   * that drive the store/validator contract on their own.
    */
-  readonly expected?: { readonly operator: string; readonly branch: string };
+  readonly session?: LoginSession;
   /** Zero asks the operating system for a free one, which is what tests use. */
   readonly port?: number;
 }
@@ -134,7 +132,36 @@ async function handle(
     return await signOn(incoming, outgoing, options);
   }
 
-  return json(outgoing, 404, { why: "The sign-on portal has two routes.", page: "GET /", signOn: "POST /signon" });
+  if (incoming.method === "POST" && path === "/signoff") {
+    return signOff(incoming, outgoing, options);
+  }
+
+  return json(outgoing, 404, {
+    why: "The sign-on portal has three routes.",
+    page: "GET /",
+    signOn: "POST /signon",
+    signOff: "POST /signoff",
+  });
+}
+
+/**
+ * End the served session now (#51): clear it and drop the password, so the
+ * catalog and chatbot lock again until a fresh sign-on. It changes server state,
+ * so it carries both guards the sign-on route does: a required JSON content-type,
+ * which forces a preflight a cross-origin page cannot satisfy (the CSRF defense —
+ * without it a plain cross-origin POST could sign the operator off), and a
+ * loopback Host, which defeats DNS-rebinding.
+ */
+function signOff(incoming: IncomingMessage, outgoing: ServerResponse, options: SignOnPortalOptions): void {
+  const contentType = incoming.headers["content-type"] ?? "";
+  if (!contentType.includes("application/json")) {
+    return json(outgoing, 415, { error: "POST /signoff expects a JSON content-type (Content-Type: application/json)." });
+  }
+  if (!hostIsLoopback(incoming)) {
+    return json(outgoing, 403, { error: "The sign-on portal only answers requests addressed to it on loopback." });
+  }
+  options.session?.signOff();
+  return json(outgoing, 200, { signedOff: true });
 }
 
 async function signOn(incoming: IncomingMessage, outgoing: ServerResponse, options: SignOnPortalOptions): Promise<void> {
@@ -158,15 +185,14 @@ async function signOn(incoming: IncomingMessage, outgoing: ServerResponse, optio
     return json(outgoing, 400, { error: "Sign-on needs a non-blank operator, branch, and password." });
   }
 
-  // Refuse an operator or branch the runs won't read, before validating one: the
-  // password would be stored under an operator nothing looks up, and the page
-  // would say "signed on" while every run acted as the configured operator.
-  const expected = options.expected;
-  if (expected !== undefined && (operator !== expected.operator || branch !== expected.branch)) {
+  // One operator per boot (#51): a sign-on for a different operator than the one
+  // this process already locked onto is refused before the browser is driven —
+  // the runs act as the locked operator, and switching needs a restart.
+  if (options.session !== undefined && !options.session.accepts(operator)) {
     return json(outgoing, 409, {
       error:
-        `This installation signs on as operator "${expected.operator}" at branch "${expected.branch}". ` +
-        `Enter those, or change MERIDIAN_OPERATOR / MERIDIAN_BRANCH.`,
+        `This installation is signed on as operator "${options.session.lockedOperator()}" until it restarts. ` +
+        `Sign on as "${options.session.lockedOperator()}", or restart to change operator.`,
     });
   }
 
@@ -174,7 +200,23 @@ async function signOn(incoming: IncomingMessage, outgoing: ServerResponse, optio
     // Validate first; store only on success, so a bad login leaves the store
     // exactly as it found it — the ticket's "fails fast … stores nothing".
     const signedOn = await options.signOn({ operator, branch, password });
+    // Take the one-per-boot lock and go live *before* storing (#51). The
+    // pre-validation `accepts` check can pass for two different operators
+    // submitted at once, since nothing is locked while both browsers validate;
+    // this is the authoritative point. Refusing here — before `store.set` — means
+    // a losing race stores no orphaned password. Synchronous with the store write
+    // below, so no invoke can observe "live but no password".
+    if (options.session !== undefined && !options.session.accepts(signedOn.operator)) {
+      return json(outgoing, 409, {
+        error:
+          `This installation is signed on as operator "${options.session.lockedOperator()}" until it restarts. ` +
+          `Sign on as "${options.session.lockedOperator()}", or restart to change operator.`,
+      });
+    }
     options.store.set(signedOn.operator, password);
+    // Mark the served session live as this operator and branch, so the catalog
+    // and chatbot unlock and every following invoke signs on as them (#51).
+    options.session?.signOn({ operator: signedOn.operator, branch });
     return json(outgoing, 200, {
       operator: signedOn.operator,
       ...(signedOn.role !== undefined ? { role: signedOn.role } : {}),
