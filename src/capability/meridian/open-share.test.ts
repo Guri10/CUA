@@ -190,7 +190,7 @@ describe("the MERIDIAN open-share Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "open-share", 1);
+    const committed = await loadCapability(capabilitiesDir(), "open-share", 2);
 
     expect(committed).toEqual(openShareCapability());
   });

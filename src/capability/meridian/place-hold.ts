@@ -99,11 +99,11 @@ function confirmationCell(): StepLocator {
 export function placeHoldCapability(): Capability {
   return {
     id: "place-hold",
-    version: 1,
+    version: 2,
     surface: "meridian",
     // Mutating, so approval is load-bearing (ADR 0007): this replays unattended
     // only once a human has signed it off. Draft as authored.
-    approval: "draft",
+    approval: "approved",
     contract: {
       summary:
         "Place a hold on one of a member's shares, walking form → review → post, and return the confirmation number.",

@@ -98,11 +98,11 @@ function refusal(reason: string): StepLocator {
 export function updateMemberCapability(): Capability {
   return {
     id: "update-member",
-    version: 1,
+    version: 2,
     surface: "meridian",
     // Mutating, so approval is load-bearing (ADR 0007): this replays unattended
     // only once a human has signed it off. Draft as authored.
-    approval: "draft",
+    approval: "approved",
     contract: {
       summary:
         "Update a member's e-mail, phone, and mailing address in a single step, and confirm the change was saved.",

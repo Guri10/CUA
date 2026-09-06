@@ -211,7 +211,7 @@ describe("the MERIDIAN funds-transfer Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "funds-transfer", 1);
+    const committed = await loadCapability(capabilitiesDir(), "funds-transfer", 2);
 
     expect(committed).toEqual(fundsTransferCapability());
   });

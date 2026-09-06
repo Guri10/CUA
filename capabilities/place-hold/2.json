@@ -1,10 +1,10 @@
 {
-  "id": "funds-transfer",
-  "version": 1,
+  "id": "place-hold",
+  "version": 2,
   "surface": "meridian",
-  "approval": "draft",
+  "approval": "approved",
   "contract": {
-    "summary": "Transfer an amount between two of a member's shares, walking form → review → post, and return the confirmation number.",
+    "summary": "Place a hold on one of a member's shares, walking form → review → post, and return the confirmation number.",
     "inputs": {
       "type": "object",
       "properties": {
@@ -13,33 +13,31 @@
           "minLength": 1,
           "description": "The member's number, as the record shows it — for example \"100234\"."
         },
-        "fromShare": {
+        "shareId": {
           "type": "string",
           "minLength": 1,
-          "description": "The share to debit, exactly as the transfer form's \"From Share\" combobox lists it — for example \"100234-S0001-14 - Regular Shares ($100.00)\"."
+          "description": "The share to hold, exactly as the hold form's \"Share\" combobox lists it — for example \"100234-S0001 - Regular Shares\"."
         },
-        "toShare": {
+        "reasonCode": {
           "type": "string",
-          "minLength": 1,
-          "description": "The share to credit, exactly as the \"To Share\" combobox lists it."
+          "enum": [
+            "FRAUD - Suspected fraud",
+            "LEGAL - Legal / levy",
+            "DECEASED - Member deceased"
+          ],
+          "description": "The hold reason, as the \"Reason Code\" combobox lists it."
         },
-        "amount": {
-          "type": "string",
-          "minLength": 1,
-          "description": "The amount to transfer, as typed into the form — for example \"1.00\"."
-        },
-        "memo": {
+        "notes": {
           "default": "",
-          "description": "An optional memo recorded with the transfer; pass an empty string for none.",
+          "description": "Optional notes recorded with the hold; pass an empty string for none.",
           "type": "string"
         }
       },
       "required": [
         "memberNumber",
-        "fromShare",
-        "toShare",
-        "amount",
-        "memo"
+        "shareId",
+        "reasonCode",
+        "notes"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false
@@ -49,7 +47,7 @@
       "properties": {
         "confirmationNumber": {
           "type": "string",
-          "description": "The posted transfer's confirmation number — for example \"CN480242\"."
+          "description": "The applied hold's confirmation number — for example \"CN480245\"."
         }
       },
       "required": [
@@ -68,7 +66,7 @@
             "role": "heading",
             "name": {
               "kind": "literal",
-              "value": "TRANSFER POSTED"
+              "value": "ACCOUNT HOLD APPLIED"
             },
             "exact": true
           }
@@ -76,28 +74,14 @@
       },
       {
         "kind": "business-outcome",
-        "name": "SOURCE_ON_HOLD",
+        "name": "SUPERVISOR_OVERRIDE_REQUIRED",
         "when": {
           "kind": "present",
           "locator": {
             "role": "cell",
             "name": {
               "kind": "literal",
-              "value": "Source share is HOLD and cannot be debited."
-            }
-          }
-        }
-      },
-      {
-        "kind": "business-outcome",
-        "name": "INSUFFICIENT_FUNDS",
-        "when": {
-          "kind": "present",
-          "locator": {
-            "role": "cell",
-            "name": {
-              "kind": "literal",
-              "value": "Insufficient available balance in the source share."
+              "value": "SUPERVISOR OVERRIDE REQUIRED"
             }
           }
         }
@@ -202,14 +186,14 @@
           }
         },
         {
-          "id": "open-transfer",
+          "id": "open-hold",
           "action": {
             "kind": "click",
             "locator": {
               "role": "link",
               "name": {
                 "kind": "literal",
-                "value": "Funds Transfer"
+                "value": "Place Account Hold"
               },
               "exact": true
             }
@@ -223,14 +207,14 @@
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "FUNDS TRANSFER"
+                "value": "PLACE ACCOUNT HOLD"
               },
               "exact": true
             }
           }
         },
         {
-          "id": "choose-from",
+          "id": "choose-share",
           "action": {
             "kind": "select",
             "locator": {
@@ -239,12 +223,12 @@
             },
             "option": {
               "kind": "input",
-              "input": "fromShare"
+              "input": "shareId"
             }
           }
         },
         {
-          "id": "choose-to",
+          "id": "choose-reason",
           "action": {
             "kind": "select",
             "locator": {
@@ -253,12 +237,12 @@
             },
             "option": {
               "kind": "input",
-              "input": "toShare"
+              "input": "reasonCode"
             }
           }
         },
         {
-          "id": "fill-amount",
+          "id": "fill-notes",
           "action": {
             "kind": "fill",
             "locator": {
@@ -267,21 +251,7 @@
             },
             "value": {
               "kind": "input",
-              "input": "amount"
-            }
-          }
-        },
-        {
-          "id": "fill-memo",
-          "action": {
-            "kind": "fill",
-            "locator": {
-              "role": "textbox",
-              "ordinal": 1
-            },
-            "value": {
-              "kind": "input",
-              "input": "memo"
+              "input": "notes"
             }
           }
         },
@@ -306,34 +276,34 @@
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "CONFIRM FUNDS TRANSFER"
+                "value": "CONFIRM ACCOUNT HOLD"
               },
               "exact": true
             }
           }
         },
         {
-          "id": "post",
+          "id": "apply",
           "action": {
             "kind": "click",
             "locator": {
               "role": "button",
               "name": {
                 "kind": "literal",
-                "value": "Post Transfer"
+                "value": "Apply Hold"
               }
             }
           }
         },
         {
-          "id": "wait-for-posted",
+          "id": "wait-for-applied",
           "action": {
             "kind": "waitFor",
             "locator": {
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "TRANSFER POSTED"
+                "value": "ACCOUNT HOLD APPLIED"
               },
               "exact": true
             }

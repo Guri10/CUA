@@ -157,7 +157,7 @@ describe("the MERIDIAN update-member Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "update-member", 1);
+    const committed = await loadCapability(capabilitiesDir(), "update-member", 2);
 
     expect(committed).toEqual(updateMemberCapability());
   });

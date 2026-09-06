@@ -192,7 +192,7 @@ describe("the MERIDIAN place-hold Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "place-hold", 1);
+    const committed = await loadCapability(capabilitiesDir(), "place-hold", 2);
 
     expect(committed).toEqual(placeHoldCapability());
   });

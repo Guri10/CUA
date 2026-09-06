@@ -1,10 +1,10 @@
 {
-  "id": "open-share",
-  "version": 1,
+  "id": "funds-transfer",
+  "version": 2,
   "surface": "meridian",
-  "approval": "draft",
+  "approval": "approved",
   "contract": {
-    "summary": "Open a new share for a member, walking form → review → post, and return the confirmation number and new share id.",
+    "summary": "Transfer an amount between two of a member's shares, walking form → review → post, and return the confirmation number.",
     "inputs": {
       "type": "object",
       "properties": {
@@ -13,26 +13,33 @@
           "minLength": 1,
           "description": "The member's number, as the record shows it — for example \"100234\"."
         },
-        "shareType": {
-          "type": "string",
-          "enum": [
-            "S0001 - Regular Shares",
-            "S0070 - Share Draft (Checking)",
-            "MMKT - Money Market",
-            "CERT - Certificate"
-          ],
-          "description": "The type of share to open, exactly as the form's \"Share Type\" combobox lists it."
-        },
-        "initialDeposit": {
+        "fromShare": {
           "type": "string",
           "minLength": 1,
-          "description": "The opening deposit, as typed into the form — for example \"5.00\". MERIDIAN requires at least $5.00; a smaller amount is refused as MINIMUM_DEPOSIT."
+          "description": "The share to debit, exactly as the transfer form's \"From Share\" combobox lists it — for example \"100234-S0001-14 - Regular Shares ($100.00)\"."
+        },
+        "toShare": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The share to credit, exactly as the \"To Share\" combobox lists it."
+        },
+        "amount": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The amount to transfer, as typed into the form — for example \"1.00\"."
+        },
+        "memo": {
+          "default": "",
+          "description": "An optional memo recorded with the transfer; pass an empty string for none.",
+          "type": "string"
         }
       },
       "required": [
         "memberNumber",
-        "shareType",
-        "initialDeposit"
+        "fromShare",
+        "toShare",
+        "amount",
+        "memo"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false
@@ -42,16 +49,11 @@
       "properties": {
         "confirmationNumber": {
           "type": "string",
-          "description": "The opened share's confirmation number — for example \"CN480249\"."
-        },
-        "newShareId": {
-          "type": "string",
-          "description": "The new share's id — for example \"100234-S0001-30\"."
+          "description": "The posted transfer's confirmation number — for example \"CN480242\"."
         }
       },
       "required": [
-        "confirmationNumber",
-        "newShareId"
+        "confirmationNumber"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "additionalProperties": false
@@ -66,7 +68,7 @@
             "role": "heading",
             "name": {
               "kind": "literal",
-              "value": "SHARE OPENED"
+              "value": "TRANSFER POSTED"
             },
             "exact": true
           }
@@ -74,14 +76,28 @@
       },
       {
         "kind": "business-outcome",
-        "name": "MINIMUM_DEPOSIT",
+        "name": "SOURCE_ON_HOLD",
         "when": {
           "kind": "present",
           "locator": {
             "role": "cell",
             "name": {
               "kind": "literal",
-              "value": "A minimum opening deposit of $5.00 is required."
+              "value": "Source share is HOLD and cannot be debited."
+            }
+          }
+        }
+      },
+      {
+        "kind": "business-outcome",
+        "name": "INSUFFICIENT_FUNDS",
+        "when": {
+          "kind": "present",
+          "locator": {
+            "role": "cell",
+            "name": {
+              "kind": "literal",
+              "value": "Insufficient available balance in the source share."
             }
           }
         }
@@ -186,14 +202,14 @@
           }
         },
         {
-          "id": "open-share-form",
+          "id": "open-transfer",
           "action": {
             "kind": "click",
             "locator": {
               "role": "link",
               "name": {
                 "kind": "literal",
-                "value": "Open New Share"
+                "value": "Funds Transfer"
               },
               "exact": true
             }
@@ -207,14 +223,14 @@
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "OPEN NEW SHARE"
+                "value": "FUNDS TRANSFER"
               },
               "exact": true
             }
           }
         },
         {
-          "id": "choose-share-type",
+          "id": "choose-from",
           "action": {
             "kind": "select",
             "locator": {
@@ -223,12 +239,26 @@
             },
             "option": {
               "kind": "input",
-              "input": "shareType"
+              "input": "fromShare"
             }
           }
         },
         {
-          "id": "fill-deposit",
+          "id": "choose-to",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            },
+            "option": {
+              "kind": "input",
+              "input": "toShare"
+            }
+          }
+        },
+        {
+          "id": "fill-amount",
           "action": {
             "kind": "fill",
             "locator": {
@@ -237,7 +267,21 @@
             },
             "value": {
               "kind": "input",
-              "input": "initialDeposit"
+              "input": "amount"
+            }
+          }
+        },
+        {
+          "id": "fill-memo",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            },
+            "value": {
+              "kind": "input",
+              "input": "memo"
             }
           }
         },
@@ -262,34 +306,34 @@
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "CONFIRM NEW SHARE"
+                "value": "CONFIRM FUNDS TRANSFER"
               },
               "exact": true
             }
           }
         },
         {
-          "id": "open-share",
+          "id": "post",
           "action": {
             "kind": "click",
             "locator": {
               "role": "button",
               "name": {
                 "kind": "literal",
-                "value": "Open Share"
+                "value": "Post Transfer"
               }
             }
           }
         },
         {
-          "id": "wait-for-opened",
+          "id": "wait-for-posted",
           "action": {
             "kind": "waitFor",
             "locator": {
               "role": "heading",
               "name": {
                 "kind": "literal",
-                "value": "SHARE OPENED"
+                "value": "TRANSFER POSTED"
               },
               "exact": true
             }
@@ -315,28 +359,6 @@
               }
             },
             "bind": "confirmationNumber"
-          }
-        },
-        {
-          "id": "read-share-id",
-          "action": {
-            "kind": "read",
-            "locator": {
-              "role": "cell",
-              "ordinal": 1,
-              "within": {
-                "role": "row",
-                "name": {
-                  "kind": "literal",
-                  "value": "New Share ID:"
-                },
-                "within": {
-                  "role": "table",
-                  "ordinal": 1
-                }
-              }
-            },
-            "bind": "newShareId"
           }
         }
       ]

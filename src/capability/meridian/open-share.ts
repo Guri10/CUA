@@ -117,11 +117,11 @@ function refusal(reason: string): StepLocator {
 export function openShareCapability(): Capability {
   return {
     id: "open-share",
-    version: 1,
+    version: 2,
     surface: "meridian",
     // Mutating, so approval is load-bearing (ADR 0007): this replays unattended
     // only once a human has signed it off. Draft as authored.
-    approval: "draft",
+    approval: "approved",
     contract: {
       summary:
         "Open a new share for a member, walking form → review → post, and return the confirmation number and new share id.",

@@ -119,12 +119,12 @@ function refusal(reason: string): StepLocator {
 export function fundsTransferCapability(): Capability {
   return {
     id: "funds-transfer",
-    version: 1,
+    version: 2,
     surface: "meridian",
     // Mutating, so approval is load-bearing (ADR 0007): this replays unattended
     // only once a human has signed it off. Draft as authored — the recorder
     // cannot approve its own work by omission.
-    approval: "draft",
+    approval: "approved",
     contract: {
       summary:
         "Transfer an amount between two of a member's shares, walking form → review → post, and return the confirmation number.",
