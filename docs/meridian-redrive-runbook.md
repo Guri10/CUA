@@ -7,8 +7,14 @@ browser — the four mutating Capabilities and the full chatbot re-drive — bec
 a background agent cannot operate the handed-over browser window or perform a
 supervisor post.
 
-Prerequisites: `.env` filled (teller + supervisor operators, branch, base URL,
-`ANTHROPIC_API_KEY`, `CHATBOT_API_KEY`), and the live target reachable.
+Prerequisites: `.env` filled (`ANTHROPIC_API_KEY`, `CHATBOT_API_KEY`, branch, base
+URL), and the live target reachable. Two credential paths (#51): the CLI
+`discover` / `replay` steps below (Parts 1–6) still read the operator and password
+from the environment — `MERIDIAN_OPERATOR` / `MERIDIAN_PASSWORD`, or a hidden
+prompt, with the supervisor steps overriding them inline — so they are unchanged by
+the login gate. The served chatbot re-drive (Part 7) is **gated**: it ignores the
+env password entirely and takes the operator + password at the sign-on portal.
+`MERIDIAN_SESSION_IDLE_MINUTES` (default 15) sets the served session's idle timeout.
 
 ## Live-data gotchas (read first)
 
@@ -155,16 +161,35 @@ approved-only, highest version.)
 
     npm run serve    # catalog :8788, dashboard :8789, chatbot :8790, portal :8791
 
-1. Open `http://127.0.0.1:8791`, sign on (teller; switch to supervisor for the supervisor hold).
-2. Open `http://127.0.0.1:8790` and drive each, confirming:
+The served surface is **gated** (#51): nothing works until you sign on at the
+portal, and the operator you sign on as is who every invoke acts as.
+
+1. **Confirm the gate is closed.** Before signing on, open `http://127.0.0.1:8790`
+   and ask anything — it refuses ("You're not signed on…"); as a hard check,
+   `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8788/capabilities`
+   returns `401`.
+2. **Sign on** at `http://127.0.0.1:8791` as **teller1** (operator + branch +
+   password — the password is entered here, never the environment). The catalog and
+   chatbot unlock.
+3. Open `http://127.0.0.1:8790` and drive each, confirming:
    - member-lookup returns real values (number + name, not labels)
    - member-balance lists shares
    - a transfer posts (confirmation number)
    - an open-share returns new share id + confirmation
-   - an update-member acknowledges
+   - an update-member acknowledges — give email, phone, **and** address; it writes
+     all three in one form, there is no partial update
+   - an ambiguous share ("transfer from a Regular Share to a Money Market") ->
+     the chatbot reads balances and **asks which share**, rather than guessing
    - place-hold as **teller** -> `SUPERVISOR_OVERRIDE_REQUIRED`
-   - place-hold as **supervisor** -> posts
    - a no-match lookup -> `NOT_FOUND`
    - a several-match lookup -> `MULTIPLE_MATCHES`
+4. **Supervisor post.** One operator holds the process per boot, so to post the
+   hold you **restart** `serve`, sign on at the portal as **super1** (no
+   command-line change), and re-run the place-hold — it posts a confirmation number
+   instead of the override refusal.
+5. **Session lifecycle (optional to show).** While signed on, a second portal
+   sign-on as a *different* operator is refused until restart; **Sign off** on the
+   portal (or letting the idle timeout lapse) locks the chatbot again until you
+   sign back on.
 
 When all pass, tick #46's boxes and close it.
