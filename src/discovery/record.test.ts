@@ -390,6 +390,70 @@ describe("recording a Discovery Run", () => {
     expect(reasonsOf(result).join("\n")).toMatch(/same value/);
   });
 
+  it("saves a run that declared an optional input as empty, with no Step for it", () => {
+    // `notes` is an optional field the caller left blank. An empty value has
+    // nothing to match against a Step, so it is legitimately unused — declaring
+    // it must not break the save.
+    const result = recordCapability(
+      plan({ inputs: { accountId: "13344", notes: "" } }),
+      successfulRun(),
+    );
+
+    const capability = recorded(result);
+    // Still refers to the one input that was used, and none to the empty one.
+    const referencesNotes = JSON.stringify(stepsOf(capability)).includes('"notes"');
+    expect(referencesNotes).toBe(false);
+  });
+
+  it("still refuses a non-empty input no Step used, alongside an empty one that is fine", () => {
+    // The empty `notes` is exempt; the non-empty `customerId` that no Step used
+    // is the real "quietly ignored input" the guard exists to catch.
+    const result = recordCapability(
+      plan({ inputs: { accountId: "13344", customerId: "99999", notes: "" } }),
+      successfulRun(),
+    );
+
+    expect(result.kind).toBe("unrecordable");
+    const reasons = reasonsOf(result).join("\n");
+    expect(reasons).toMatch(/No Step used input "customerId"/);
+    expect(reasons).not.toMatch(/"notes"/);
+  });
+
+  it("does not bind a blank optional to a Step that happens to carry empty text", () => {
+    // A fill left empty carries text "". Whole-value equality would otherwise
+    // bind that "" to the first blank input (`notes`) and silently drop `memo`
+    // — the arbitrary pick `ambiguousInputs` exists to refuse. `expressionFor`
+    // refuses to bind an empty value, so the Step stays a literal "" and both
+    // blank optionals remain genuinely unused.
+    const run = [
+      ...successfulRun().slice(0, 3),
+      took({ kind: "fill", locator: { role: "textbox", name: "Notes", exact: true }, value: "" }),
+      ...successfulRun().slice(3),
+    ];
+
+    const result = recordCapability(
+      plan({ inputs: { accountId: "13344", notes: "", memo: "" } }),
+      run,
+    );
+
+    const capability = recorded(result);
+    const fill = stepsOf(capability).find((step) => step.action.kind === "fill");
+    expect(fill?.action).toMatchObject({ value: { kind: "literal", value: "" } });
+  });
+
+  it("does not call two empty optionals the same value", () => {
+    // Both blank, so `ambiguousInputs` would otherwise flag them as
+    // indistinguishable — but neither participates in a Step, so there is
+    // nothing to tell apart.
+    const result = recordCapability(
+      plan({ inputs: { accountId: "13344", notes: "", memo: "" } }),
+      successfulRun(),
+    );
+
+    expect(result.kind).toBe("recorded");
+    expect(reasonsOf(result).join("\n")).not.toMatch(/same value/);
+  });
+
   it("refuses an address the run was not pointed at, rather than storing an origin", () => {
     const wandered = [
       took({ kind: "navigate", url: "http://elsewhere.example/overview.htm" }),

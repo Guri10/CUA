@@ -330,10 +330,17 @@ function stepLocatorFor(locator: Locator, plan: RecordingPlan): StepLocator {
  * "$1,231.10", in "Bill Pay", in a URL path. Whole-value equality either
  * recognises the caller's value or does not, and when it does not the run is
  * refused rather than half-parameterised — see `unusedInputs`.
+ *
+ * An empty input value never binds. Empty equals empty, so without this an
+ * optional field the caller left blank would capture the first empty text any
+ * Step happened to carry — a blank select default, an empty fill — and bind it
+ * arbitrarily, dropping any other blank optional. That is the same arbitrary
+ * pick `ambiguousInputs` refuses, and skipping "" here is what lets both guards
+ * treat a blank optional as genuinely unused rather than merely assume it.
  */
 function expressionFor(text: string, plan: RecordingPlan): Expression {
   for (const [name, value] of Object.entries(plan.inputs)) {
-    if (value === text) return { kind: "input", input: name };
+    if (value !== "" && value === text) return { kind: "input", input: name };
   }
   return { kind: "literal", value: text };
 }
@@ -491,6 +498,12 @@ function successState(steps: readonly Step[]): TerminalState | undefined {
 function ambiguousInputs(plan: RecordingPlan): string[] {
   const byValue = new Map<string, string[]>();
   for (const [name, value] of Object.entries(plan.inputs)) {
+    // Empty optionals left blank are not "the same value": `expressionFor`
+    // refuses to bind an empty value, so neither can be referenced by a Step and
+    // there is nothing a Step could confuse between them. Grouping them here
+    // would refuse a run that declared two blank optionals — the very thing
+    // exempting the empty value from `unusedInputs` is meant to allow.
+    if (value === "") continue;
     byValue.set(value, [...(byValue.get(value) ?? []), name]);
   }
 
@@ -516,7 +529,17 @@ function unusedInputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
   const referenced = new Set(steps.flatMap((step) => inputReferencesInAction(step.action)));
 
   return Object.entries(plan.inputs)
-    .filter(([name]) => !referenced.has(name))
+    // An input given an empty value is an optional field the caller left blank.
+    // The Contract has no required/optional flag — every input is a string — so
+    // emptiness is the only signal, and `expressionFor` never binds an empty
+    // value, so a blank input is genuinely unusable by any Step. Only a value
+    // that was supplied and then ignored is the quiet bug this guard catches.
+    //
+    // The tradeoff of using emptiness as the signal: a required input a caller
+    // mistakenly passed as "" is exempted too, so a fat-fingered `accountId=""`
+    // records rather than being caught here. Accepted — there is no other signal
+    // to tell "deliberately blank optional" from "required, left empty by error".
+    .filter(([name, value]) => value !== "" && !referenced.has(name))
     .map(
       ([name, value]) =>
         `No Step used input "${name}", so the Recording would ignore whatever a caller supplies ` +
