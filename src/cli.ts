@@ -13,7 +13,10 @@
  *
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
-import { sessionEstablisherFor } from "./surface/session.js";
+import { sessionEstablisherFor, assertSignOnConfigured } from "./surface/session.js";
+import { secretStore } from "./surface/secret-store.js";
+import { startSignOnPortal, DEFAULT_SIGNON_PORT, type SignOnPortal } from "./portal/serve.js";
+import { browserSignOn } from "./portal/browser-sign-on.js";
 import type { Surface } from "./surface/surface.js";
 import {
   capabilitiesDir,
@@ -92,6 +95,9 @@ serve options:
   --chat-port <n>        Where the chatbot page listens, on loopback. Defaults to 8790.
                          Started only when CHATBOT_API_KEY is set; open it in a browser
                          to ask in plain language. It calls the catalog, not a side door.
+  --signon-port <n>      Where the sign-on portal listens, on loopback. Defaults to 8791.
+                         Opened when a served Capability signs on with an operator
+                         password (MERIDIAN); enter the password there once per session.
 
 chat options:
   --message <text>       The request, in plain language. The chatbot turns it into
@@ -344,7 +350,7 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
   // replay reads them before launching a browser. serve is multi-surface, so it
   // is the served Capabilities' own surfaces that are checked, not one
   // hardcoded installation.
-  await assertSignOnReady(capabilitiesDir());
+  const servedSurfaces = await assertSignOnReady(capabilitiesDir());
 
   const invoke: InvokeCapability = async (capability, inputs, options) => {
     // The Capability names its Surface profile; the profile says where that
@@ -416,6 +422,44 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     }
   }
 
+  // The sign-on portal, for a surface whose password comes from an operator
+  // rather than the environment (MERIDIAN, #44). It fills the same in-memory
+  // store the invokes above read (#42), so a person signs on once here and every
+  // catalog invoke that follows has the secret — without it ever touching a
+  // command line or a checked-out file. ParaBank needs no portal, so it opens
+  // only when MERIDIAN is among the served surfaces.
+  const signOnPort = wholeNumber(single(args, "signon-port"), "--signon-port", DEFAULT_SIGNON_PORT);
+  let portal: SignOnPortal | undefined;
+  if (servedSurfaces.has("meridian")) {
+    const profile = await loadSurfaceProfile(surfacesDir(), "meridian");
+    try {
+      portal = await startSignOnPortal({
+        signOn: browserSignOn({
+          profile,
+          baseUrl: resolveBaseUrl(args, profile),
+          evidenceRoot: evidenceRunsDir(),
+          masking,
+          headless: !args.has("headed"),
+        }),
+        store: secretStore,
+        // The non-secret operator and branch this installation is configured for,
+        // required at boot by assertSignOnConfigured, so the portal refuses a
+        // sign-on the runs would not read (they look the password up by this
+        // operator id, #42).
+        expected: {
+          operator: process.env["MERIDIAN_OPERATOR"] ?? "",
+          branch: process.env["MERIDIAN_BRANCH"] ?? "",
+        },
+        port: signOnPort,
+      });
+    } catch (thrown) {
+      // Same reason the dashboard closes the catalog on a bind failure: a failed
+      // boot should leave no listening socket behind.
+      await Promise.all([server.close(), dashboard.close(), ...(chat !== undefined ? [chat.close()] : [])]);
+      throw thrown;
+    }
+  }
+
   process.stdout.write(
     [
       `Capability catalog on ${server.url}`,
@@ -425,8 +469,11 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
       chat !== undefined
         ? `Chatbot on ${chat.url}`
         : "Chatbot UI off — set CHATBOT_API_KEY in .env to enable it.",
+      portal !== undefined ? `Sign-on portal on ${portal.url}` : undefined,
       "",
-    ].join("\n"),
+    ]
+      .filter((line) => line !== undefined)
+      .join("\n"),
   );
 
   // The servers hold the process open; this settles when a signal asks it to
@@ -435,7 +482,12 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
   });
-  await Promise.all([server.close(), dashboard.close(), ...(chat !== undefined ? [chat.close()] : [])]);
+  await Promise.all([
+    server.close(),
+    dashboard.close(),
+    ...(chat !== undefined ? [chat.close()] : []),
+    ...(portal !== undefined ? [portal.close()] : []),
+  ]);
   return 0;
 }
 
@@ -818,19 +870,23 @@ function maskingSetting(value: string | undefined): "on" | "off" {
 }
 
 /**
- * Every surface the catalog will invoke has its sign-on ready, checked at serve
- * startup. Constructing an establisher reads and validates that surface's
- * credentials, so a missing one throws here — before the server reports itself
- * healthy — rather than on the invoke that first needs it.
+ * Every surface the catalog will invoke has its sign-on configured, checked at
+ * serve startup, so a missing piece throws here — before the server reports
+ * itself healthy — rather than on the invoke that first needs it. The non-secret
+ * config is what is checked: MERIDIAN's password arrives through the portal
+ * (#44), not the environment, so requiring it now would make the portal
+ * pointless. Returns the served surfaces, so the caller knows whether to open
+ * the portal.
  */
-async function assertSignOnReady(root: string): Promise<void> {
+async function assertSignOnReady(root: string): Promise<Set<string>> {
   const surfaces = new Set<string>();
   for (const id of await listCapabilities(root)) {
     surfaces.add((await loadCapabilityRef(root, id)).surface);
   }
   for (const surface of surfaces) {
-    sessionEstablisherFor(await loadSurfaceProfile(surfacesDir(), surface));
+    assertSignOnConfigured(await loadSurfaceProfile(surfacesDir(), surface));
   }
+  return surfaces;
 }
 
 /**
@@ -890,6 +946,7 @@ const SERVE_OPTIONS = {
   port: "value",
   "dashboard-port": "value",
   "chat-port": "value",
+  "signon-port": "value",
 } as const;
 
 // The chatbot calls only a running catalog over HTTP, so it shares none of the

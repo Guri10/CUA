@@ -61,6 +61,30 @@ export function sessionEstablisherFor(
 }
 
 /**
+ * Check a surface's sign-on is configured, at serve boot, without requiring a
+ * password the portal (#44) supplies later.
+ *
+ * `serve` boots before anyone has signed on, so for MERIDIAN it can only demand
+ * the non-secret half now — the operator id and branch — and leave the password
+ * to the portal. ParaBank has no portal, so building its establisher (which reads
+ * both env credentials) is still the whole check. An unrecognised surface is a
+ * configuration error named here, the same deny-by-default as `sessionEstablisherFor`.
+ */
+export function assertSignOnConfigured(profile: SurfaceProfile): void {
+  switch (profile.id) {
+    case "meridian":
+      requiredEnv("MERIDIAN_OPERATOR");
+      requiredEnv("MERIDIAN_BRANCH");
+      return;
+    case "parabank":
+      sessionEstablisherFor(profile);
+      return;
+    default:
+      throw new Error(`No sign-on is configured for the "${profile.id}" surface.`);
+  }
+}
+
+/**
  * Signing in before Step one. The executor is handed a Surface that already has a
  * session and knows nothing about how it got one — which is what keeps login out
  * of every Recording. A miss is a Hard Failure here and now: a run that could not
