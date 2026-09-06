@@ -1,0 +1,19 @@
+{"at":"2026-09-06T03:17:21.052Z","kind":"run-started","redaction":"on","about":{"capability":"place-hold@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.shareId":"[SENSITIVE]-MMKT-35","input.reasonCode":"[SENSITIVE]","input.notes":""}}
+{"at":"2026-09-06T03:17:21.868Z","kind":"action","seq":0,"by":"agent","ms":209,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:21.986Z","kind":"action","seq":1,"by":"agent","ms":69,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.042Z","kind":"action","seq":2,"by":"agent","ms":53,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.054Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.162Z","kind":"action","seq":4,"by":"agent","ms":104,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.188Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.220Z","kind":"action","seq":6,"by":"agent","ms":30,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.245Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.253Z","kind":"action","seq":8,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.329Z","kind":"action","seq":9,"by":"agent","ms":74,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.355Z","kind":"action","seq":10,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.422Z","kind":"action","seq":11,"by":"agent","ms":64,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.458Z","kind":"action","seq":12,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.532Z","kind":"action","seq":13,"by":"agent","ms":67,"action":{"kind":"click","locator":{"role":"link","name":"Place Account Hold","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:22.559Z","kind":"action","seq":14,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"PLACE ACCOUNT HOLD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:17:32.588Z","kind":"action","seq":15,"by":"agent","ms":10025,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"not-found","locator":{"role":"option","name":"[SENSITIVE]-MMKT-35","exact":true,"within":{"role":"combobox","ordinal":0}}}}
+{"at":"2026-09-06T03:17:32.646Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-06T03:17:32.704Z","kind":"run-finished","outcome":"business-outcome","about":{"outcome":"SUPERVISOR_OVERRIDE_REQUIRED","step":"choose-share"}}

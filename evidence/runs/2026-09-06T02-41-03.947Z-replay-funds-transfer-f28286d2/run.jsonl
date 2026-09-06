@@ -1,0 +1,19 @@
+{"at":"2026-09-06T02:41:03.949Z","kind":"run-started","redaction":"on","about":{"capability":"funds-transfer@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.fromShare":"[SENSITIVE]-S0001-19 - Regular Shares ($82.00)","input.toShare":"[SENSITIVE]-S0001-14 - Regular Shares ($73.00)","input.amount":"[SENSITIVE]","input.memo":""}}
+{"at":"2026-09-06T02:41:04.983Z","kind":"action","seq":0,"by":"agent","ms":252,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.148Z","kind":"action","seq":1,"by":"agent","ms":112,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.212Z","kind":"action","seq":2,"by":"agent","ms":60,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.229Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.360Z","kind":"action","seq":4,"by":"agent","ms":128,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.390Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.423Z","kind":"action","seq":6,"by":"agent","ms":30,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.454Z","kind":"action","seq":7,"by":"agent","ms":8,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.466Z","kind":"action","seq":8,"by":"agent","ms":8,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.569Z","kind":"action","seq":9,"by":"agent","ms":97,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.596Z","kind":"action","seq":10,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.650Z","kind":"action","seq":11,"by":"agent","ms":51,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.687Z","kind":"action","seq":12,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.774Z","kind":"action","seq":13,"by":"agent","ms":79,"action":{"kind":"click","locator":{"role":"link","name":"Funds Transfer","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:05.803Z","kind":"action","seq":14,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"FUNDS TRANSFER","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:41:15.823Z","kind":"action","seq":15,"by":"agent","ms":10015,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"not-found","locator":{"role":"option","name":"[SENSITIVE]-S0001-19 - Regular Shares ($82.00)","exact":true,"within":{"role":"combobox","ordinal":0}}}}
+{"at":"2026-09-06T02:41:15.904Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-06T02:41:15.962Z","kind":"run-finished","outcome":"hard-failure","about":{"step":"choose-from","expected":"select of combobox #0","observed":"no control matched","screen":"https://web-sample.interface-hiring.com/members/[SENSITIVE]/transfer"}}

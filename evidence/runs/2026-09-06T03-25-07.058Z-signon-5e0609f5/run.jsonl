@@ -1,0 +1,8 @@
+{"at":"2026-09-06T03:25:07.063Z","kind":"run-started","redaction":"on","about":{"baseUrl":"https://web-sample.interface-hiring.com","operator":"super1"}}
+{"at":"2026-09-06T03:25:07.967Z","kind":"action","seq":0,"by":"agent","ms":267,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.107Z","kind":"action","seq":1,"by":"agent","ms":86,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.163Z","kind":"action","seq":2,"by":"agent","ms":52,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.172Z","kind":"action","seq":3,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.300Z","kind":"action","seq":4,"by":"agent","ms":124,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.325Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:25:08.328Z","kind":"run-finished","outcome":"success","about":{}}

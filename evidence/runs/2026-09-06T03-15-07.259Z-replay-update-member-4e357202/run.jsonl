@@ -1,0 +1,23 @@
+{"at":"2026-09-06T03:15:07.263Z","kind":"run-started","redaction":"on","about":{"capability":"update-member@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.email":"[SENSITIVE]","input.phone":"[SENSITIVE]","input.mailingAddress":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:15:08.331Z","kind":"action","seq":0,"by":"agent","ms":212,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.501Z","kind":"action","seq":1,"by":"agent","ms":110,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.575Z","kind":"action","seq":2,"by":"agent","ms":70,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.589Z","kind":"action","seq":3,"by":"agent","ms":10,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.763Z","kind":"action","seq":4,"by":"agent","ms":170,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.789Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.827Z","kind":"action","seq":6,"by":"agent","ms":37,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.854Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.862Z","kind":"action","seq":8,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.946Z","kind":"action","seq":9,"by":"agent","ms":81,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:08.972Z","kind":"action","seq":10,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.036Z","kind":"action","seq":11,"by":"agent","ms":61,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.073Z","kind":"action","seq":12,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.152Z","kind":"action","seq":13,"by":"agent","ms":71,"action":{"kind":"click","locator":{"role":"link","name":"Update Member Information","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.179Z","kind":"action","seq":14,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"UPDATE MEMBER INFORMATION","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.189Z","kind":"action","seq":15,"by":"agent","ms":7,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.199Z","kind":"action","seq":16,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.207Z","kind":"action","seq":17,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":2},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:09.315Z","kind":"action","seq":18,"by":"agent","ms":106,"action":{"kind":"click","locator":{"role":"button","name":"Save Changes"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:15:19.487Z","kind":"action","seq":19,"by":"agent","ms":10151,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER INFORMATION UPDATED","exact":true}},"result":{"kind":"not-found","locator":{"role":"heading","name":"MEMBER INFORMATION UPDATED","exact":true}}}
+{"at":"2026-09-06T03:15:19.597Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-06T03:15:19.628Z","kind":"run-finished","outcome":"business-outcome","about":{"outcome":"INVALID_PHONE","step":"wait-for-saved"}}

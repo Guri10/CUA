@@ -1,0 +1,17 @@
+{"at":"2026-09-06T03:28:01.324Z","kind":"run-started","redaction":"on","about":{"capability":"member-lookup@2","baseUrl":"https://web-sample.interface-hiring.com","input.by":"[SENSITIVE]","input.q":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:28:02.529Z","kind":"action","seq":0,"by":"agent","ms":452,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.678Z","kind":"action","seq":1,"by":"agent","ms":80,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.745Z","kind":"action","seq":2,"by":"agent","ms":63,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.758Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.884Z","kind":"action","seq":4,"by":"agent","ms":122,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.911Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.944Z","kind":"action","seq":6,"by":"agent","ms":30,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.970Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:02.978Z","kind":"action","seq":8,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:03.074Z","kind":"action","seq":9,"by":"agent","ms":93,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:03.105Z","kind":"action","seq":10,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:03.166Z","kind":"action","seq":11,"by":"agent","ms":57,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:03.201Z","kind":"action","seq":12,"by":"agent","ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:28:03.218Z","kind":"action","seq":13,"by":"agent","ms":9,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Member No.:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:28:03.234Z","kind":"action","seq":14,"by":"agent","ms":7,"action":{"kind":"read","locator":{"role":"cell","ordinal":3,"within":{"role":"row","name":"Member No.:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:28:03.242Z","kind":"run-finished","outcome":"success","about":{}}

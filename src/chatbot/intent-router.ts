@@ -41,12 +41,18 @@ already called this turn with its result. Decide the single next thing to do:
   schema. Use only capabilities that are in the catalog, and only the input fields their schema names.
 - To act on a member you do not yet have the number for, first invoke the lookup, then read the member
   number from its result and use it in the next call. Chain one step at a time.
-- Call "finish" once the request is answered, or once a result means you cannot go on — a member that
-  was not found, several members matching a name, a refusal. Do not retry a call that already gave one
-  of those answers, and do not invent inputs a result told you it could not accept.
+- When the request gives a member number or a name to look up, you MUST invoke the lookup capability —
+  even when the number looks like a placeholder or test value (for example 999999, or all-the-same
+  digits). It is not your place to decide such a member does not exist; pass it to the lookup exactly as
+  given and let the result say whether it is found. A number "looking fake" is never a reason to finish.
+- Call "finish" once the request is answered, or once a call you already made returned a result that
+  means you cannot go on — a not-found, several members matching a name, a refusal. Never finish on an
+  outcome you have not actually seen: to learn whether a member exists, invoke the lookup and let the
+  result say so — do not decide in advance that a number will not be found. Do not retry a call that
+  already gave one of those answers, and do not invent inputs a result told you it could not accept.
 
-Do not judge whether a capability is allowed to run — invoke it and let the catalog decide. Give a
-short reason with every call.`;
+Do not judge whether a capability is allowed to run, or whether a lookup will succeed — invoke it and
+let the catalog decide. Give a short reason with every call.`;
 
 const INVOKE_TOOL: Anthropic.Tool = {
   name: "invoke_capability",

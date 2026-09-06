@@ -1,0 +1,22 @@
+{"at":"2026-09-06T03:20:30.489Z","kind":"run-started","redaction":"on","about":{"capability":"update-member@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.email":"[SENSITIVE]","input.phone":"[SENSITIVE]","input.mailingAddress":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:20:31.560Z","kind":"action","seq":0,"by":"agent","ms":399,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.692Z","kind":"action","seq":1,"by":"agent","ms":88,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.744Z","kind":"action","seq":2,"by":"agent","ms":48,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.758Z","kind":"action","seq":3,"by":"agent","ms":8,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.870Z","kind":"action","seq":4,"by":"agent","ms":109,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.899Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.931Z","kind":"action","seq":6,"by":"agent","ms":31,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.964Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:31.973Z","kind":"action","seq":8,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.049Z","kind":"action","seq":9,"by":"agent","ms":74,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.074Z","kind":"action","seq":10,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.137Z","kind":"action","seq":11,"by":"agent","ms":60,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.171Z","kind":"action","seq":12,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.252Z","kind":"action","seq":13,"by":"agent","ms":73,"action":{"kind":"click","locator":{"role":"link","name":"Update Member Information","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.276Z","kind":"action","seq":14,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"UPDATE MEMBER INFORMATION","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.285Z","kind":"action","seq":15,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.293Z","kind":"action","seq":16,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.302Z","kind":"action","seq":17,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":2},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.384Z","kind":"action","seq":18,"by":"agent","ms":79,"action":{"kind":"click","locator":{"role":"button","name":"Save Changes"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.410Z","kind":"action","seq":19,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER INFORMATION UPDATED","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:20:32.417Z","kind":"run-finished","outcome":"success","about":{}}

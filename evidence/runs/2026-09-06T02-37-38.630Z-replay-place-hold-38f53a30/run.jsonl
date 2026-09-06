@@ -1,0 +1,19 @@
+{"at":"2026-09-06T02:37:38.632Z","kind":"run-started","redaction":"on","about":{"capability":"place-hold@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.shareId":"[SENSITIVE]-MMKT-21 - Money Market ($27.00)","input.reasonCode":"[SENSITIVE]","input.notes":""}}
+{"at":"2026-09-06T02:37:39.430Z","kind":"action","seq":0,"by":"agent","ms":234,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.530Z","kind":"action","seq":1,"by":"agent","ms":42,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.585Z","kind":"action","seq":2,"by":"agent","ms":51,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.598Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.720Z","kind":"action","seq":4,"by":"agent","ms":118,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.747Z","kind":"action","seq":5,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.783Z","kind":"action","seq":6,"by":"agent","ms":33,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.811Z","kind":"action","seq":7,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.821Z","kind":"action","seq":8,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.905Z","kind":"action","seq":9,"by":"agent","ms":80,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:39.936Z","kind":"action","seq":10,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:40.000Z","kind":"action","seq":11,"by":"agent","ms":59,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:40.037Z","kind":"action","seq":12,"by":"agent","ms":8,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:40.115Z","kind":"action","seq":13,"by":"agent","ms":71,"action":{"kind":"click","locator":{"role":"link","name":"Place Account Hold","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:40.143Z","kind":"action","seq":14,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"PLACE ACCOUNT HOLD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T02:37:50.159Z","kind":"action","seq":15,"by":"agent","ms":10011,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"not-found","locator":{"role":"option","name":"[SENSITIVE]-MMKT-21 - Money Market ($27.00)","exact":true,"within":{"role":"combobox","ordinal":0}}}}
+{"at":"2026-09-06T02:37:50.235Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-06T02:37:50.278Z","kind":"run-finished","outcome":"business-outcome","about":{"outcome":"SUPERVISOR_OVERRIDE_REQUIRED","step":"choose-share"}}

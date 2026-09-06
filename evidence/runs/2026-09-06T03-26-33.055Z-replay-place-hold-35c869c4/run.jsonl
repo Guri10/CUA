@@ -1,0 +1,25 @@
+{"at":"2026-09-06T03:26:33.060Z","kind":"run-started","redaction":"on","about":{"capability":"place-hold@2","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.shareId":"[SENSITIVE]-MMKT-33 - Money Market","input.reasonCode":"[SENSITIVE]","input.notes":""}}
+{"at":"2026-09-06T03:26:33.936Z","kind":"action","seq":0,"by":"agent","ms":275,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.201Z","kind":"action","seq":1,"by":"agent","ms":119,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.259Z","kind":"action","seq":2,"by":"agent","ms":55,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.275Z","kind":"action","seq":3,"by":"agent","ms":11,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.394Z","kind":"action","seq":4,"by":"agent","ms":114,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.424Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.458Z","kind":"action","seq":6,"by":"agent","ms":32,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.484Z","kind":"action","seq":7,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.492Z","kind":"action","seq":8,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.580Z","kind":"action","seq":9,"by":"agent","ms":85,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.611Z","kind":"action","seq":10,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.660Z","kind":"action","seq":11,"by":"agent","ms":45,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.695Z","kind":"action","seq":12,"by":"agent","ms":7,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.776Z","kind":"action","seq":13,"by":"agent","ms":73,"action":{"kind":"click","locator":{"role":"link","name":"Place Account Hold","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.802Z","kind":"action","seq":14,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"PLACE ACCOUNT HOLD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.813Z","kind":"action","seq":15,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.821Z","kind":"action","seq":16,"by":"agent","ms":4,"action":{"kind":"select","locator":{"role":"combobox","ordinal":1},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.834Z","kind":"action","seq":17,"by":"agent","ms":9,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.921Z","kind":"action","seq":18,"by":"agent","ms":84,"action":{"kind":"click","locator":{"role":"button","name":"Continue"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:34.945Z","kind":"action","seq":19,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"CONFIRM ACCOUNT HOLD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:35.017Z","kind":"action","seq":20,"by":"agent","ms":69,"action":{"kind":"click","locator":{"role":"button","name":"Apply Hold"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:35.041Z","kind":"action","seq":21,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"ACCOUNT HOLD APPLIED","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T03:26:35.048Z","kind":"action","seq":22,"by":"agent","ms":4,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Confirmation:","within":{"role":"table","ordinal":1}}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-06T03:26:35.051Z","kind":"run-finished","outcome":"success","about":{}}
