@@ -34,6 +34,7 @@ import { startCatalog, DEFAULT_CATALOG_PORT, type InvokeCapability } from "./cat
 import { startDashboard, DEFAULT_DASHBOARD_PORT } from "./dashboard/serve.js";
 import { catalogClient } from "./chatbot/catalog-client.js";
 import { createChatbot } from "./chatbot/chatbot.js";
+import { chatbotLogsDir, fileChatLogger } from "./chatbot/log.js";
 import { modelIntentRouter } from "./chatbot/intent-router.js";
 import { startChatUi, DEFAULT_CHAT_PORT, type ChatServer } from "./chatbot/serve.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
@@ -416,7 +417,11 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
   const chatKey = process.env["CHATBOT_API_KEY"];
   let chat: ChatServer | undefined;
   if (chatKey !== undefined && chatKey !== "") {
-    const chatbot = createChatbot({ client: catalogClient(server.url), router: modelIntentRouter(chatKey) });
+    const chatbot = createChatbot({
+      client: catalogClient(server.url),
+      router: modelIntentRouter(chatKey),
+      log: fileChatLogger(chatbotLogsDir()),
+    });
     try {
       chat = await startChatUi({ chatbot, port: chatPort, dashboardUrl: dashboard.url });
     } catch (thrown) {
@@ -522,7 +527,11 @@ async function chatCommand(args: Map<string, string[]>): Promise<number> {
   }
 
   const catalogUrl = single(args, "catalog") ?? `http://127.0.0.1:${DEFAULT_CATALOG_PORT}`;
-  const chatbot = createChatbot({ client: catalogClient(catalogUrl), router: modelIntentRouter(apiKey) });
+  const chatbot = createChatbot({
+    client: catalogClient(catalogUrl),
+    router: modelIntentRouter(apiKey),
+    log: fileChatLogger(chatbotLogsDir()),
+  });
 
   // A refused connection is not an outcome the chatbot can phrase — there is no
   // catalog to answer — so it surfaces here as a plain hint rather than a bare

@@ -17,6 +17,7 @@
  */
 import type { CatalogEntry } from "../catalog/catalog.js";
 import type { CatalogClient } from "./catalog-client.js";
+import type { ChatLogger } from "./log.js";
 import { report } from "./report.js";
 import type { IntentRouter, Invocation, Step } from "./types.js";
 
@@ -32,6 +33,12 @@ export interface ChatbotOptions {
   readonly client: CatalogClient;
   /** The LLM seam — mocked in tests, `modelIntentRouter` in production. */
   readonly router: IntentRouter;
+  /**
+   * Optional: called once per completed query with what it invoked, for the
+   * chatbot query log. Omitted in tests and when no log folder is configured;
+   * the chatbot does not depend on it.
+   */
+  readonly log?: ChatLogger;
 }
 
 /**
@@ -76,6 +83,12 @@ export interface ChatResult {
   readonly ranOut: boolean;
   /** Set when the run stopped before a mutating step for preview or confirmation. */
   readonly pending?: PendingAction;
+  /**
+   * Set when the router stopped to ask the caller a question — an under-specified
+   * input on an irreversible step, rather than guess. The question is also the
+   * `answer`, so a plain caller need not special-case it.
+   */
+  readonly asked?: string;
 }
 
 export interface Chatbot {
@@ -94,7 +107,9 @@ export function createChatbot(deps: ChatbotOptions): Chatbot {
     if (options.proceed === true && options.confirmed !== undefined) {
       const outcome = await deps.client.invoke(options.confirmed);
       const steps: Step[] = [{ invocation: options.confirmed, outcome }];
-      return { steps, answer: report(steps), ranOut: false };
+      const result: ChatResult = { steps, answer: report(steps), ranOut: false };
+      deps.log?.({ utterance, options, result });
+      return result;
     }
 
     const catalog = await deps.client.list();
@@ -106,10 +121,19 @@ export function createChatbot(deps: ChatbotOptions): Chatbot {
     // so it is told apart from a clean finish here.
     let ranOut = false;
     let pending: PendingAction | undefined;
+    let asked: string | undefined;
 
     for (let step = 0; step < MAX_STEPS; step++) {
       const action = await deps.router(utterance, catalog, history);
       if (action.kind === "done") break;
+
+      // The router chose to ask rather than guess — an under-specified input on
+      // an irreversible step, chiefly. Stop and carry the question back; nothing
+      // further is invoked, so no risky step runs on a guessed input.
+      if (action.kind === "ask") {
+        asked = action.question;
+        break;
+      }
 
       // Preview and confirm act on a mutating step only, and before it runs: a
       // preview reports the plan and stops; a confirm stops until the caller says
@@ -145,12 +169,22 @@ export function createChatbot(deps: ChatbotOptions): Chatbot {
     }
 
     const answer =
-      pending !== undefined
-        ? pendingMessage(pending)
-        : ranOut
-          ? "I couldn't finish that in one go — it took more steps than I can take at once. Please try asking for one thing at a time."
-          : report(history);
-    return { steps: history, answer, ranOut, ...(pending !== undefined ? { pending } : {}) };
+      asked !== undefined
+        ? asked
+        : pending !== undefined
+          ? pendingMessage(pending)
+          : ranOut
+            ? "I couldn't finish that in one go — it took more steps than I can take at once. Please try asking for one thing at a time."
+            : report(history);
+    const result: ChatResult = {
+      steps: history,
+      answer,
+      ranOut,
+      ...(pending !== undefined ? { pending } : {}),
+      ...(asked !== undefined ? { asked } : {}),
+    };
+    deps.log?.({ utterance, options, result });
+    return result;
   }
 
   return {

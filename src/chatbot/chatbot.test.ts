@@ -161,6 +161,33 @@ describe("the chatbot over the catalog", () => {
     expect(answer).toMatch(/member number/i);
   });
 
+  it("stops and asks rather than invoking when the router asks the caller to disambiguate", async () => {
+    // The router resolves the member (read-only), sees the share was named only by
+    // type with several matching, and asks which one instead of guessing — the loop
+    // must return the question and invoke no mutating step.
+    let invoked = 0;
+    const router: IntentRouter = async (_utterance, _catalog, history) => {
+      if (history.length === 0) {
+        return { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } } };
+      }
+      return { kind: "ask", question: "You have several Regular Shares. Which one — S0001-14 ($67) or S0001-20 ($5)?" };
+    };
+    const countingRouter: IntentRouter = async (u, c, h) => {
+      const action = await router(u, c, h);
+      if (action.kind === "invoke" && action.invocation.ref === "funds-transfer") invoked++;
+      return action;
+    };
+
+    const result = await (await chatbotFor(countingRouter)).run("transfer $1 from member 100234's Regular Shares");
+
+    expect(invoked).toBe(0);
+    expect(result.asked).toMatch(/which one/i);
+    expect(result.answer).toBe(result.asked);
+    // The read-only lookup still ran; only the mutating step was withheld.
+    expect(result.steps.map((s) => s.invocation.ref)).toEqual(["member-lookup"]);
+    expect(result.pending).toBeUndefined();
+  });
+
   it("reports a clean 'no such member' when the lookup misses", async () => {
     const ask = await chatbotAsking(
       scriptedRouter([

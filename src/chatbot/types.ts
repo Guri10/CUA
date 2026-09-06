@@ -56,11 +56,19 @@ export interface Step {
 
 /**
  * What the router decides to do next, given the utterance and what has happened
- * so far: invoke one more Capability, or stop because the request is answered
- * (or cannot be turned into an invocation).
+ * so far: invoke one more Capability, stop because the request is answered (or
+ * cannot be turned into an invocation), or ask the caller to resolve something
+ * only they can — an under-specified input on an irreversible step, chiefly.
+ *
+ * `ask` exists because the alternative is guessing: a request that names a share
+ * *type* on a member who has many shares of it does not name *which* share to
+ * move money from, and picking one silently is exactly the risk on a mutating
+ * step this seam avoids. The router asks; the loop stops and returns the question
+ * as the answer, having invoked nothing further.
  */
 export type NextAction =
   | { readonly kind: "invoke"; readonly invocation: Invocation }
+  | { readonly kind: "ask"; readonly question: string }
   | { readonly kind: "done" };
 
 /**

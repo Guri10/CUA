@@ -50,6 +50,14 @@ already called this turn with its result. Decide the single next thing to do:
   outcome you have not actually seen: to learn whether a member exists, invoke the lookup and let the
   result say so — do not decide in advance that a number will not be found. Do not retry a call that
   already gave one of those answers, and do not invent inputs a result told you it could not accept.
+- Call "ask_user" when a capability whose effects are "mutating" needs a load-bearing input the request
+  does not pin down to a single value — do NOT guess it. A mutating capability changes data and cannot
+  be undone, so choosing on the caller's behalf which record it acts on is not yours to do. The clearest
+  case: the request names a share by TYPE ("Regular Shares", "Money Market") but the member has more than
+  one share of that type — you must not pick one. First invoke the read-only lookup that lists the
+  member's shares, then, if more than one matches, call ask_user with a short question that lists the
+  matching shares (id, and balance if shown) and asks which one. Only ask once you have looked; never ask
+  for something a read-only call could tell you. For a read-only request, never ask — just invoke.
 
 Do not judge whether a capability is allowed to run, or whether a lookup will succeed — invoke it and
 let the catalog decide. Give a short reason with every call.`;
@@ -78,6 +86,23 @@ const FINISH_TOOL: Anthropic.Tool = {
   },
 };
 
+const ASK_TOOL: Anthropic.Tool = {
+  name: "ask_user",
+  description:
+    "Stop and ask the caller to resolve an under-specified, load-bearing input on a mutating capability — " +
+    "chiefly which share, when the request named only a type and the member has several matching. Do not guess instead.",
+  input_schema: {
+    type: "object",
+    properties: {
+      question: {
+        type: "string",
+        description: "The question to put to the caller — short, and listing the choices they must pick between.",
+      },
+    },
+    required: ["question"],
+  },
+};
+
 /**
  * A router driven by Claude, using the caller's chatbot API key. The key is read
  * from the environment (`CHATBOT_API_KEY`) — a separate key from the discovery
@@ -92,16 +117,26 @@ export function modelIntentRouter(apiKey: string): IntentRouter {
       model: CHATBOT_MODEL,
       max_tokens: MAX_TOKENS,
       system: SYSTEM,
-      tools: [INVOKE_TOOL, FINISH_TOOL],
-      // Exactly one decision per turn: invoke the next capability, or finish.
+      tools: [INVOKE_TOOL, FINISH_TOOL, ASK_TOOL],
+      // Exactly one decision per turn: invoke the next capability, ask, or finish.
       tool_choice: { type: "any", disable_parallel_tool_use: true },
       messages: [{ role: "user", content: prompt(utterance, catalog, history) }],
     });
 
     const call = response.content.find((block) => block.type === "tool_use");
-    if (call === undefined || call.name !== "invoke_capability") return { kind: "done" };
-    return { kind: "invoke", invocation: invocationFrom(call.input) };
+    if (call === undefined) return { kind: "done" };
+    if (call.name === "invoke_capability") return { kind: "invoke", invocation: invocationFrom(call.input) };
+    if (call.name === "ask_user") return { kind: "ask", question: questionFrom(call.input) };
+    return { kind: "done" };
   };
+}
+
+/** The ask_user question, defaulted to a safe prompt if the model omitted it. */
+function questionFrom(input: unknown): string {
+  const question = (input as { question?: unknown }).question;
+  return typeof question === "string" && question.trim() !== ""
+    ? question
+    : "Which one did you mean? Please name the specific share.";
 }
 
 /** The tool input as an `Invocation`, trusting the schema the tool declared. */
