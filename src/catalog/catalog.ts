@@ -32,11 +32,25 @@ export interface CatalogEntry {
   readonly contract: Contract;
 }
 
-/** Every approved Capability on disk, highest version each, in id order. */
+/**
+ * Capabilities that exist and replay on disk but are deliberately not offered
+ * over the served catalog (#52).
+ *
+ * `sign-on` is the one. It is session establishment, not a task an agent invokes,
+ * and its Contract carries the operator password as an input — so offering it
+ * would let a caller (chiefly the chatbot) route a password into an invoke payload
+ * and evidence, the exact thing ADR 0006 forbids. It stays a recorded,
+ * CLI-replayable Capability for §2.1 coverage; the served catalog simply does not
+ * carry it, over either route (see `serve.ts`).
+ */
+export const UNSERVED_CAPABILITY_IDS: ReadonlySet<string> = new Set(["sign-on"]);
+
+/** Every approved, served Capability on disk, highest version each, in id order. */
 export async function listCatalog(root: string): Promise<CatalogEntry[]> {
   const ids = await listCapabilities(root);
   const entries: CatalogEntry[] = [];
   for (const id of ids) {
+    if (UNSERVED_CAPABILITY_IDS.has(id)) continue;
     const capability = await loadCapabilityRef(root, id);
     if (capability.approval !== "approved") continue;
     entries.push({ id: capability.id, version: capability.version, contract: capability.contract });

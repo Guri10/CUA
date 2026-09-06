@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
+import { signOnCapability } from "../capability/meridian/sign-on.js";
 import type { Capability } from "../capability/schema.js";
 import { saveCapability } from "../capability/storage.js";
 import { listCatalog } from "./catalog.js";
@@ -73,5 +74,18 @@ describe("Capability catalog", () => {
 
   it("lists nothing when there are no Capabilities on disk", async () => {
     expect(await listCatalog(root)).toEqual([]);
+  });
+
+  it("does not offer sign-on, even approved — it is session establishment, not an invocable Capability (#52)", async () => {
+    // sign-on is approved and on disk, but carries the operator password as an
+    // input; the served catalog must not advertise it, or a caller could route a
+    // password into an invoke (ADR 0006). It stays CLI-replayable.
+    await saveCapability(root, signOnCapability());
+    await saveCapability(root, approved(accountLookupCapability()));
+
+    const catalog = await listCatalog(root);
+
+    expect(catalog.map((entry) => entry.id)).toEqual(["account-lookup"]);
+    expect(catalog.some((entry) => entry.id === "sign-on")).toBe(false);
   });
 });

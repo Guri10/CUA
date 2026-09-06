@@ -42,7 +42,7 @@ import { mandateFor } from "../policy/mandate.js";
 import type { ReplayResult } from "../replay/replay.js";
 import type { EscalationContext } from "../escalation/intervention-request.js";
 import type { LoginSession } from "../surface/login-session.js";
-import { listCatalog } from "./catalog.js";
+import { listCatalog, UNSERVED_CAPABILITY_IDS } from "./catalog.js";
 
 /**
  * How an invoke ended, as the catalog returns it: the Replay union plus the one
@@ -220,6 +220,14 @@ async function invoke(
   } catch (thrown) {
     return reply(outgoing, 404, { error: thrown instanceof Error ? thrown.message : String(thrown) });
   }
+
+  // Not on the served catalog (#52): hidden from the list, and refused here too so
+  // the two routes agree. sign-on is session establishment, not an invocable
+  // Capability, and it must never take a password over the wire (ADR 0006).
+  if (UNSERVED_CAPABILITY_IDS.has(capability.id)) {
+    return reply(outgoing, 404, { error: `No such Capability "${ref}" on the catalog.` });
+  }
+
   const named = `${capability.id}@${capability.version}`;
 
   // Decided before the runner is even called, from two declared fields (ADR

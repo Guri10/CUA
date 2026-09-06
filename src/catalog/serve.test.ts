@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
+import { signOnCapability } from "../capability/meridian/sign-on.js";
 import type { Capability } from "../capability/schema.js";
 import { saveCapability } from "../capability/storage.js";
 import type { ReplayResult } from "../replay/replay.js";
@@ -231,6 +232,23 @@ describe("Capability catalog server", () => {
     const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
 
     expect((await fetch(`${url}/`)).status).toBe(404);
+  });
+
+  it("does not serve sign-on — invoking it is refused as not on the catalog (#52)", async () => {
+    // On disk and approved, but not served: a password must never ride an invoke
+    // payload (ADR 0006), so the route treats it as if it were not there, and the
+    // run is never reached.
+    await saveCapability(root, signOnCapability());
+    const invoke = recordingInvoke({ kind: "success", outputs: {} });
+    const url = await serve(invoke);
+
+    const response = await fetch(`${url}/capabilities/sign-on/invoke`, {
+      method: "POST",
+      body: JSON.stringify({ inputs: { operator: "teller1", password: "hunter2", branch: "MAIN-001 - Main Office" } }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(invoke.calls).toEqual([]);
   });
 
   describe("with a login gate (#51)", () => {
