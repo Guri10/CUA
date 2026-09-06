@@ -8,8 +8,8 @@ and the vocabulary is in [`CONTEXT.md`](CONTEXT.md).
 
 All seven functions from the brief's §2.1 are recorded, approved, and replayable: `sign-on`,
 `member-lookup`, `member-balance`, `funds-transfer`, `open-share`, `update-member`, `place-hold`
-(each `capabilities/<id>/2.json`, all `approval: approved`). The suite is green — 568 tests across
-66 files, no browser. The whole adaptation is one branch, +16,010 / −229 lines: overwhelmingly new
+(each `capabilities/<id>/2.json`, all `approval: approved`). The suite is green — 585 tests across
+67 files, no browser. The whole adaptation is one branch, +16,010 / −229 lines: overwhelmingly new
 code beside the core, not rewritten core.
 
 ## What adapting took — and what in the core I had to change
