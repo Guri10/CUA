@@ -17,6 +17,7 @@ import { sessionEstablisherFor, assertSignOnConfigured } from "./surface/session
 import { secretStore } from "./surface/secret-store.js";
 import { startSignOnPortal, DEFAULT_SIGNON_PORT, type SignOnPortal } from "./portal/serve.js";
 import { browserSignOn } from "./portal/browser-sign-on.js";
+import { ensurePasswordInStore, terminalHiddenPrompt } from "./portal/password-prompt.js";
 import type { Surface } from "./surface/surface.js";
 import {
   capabilitiesDir,
@@ -156,6 +157,10 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
 
   const variant = single(args, "variant");
   const masking = maskingSetting(single(args, "evidence-redaction"));
+
+  // Ask for the operator password at a hidden prompt if the store has none, the
+  // same secret the portal supplies to a served run (#45) — before a browser opens.
+  await ensureSignedOn(profile);
 
   const { result } = await runCapability({
     capability,
@@ -568,6 +573,10 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   const outputs = args.get("output") ?? [];
   const plan = await recordingPlan(args, { goal, profile, baseUrl, inputs: given, outputs });
 
+  // As in replay: the operator password comes from the store or a hidden prompt,
+  // never a command-line argument (#45).
+  await ensureSignedOn(profile);
+
   const session = sessionEstablisherFor(profile);
 
   const evidence = await EvidenceRun.start({
@@ -887,6 +896,28 @@ async function assertSignOnReady(root: string): Promise<Set<string>> {
     assertSignOnConfigured(await loadSurfaceProfile(surfacesDir(), surface));
   }
   return surfaces;
+}
+
+/**
+ * Put the MERIDIAN operator password in the store for a direct run — replay or
+ * discover — asking for it at a hidden prompt when the store has none (#45).
+ *
+ * Precedence is store, then prompt: a password already in the store, from an
+ * earlier run in this process, is used and the prompt is skipped. The password is
+ * never a command-line argument; it is typed at the prompt and read back from the
+ * store by `sessionEstablisherFor`, so it stays out of the process listing and
+ * shell history the way a `--password` flag never could. A non-MERIDIAN surface
+ * has no operator password to key, and a run with no terminal (a pipe, a CI job)
+ * cannot be prompted — both fall through to the establisher, which reads the
+ * environment or names what is missing.
+ */
+async function ensureSignedOn(profile: SurfaceProfile): Promise<void> {
+  if (profile.id !== "meridian") return;
+  const operator = process.env["MERIDIAN_OPERATOR"];
+  if (operator === undefined || operator === "") return;
+  if (secretStore.get(operator) !== undefined) return;
+  if (!process.stdin.isTTY) return;
+  await ensurePasswordInStore({ store: secretStore, operator, prompt: terminalHiddenPrompt() });
 }
 
 /**
