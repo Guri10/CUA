@@ -1,0 +1,22 @@
+{"at":"2026-09-06T01:10:13.946Z","kind":"run-started","redaction":"on","about":{"goal":"Open the member's record, update their contact information, and confirm the update was saved.","entry":"/members","baseUrl":"https://web-sample.interface-hiring.com","surface":"meridian","maxSteps":"25","capability":"update-member@2","input.memberNumber":"[SENSITIVE]","input.email":"[SENSITIVE]","input.phone":"[SENSITIVE]","input.mailingAddress":"[SENSITIVE]"}}
+{"at":"2026-09-06T01:10:16.691Z","kind":"action","seq":0,"by":"agent","ms":293,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:16.780Z","kind":"action","seq":1,"by":"agent","ms":28,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:16.849Z","kind":"action","seq":2,"by":"agent","ms":57,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:16.861Z","kind":"action","seq":3,"by":"agent","ms":8,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:16.993Z","kind":"action","seq":4,"by":"agent","ms":129,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:17.044Z","kind":"action","seq":5,"by":"agent","ms":5,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:17.124Z","kind":"action","seq":6,"by":"agent","ms":59,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:20.518Z","kind":"action","seq":7,"by":"agent","ms":13,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:23.343Z","kind":"action","seq":8,"by":"agent","ms":99,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:26.232Z","kind":"action","seq":9,"by":"agent","ms":115,"action":{"kind":"click","locator":{"role":"link","name":"Select"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:29.671Z","kind":"action","seq":10,"by":"agent","ms":98,"action":{"kind":"click","locator":{"role":"link","name":"Update Member Information"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:10:33.104Z","kind":"intervention-request","capability":"update-member@2","step":"fill of textbox within row \"E-mail:\"","reason":"\"/members/100234/update\" can change data, and this run has no mandate to.","screen":"https://web-sample.interface-hiring.com/members/100234/update"}
+{"at":"2026-09-06T01:10:33.106Z","kind":"control","to":"human"}
+{"at":"2026-09-06T01:11:02.768Z","kind":"action","seq":11,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Save Changes","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:11:12.006Z","kind":"control","to":"agent"}
+{"at":"2026-09-06T01:11:15.441Z","kind":"intervention-request","capability":"update-member@2","step":"click on link \"Return to Member Record\"","reason":"\"/members/100234/update\" can change data, and this run has no mandate to.","screen":"https://web-sample.interface-hiring.com/members/100234/update"}
+{"at":"2026-09-06T01:11:15.441Z","kind":"control","to":"human"}
+{"at":"2026-09-06T01:13:01.554Z","kind":"action","seq":12,"by":"human","action":{"kind":"click","locator":{"role":"link","name":"Return to Member Record","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T01:13:14.418Z","kind":"control","to":"agent"}
+{"at":"2026-09-06T01:13:18.500Z","kind":"action","seq":13,"by":"agent","ms":9,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"E-mail:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-06T01:13:24.324Z","kind":"run-finished","outcome":"stopped","about":{"steps":"10","because":"unrecordable"}}

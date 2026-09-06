@@ -20,7 +20,7 @@
 import { loggedAction, loggedResult } from "../evidence/classify-action.js";
 import type { EvidenceRun } from "../evidence/run.js";
 import { redactSessionIds } from "../evidence/redact-session-ids.js";
-import type { StopCapture } from "../surface/human-actions.js";
+import { mergeFinalState, type StopCapture } from "../surface/human-actions.js";
 import type { Action } from "../surface/surface.js";
 import type { SessionControl } from "./controller.js";
 import type { InterventionRequest } from "./intervention-request.js";
@@ -153,7 +153,28 @@ export async function handOverToHuman(options: HandoverOptions): Promise<Handove
       }
     };
 
-    await settle(() => stop?.());
+    // Stopping the capture hands back the form's final state — the value every
+    // control carried when the session returned. An option the person picked but
+    // left on its default fires no change event, so the live capture never saw
+    // it; this is the only place it is recorded.
+    let finalState: readonly Action[] = [];
+    await settle(async () => {
+      finalState = (await stop?.()) ?? [];
+    });
+    // Folded in before control returns to the agent, so the trail still reads
+    // human-then-agent, and only for controls no change event already recorded —
+    // a live-captured change carries the same value and must not be doubled.
+    for (const action of mergeFinalState(actions, finalState)) {
+      actions.push(action);
+      write({
+        kind: "action",
+        seq: evidence.nextSeq(),
+        by: "human",
+        action: loggedAction(evidence.redaction, action),
+        result: loggedResult(evidence.redaction, { kind: "ok" }),
+      });
+    }
+
     await settle(() => endpoint?.close());
     // Synchronous and cannot throw, so they need no guard and always run: the
     // Controller returns to the agent, and the transition listener is detached.

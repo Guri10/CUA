@@ -19,7 +19,14 @@
  */
 import { chromium, type Browser, type Locator as BrowserLocator, type Page } from "playwright";
 import { readAriaSnapshot, type AriaNode } from "./aria-snapshot.js";
-import { actionFrom, injectableCaptureScript, CAPTURE_BINDING, type StopCapture } from "./human-actions.js";
+import {
+  actionFrom,
+  actionsFromSnapshot,
+  injectableCaptureScript,
+  snapshotExpression,
+  CAPTURE_BINDING,
+  type StopCapture,
+} from "./human-actions.js";
 import { locatorForNode } from "./locator-for-node.js";
 import { readControlValue } from "./read-value.js";
 import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
@@ -123,7 +130,20 @@ export class PlaywrightSurface implements Surface {
     await this.#install(install);
 
     return async () => {
+      // Read the form's final state before dropping the handler, so an option
+      // the person picked but left on its default — which fires no change event
+      // and so was never captured live — is still recorded. Guarded: by the
+      // time the session comes back the page may have navigated or closed, and a
+      // snapshot that cannot be read is no controls rather than a failed stop.
+      let finalState: readonly Action[] = [];
+      try {
+        const controls = await this.#page.evaluate(snapshotExpression(CAPTURE_BINDING));
+        finalState = actionsFromSnapshot(controls);
+      } catch {
+        finalState = [];
+      }
       this.#onHumanAction = undefined;
+      return finalState;
     };
   }
 
