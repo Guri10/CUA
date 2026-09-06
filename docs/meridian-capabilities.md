@@ -34,6 +34,46 @@ enum option values and any further Business Outcomes are confirmed while recordi
 | `update-member` | mutating (single-step, no review) | `memberNumber`, `email?`, `phone?`, `address?` | updated fields (acknowledgement) | success = updated record; `INVALID_EMAIL`, `INVALID_PHONE`, `NOT_FOUND` |
 | `place-hold` | mutating (supervisor-gated at review) | `memberNumber`, `shareId`, `reasonCode` (`FRAUD` \| `LEGAL` \| `DECEASED`), `notes?` | `confirmationNumber` | success = confirmation; `SUPERVISOR_OVERRIDE_REQUIRED` (`403`), `NOT_FOUND` |
 
+## Parameterising a control with a volatile label (share dropdowns)
+
+`funds-transfer` (`fromShare`, `toShare`) and `place-hold` (`shareId`) each select a
+share from a dropdown, and **the caller must pass the current option label**, not a
+bare share id. This is a modelling limit, not a binding bug, and a failed `select`
+on replay is expected rather than a regression.
+
+Why: discovery parameterises a Step by **whole-value equality** (`expressionFor`,
+`src/discovery/record.ts`) — a `select` binds to an input only when the captured
+option label exactly equals the declared input value. Under ADR 0001 the only
+handle for a control is its **accessible name**, and MERIDIAN gives each share
+option an accessible name that embeds the live balance, e.g.
+`100234-MMKT-22 - Money Market ($25.00)`. That balance drifts with every transfer
+or hold, so the label is not a stable identifier:
+
+- At **record** time the label may not equal the `--input` share string, so the
+  Step does not bind to the input.
+- At **replay** time the label has changed since it was recorded, so a bound value
+  no longer matches any option and the `select` misses.
+
+Workaround (what the hand-written capabilities do): **the caller supplies the
+current label per invocation.** Re-read the live labels first —
+`npm run replay -- --capability member-balance --input memberNumber=<n>` lists each
+share's current `{ shareId, type, balance, status }` — then pass the whole current
+option string as the share input. Pick an `OPEN` share; a held one as a transfer
+source returns `SOURCE_ON_HOLD`.
+
+The two real fixes are both out of our hands or out of scope:
+
+- **A stable option accessible name** (e.g. the label without the balance) would
+  make the option parameterisable, but that is a change to the target, not to us.
+- **Relaxing ADR 0001 to address the underlying `<option value>` id** would give a
+  stable handle, but reaching past the accessibility tree for a CSS/DOM id is
+  exactly what ADR 0001 forbids — rejected.
+
+Related discovery-engine work that came out of the same #46 investigation but does
+**not** remove this limit: capturing a default option left unchanged at handover
+(#48) and letting a blank optional input pass the unused-input guard (#49). Both
+help attended mutating runs record and save; neither makes a drifting label stable.
+
 ## Exposure
 
 Capabilities are served over the existing catalog (`GET /capabilities`, `POST
