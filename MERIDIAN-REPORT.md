@@ -9,7 +9,7 @@ and the vocabulary is in [`CONTEXT.md`](CONTEXT.md).
 All seven functions from the brief's §2.1 are recorded, approved, and replayable: `sign-on`,
 `member-lookup`, `member-balance`, `funds-transfer`, `open-share`, `update-member`, `place-hold`
 (each `capabilities/<id>/2.json`, all `approval: approved`). The suite is green — 585 tests across
-67 files, no browser. The whole adaptation is one branch, +16,010 / −229 lines: overwhelmingly new
+67 files, no browser. The whole adaptation is one branch, +17,178 / −231 lines: overwhelmingly new
 code beside the core, not rewritten core.
 
 ## What adapting took — and what in the core I had to change
@@ -40,10 +40,12 @@ honest signal the brief asks for:
   on the right value live but the Checkpoint (and every unit test) passed against the clean tree.
   I retired the second lens; everything now resolves against the one snapshot, so the fake Surface
   can no longer pass while the live page fails.
-- **Somewhere to hold the operator password**. MERIDIAN signs on per operator, and the password must
-  never enter an API payload, the chatbot, or evidence. So there's a small in-memory secret store
-  (dropped on exit), a one-screen sign-on portal to load it, and a hidden prompt for direct CLI runs.
-  The password is classified Secret (ADR 0006) and is never written anywhere.
+- **A place to hold the operator password — which became the session gate**. MERIDIAN signs on per
+  operator, and the password must never enter an API payload, the chatbot, or evidence (Secret,
+  ADR 0006). It lives only in a small in-memory store (dropped on exit), loaded at a one-screen
+  sign-on portal or, for direct CLI runs, a hidden prompt — never a command-line flag. Serving the app
+  turned that store into a real login session — the thing §2.1's "sign on … sessions time out on idle"
+  asks for — described under *Safety* below.
 
 Two discovery-engine tweaks also came out of recording the mutating flows attended (snapshot the
 final form state at handover; let a blank optional input pass the unused-input guard). Neither
@@ -52,11 +54,15 @@ touches replay.
 ## Exposing the Capabilities as an API
 
 The catalog is `npm run serve` → an HTTP service on `127.0.0.1:8788`, loopback only (an invoke
-drives a real browser and signs in, so the caller is assumed to be on the same machine). Two routes:
+drives a real browser and signs in, so the caller is assumed to be on the same machine) and, for
+MERIDIAN, gated behind a portal sign-on (see *Safety*). Two routes:
 
-- `GET /capabilities` — every **approved** Capability, highest version, with its full Contract
+- `GET /capabilities` — every **approved, served** Capability, highest version, with its full Contract
   (summary, typed input/output JSON Schema, declared effects, terminal states). Drafts are invisible
-  to the agent, and the Recording — the "how" — is deliberately not published.
+  to the agent, and the Recording — the "how" — is deliberately not published. `sign-on` is withheld
+  too: it is recorded and CLI-replayable for §2.1 coverage, but its Contract names the operator
+  password as an input, so serving it would let a Secret ride an invoke — it is refused over both
+  routes (ADR 0006).
 - `POST /capabilities/:ref/invoke` — runs one by name with typed args and returns how it ended.
 
 Under the hood an invoke is the exact machinery a CLI `replay` runs: open an evidence run → open the
@@ -70,6 +76,7 @@ evidence trail. The response is a discriminated result whose HTTP status echoes 
 | Hard Failure | 502 | `{ kind: "hard-failure", step, expected, observed, url }` |
 | Escalated (pre-run gate refusal) | 403 | `{ kind: "escalated", context: {…} }` |
 | Invalid inputs / no such Capability | 400 / 404 | `{ error }` |
+| Not signed in (served MERIDIAN) | 401 | `{ error }` |
 
 A Success or a named Business Outcome is a 200 the way a passing task is exit 0 — "no such member"
 is the answer the application gave, not a crash. Two guarantees run *before a browser exists*: a
@@ -149,6 +156,19 @@ by kind: the password and session token are Secret and never written (no flag tu
 and balances are Sensitive — masked in stored evidence but returned to the caller in full, because
 reading the balance is the whole point.
 
+The served surface is gated, not anonymous — this is §2.1's "sign on … sessions time out on idle,"
+made a property of the served surface. `serve` refuses every catalog and chatbot request until a
+person has signed on at the portal; the operator to act as is chosen *there* (teller1 or super1), not
+fixed in the environment, so a supervisor Place Hold is just a different sign-on rather than a config
+change; one operator holds the process until it restarts; and the login times out on idle
+(`MERIDIAN_SESSION_IDLE_MINUTES`, default 15) or on an explicit sign-off, clearing the stored password
+so a lapsed session can do nothing. This is distinct from the target's own mid-flow expiry, which
+replay still recovers from once (above). Two things keep the Secret off the wire: the developer env
+password seed is ignored on the served path, so a seed cannot bypass the gate; and `sign-on` — whose
+Contract names the password as an input — is kept out of the served catalog over both routes, so no
+password can ever ride an invoke. It stays a recorded, CLI-replayable capability for §2.1 coverage;
+serving it is the one place the wrapper could have become a way around a guardrail, and it does not.
+
 Escalation survives as two distinct paths. Over the API and chatbot there's no browser to hand a
 person, so a pre-run gate refusal surfaces as a terminal `escalated` status (HTTP 403) carrying the
 Capability, where it stopped, and why — reported cleanly, with nothing having happened. The CLI
@@ -182,8 +202,10 @@ Recording. The demoable escalation for MERIDIAN is the terminal `escalated` 403 
   exercised with a branded profile). Catalog, chatbot, and dashboard are loopback-only with no auth.
   Escalation over the API is terminal rather than a remote live handoff.
 
-**Demo path:** fill `.env` (teller + supervisor operators, branch, `ANTHROPIC_API_KEY`,
-`CHATBOT_API_KEY`), then `npm run serve` and drive from the chatbot (`:8790`) while watching the
-dashboard (`:8789`) — a balance check and a posted transfer for the happy path, a teller Place Hold
-for a clean `SUPERVISOR_OVERRIDE_REQUIRED`, and a mutating draft for a terminal escalation. The
-step-by-step re-drive, including the live-data gotchas, is in `docs/meridian-redrive-runbook.md`.
+**Demo path:** fill `.env` (`ANTHROPIC_API_KEY`, `CHATBOT_API_KEY`, and the branch; operator passwords
+are typed at the portal, not the environment), then `npm run serve`, **sign on at the sign-on portal
+(`:8791`) as teller1**, and drive from the chatbot (`:8790`) while watching the dashboard (`:8789`) —
+a balance check and a posted transfer for the happy path, a teller Place Hold for a clean
+`SUPERVISOR_OVERRIDE_REQUIRED` (restart and sign on as super1 to post it instead), and a mutating
+draft for a terminal escalation. The step-by-step re-drive, including the live-data gotchas, is in
+`docs/meridian-redrive-runbook.md`.
