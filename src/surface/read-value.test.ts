@@ -28,12 +28,11 @@ describe("reading a typed-in input's current value from the perceived tree", () 
 
   it("reads the value typed into the textbox, not the field label", () => {
     const box = only(screen, { role: "textbox" });
-    // The typed value, carried inline by the snapshot as the textbox's text —
-    // `toContain` rather than `toBe` because the snapshot YAML quotes a
-    // number-like value (`- textbox: "100234"`) and the lightweight parser keeps
-    // those quotes; that fidelity nit is orthogonal to reading value-not-label,
-    // and no Capability reads a textbox today.
-    expect(readControlValue(screen, box)).toContain("100234");
+    // The typed value, carried inline by the snapshot as the textbox's text.
+    // The snapshot YAML quotes a number-like value (`- textbox: "100234"`), and
+    // the parser strips those quotes (#47), so the read is the bare value — an
+    // exact `toBe`, which an exact read or Checkpoint on 100234 depends on.
+    expect(readControlValue(screen, box)).toBe("100234");
     // The label is a sibling cell ("Value:"), never what the read returns.
     expect(readControlValue(screen, box)).not.toBe("Value:");
   });

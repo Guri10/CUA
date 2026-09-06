@@ -53,7 +53,7 @@ export function readAriaSnapshot(snapshot: string): AriaNode[] {
     if (groups === undefined) continue;
     if (NOT_A_ROLE.has(groups["role"]!)) continue;
 
-    const text = groups["text"]?.trim();
+    const text = unquoteInline(groups["text"]?.trim());
     nodes.push({
       role: groups["role"]!,
       name: groups["name"],
@@ -64,6 +64,26 @@ export function readAriaSnapshot(snapshot: string): AriaNode[] {
   }
 
   return nodes;
+}
+
+/**
+ * The bare inline value, with the double quotes YAML puts around a number-like
+ * one taken off.
+ *
+ * Playwright renders `- textbox: 100234` as `- textbox: "100234"` because the
+ * value looks like a number, and the lightweight parser would otherwise keep
+ * the quote characters — so a read of that field returns `"100234"` and an exact
+ * read or Checkpoint on `100234` misses. Only a value quoted at both ends is
+ * unwrapped, and a `\"` inside it is unescaped — the one escape these values
+ * carry, not the whole of YAML's double-quote grammar (a literal `\\` is left as
+ * is). A plain value, or one quoted at one end only, is returned unchanged.
+ */
+function unquoteInline(text: string | undefined): string | undefined {
+  if (text === undefined) return undefined;
+  if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+    return text.slice(1, -1).replaceAll('\\"', '"');
+  }
+  return text;
 }
 
 function unwrapQuotedKey(line: string): string {
