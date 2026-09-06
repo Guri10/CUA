@@ -81,7 +81,7 @@
             "role": "cell",
             "name": {
               "kind": "literal",
-              "value": "SUPERVISOR OVERRIDE REQUIRED"
+              "value": "A supervisor must sign on to complete this request"
             }
           }
         }

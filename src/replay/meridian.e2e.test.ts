@@ -211,10 +211,19 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
   });
 
   it("reports a teller's hold attempt as SUPERVISOR_OVERRIDE_REQUIRED", async () => {
-    // The share is named the way the hold form lists it — id and type — which the
-    // member record already carries, so it is rebuilt from the lookup rather than
-    // assumed. Any real share reaches the same review step; the teller is turned
-    // back there before anything posts, so this run writes nothing.
+    // The share is named the way the hold form lists it — id, type, and the
+    // current balance in parentheses — rebuilt from the lookup rather than
+    // assumed, because the option label carries the live balance and the select
+    // binds on the whole string. The lookup is read here, immediately before the
+    // hold, to keep that balance current (it drifts on this shared target, #50).
+    //
+    // Note the committed `hold.txt` capture still shows bare option labels with
+    // no balance — it predates the live form adding the parenthesised balance —
+    // so the fake unit tests bind a bare label while this live run binds a
+    // balance-bearing one. Refreshing the capture (`npm run capture:a11y`) would
+    // close that gap; until then this is the one place the balance-bearing shape
+    // is exercised. An OPEN share is chosen so the run is not turned back by an
+    // already-on-hold validation before it reaches the authorization check.
     const lookup = await replayCapability(
       surface,
       memberBalanceCapability(),
@@ -224,15 +233,16 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
     expect(lookup).toMatchObject({ kind: "success" });
     if (lookup.kind !== "success") return;
     const shares = lookup.outputs["shares"] as ReadonlyArray<Record<string, string>>;
-    expect(shares.length).toBeGreaterThan(0);
-    const share = shares[0]!;
+    const share = shares.find((candidate) => candidate["status"] === "OPEN");
+    expect(share).toBeDefined();
+    if (share === undefined) return;
 
     const result = await replayCapability(
       surface,
       placeHoldCapability(),
       {
         memberNumber: CAPTURED_MEMBER,
-        shareId: `${share["shareId"]} - ${share["type"]}`,
+        shareId: `${share["shareId"]} - ${share["type"]} (${share["balance"]})`,
         reasonCode: "FRAUD - Suspected fraud",
         notes: "e2e teller hold attempt",
       },
@@ -240,13 +250,18 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
     );
 
     // The 403 named as an outcome the caller acts on, not an error: authorization
-    // is MERIDIAN's to answer, and it answered no. Only `name` is asserted, not the
-    // step it was caught on: live MERIDIAN prints the "SUPERVISOR OVERRIDE REQUIRED"
-    // restricted-function notice on the hold form itself (see the captured
-    // `hold.txt`), so the predicate matches as the form loads — a step earlier than
-    // the fake script, which models it appearing only after "Continue". The outcome
-    // is the same either way; where it is first seen is the target's to decide.
-    expect(result).toMatchObject({ kind: "business-outcome", name: "SUPERVISOR_OVERRIDE_REQUIRED" });
+    // is MERIDIAN's to answer, and it answered no. Caught at `wait-for-review`,
+    // the same step the fake script models: the teller completes the form and is
+    // turned back at the review screen, whose notice reads "… is not authorized to
+    // perform this function" (see `hold-override-required.txt`). The predicate
+    // keys on that wording, not the "SUPERVISOR OVERRIDE REQUIRED" banner the form
+    // also prints (#38) — so the form banner no longer triggers it a step early,
+    // and fake and live now agree on where the outcome is caught.
+    expect(result).toMatchObject({
+      kind: "business-outcome",
+      name: "SUPERVISOR_OVERRIDE_REQUIRED",
+      step: "wait-for-review",
+    });
   });
 
   it("opens a share for the member and returns the new share id", async () => {

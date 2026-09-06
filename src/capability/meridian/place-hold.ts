@@ -27,7 +27,7 @@
  * override-required screen — and every Locator is resolved against those trees
  * in `place-hold.test.ts`.
  *
- * This module is the source; `capabilities/place-hold/1.json` is the artefact,
+ * This module is the source; `capabilities/place-hold/2.json` is the artefact,
  * written by `npm run capability:write` and committed so a reviewer reads the
  * Capability as a file. A test fails if the two drift apart.
  */
@@ -122,13 +122,25 @@ export function placeHoldCapability(): Capability {
         {
           // The 403: the review step served the override-required screen instead
           // of the "CONFIRM …" review. MERIDIAN renders the notice with no
-          // heading of its own, but the screen's one content cell carries the
-          // words in its name, so it is matched as a substring of that cell.
+          // heading of its own, matched as a substring of the one content cell.
+          //
+          // Keyed on "A supervisor must sign on to complete this request" —
+          // wording only the refusal screen carries, and specific to the override
+          // rather than authorization in general — not the bare "SUPERVISOR
+          // OVERRIDE REQUIRED", which the hold *form* also prints as a
+          // restricted-function warning banner (see `hold.txt`). Matching the
+          // banner would read a step that merely missed on the form — a share
+          // select that could not find its option, common as the share labels
+          // drift — as an override rather than the miss it is. The wording is
+          // operator-independent, so it holds whichever teller is turned back.
           kind: "business-outcome",
           name: "SUPERVISOR_OVERRIDE_REQUIRED",
           when: {
             kind: "present",
-            locator: { role: "cell", name: { kind: "literal", value: "SUPERVISOR OVERRIDE REQUIRED" } },
+            locator: {
+              role: "cell",
+              name: { kind: "literal", value: "A supervisor must sign on to complete this request" },
+            },
           },
         },
       ],

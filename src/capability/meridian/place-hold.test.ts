@@ -112,10 +112,17 @@ describe("the MERIDIAN place-hold Capability", () => {
     expect(holdsOn("hold-override-required", "success")).toBe(false);
   });
 
-  it("matches SUPERVISOR_OVERRIDE_REQUIRED only on the override screen", () => {
+  it("matches SUPERVISOR_OVERRIDE_REQUIRED only on the override screen, not the form's banner", () => {
     expect(holdsOn("hold-override-required", "SUPERVISOR_OVERRIDE_REQUIRED")).toBe(true);
     expect(holdsOn("hold-review", "SUPERVISOR_OVERRIDE_REQUIRED")).toBe(false);
     expect(holdsOn("hold-complete", "SUPERVISOR_OVERRIDE_REQUIRED")).toBe(false);
+    // The hold form itself carries a "RESTRICTED FUNCTION - SUPERVISOR OVERRIDE
+    // REQUIRED" warning banner (see `hold.txt`). The predicate must NOT match it:
+    // otherwise a step that misses on the form — a share select that cannot find
+    // its option, which the drifting share labels make common — would be read as
+    // a supervisor override rather than the miss it is. The outcome is keyed on
+    // wording only the real refusal screen carries.
+    expect(holdsOn("hold", "SUPERVISOR_OVERRIDE_REQUIRED")).toBe(false);
   });
 
   it("replays a supervisor hold through form → review → post and returns the confirmation number", async () => {
