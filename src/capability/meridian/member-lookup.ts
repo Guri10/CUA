@@ -107,11 +107,14 @@ function identityCell(ordinal: number): StepLocator {
 export function memberLookupCapability(): Capability {
   return {
     id: "member-lookup",
-    version: 1,
+    // v2: re-verified against the one perceived tree after the engine fix (#43),
+    // so a by-position read returns the value cell, not the label (#39, #46).
+    version: 2,
     surface: "meridian",
-    // Read-only, so approval decides nothing here — stated rather than defaulted
-    // so a reviewer reading the file need not know what the schema fills in.
-    approval: "draft",
+    // Approved after a live replay confirmed the success path returns real values
+    // and both Business Outcomes (NOT_FOUND, MULTIPLE_MATCHES) fire (#46), so the
+    // catalog serves it. Stated rather than defaulted for a reviewer reading the file.
+    approval: "approved",
     contract: {
       summary: "Look up a member by number or last name; return the member when the match is unique.",
       inputs: jsonSchemaFor(memberLookupInputs),

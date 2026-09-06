@@ -1,8 +1,8 @@
 {
   "id": "sign-on",
-  "version": 1,
+  "version": 2,
   "surface": "meridian",
-  "approval": "draft",
+  "approval": "approved",
   "contract": {
     "summary": "Sign on as an operator and reach the MERIDIAN main menu.",
     "inputs": {

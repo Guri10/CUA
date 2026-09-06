@@ -1,8 +1,8 @@
 {
   "id": "member-balance",
-  "version": 1,
+  "version": 2,
   "surface": "meridian",
-  "approval": "draft",
+  "approval": "approved",
   "contract": {
     "summary": "Read every share on a member's record — id, type, balance, and status — by member number.",
     "inputs": {

@@ -128,7 +128,7 @@ describe("the MERIDIAN member-lookup Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "member-lookup", 1);
+    const committed = await loadCapability(capabilitiesDir(), "member-lookup", 2);
 
     expect(committed).toEqual(memberLookupCapability());
   });

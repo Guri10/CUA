@@ -83,11 +83,14 @@ function shareRow(): StepLocator {
 export function memberBalanceCapability(): Capability {
   return {
     id: "member-balance",
-    version: 1,
+    // v2: re-verified against the one perceived tree after the engine fix (#43),
+    // so each share row reads its value cells, not the labels (#39, #46).
+    version: 2,
     surface: "meridian",
-    // Read-only, so approval decides nothing here — stated rather than defaulted
-    // so a reviewer reading the file need not know what the schema fills in.
-    approval: "draft",
+    // Approved after a live replay returned real shares (id, type, balance,
+    // status) for a member (#46), so the catalog serves it. Stated rather than
+    // defaulted for a reviewer reading the file.
+    approval: "approved",
     contract: {
       summary: "Read every share on a member's record — id, type, balance, and status — by member number.",
       inputs: jsonSchemaFor(memberBalanceInputs),

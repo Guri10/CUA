@@ -112,7 +112,7 @@ describe("the MERIDIAN member-balance Capability", () => {
   });
 
   it("is committed as the file a caller actually reads", async () => {
-    const committed = await loadCapability(capabilitiesDir(), "member-balance", 1);
+    const committed = await loadCapability(capabilitiesDir(), "member-balance", 2);
 
     expect(committed).toEqual(memberBalanceCapability());
   });

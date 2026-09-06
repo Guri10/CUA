@@ -1,8 +1,8 @@
 {
   "id": "member-lookup",
-  "version": 1,
+  "version": 2,
   "surface": "meridian",
-  "approval": "draft",
+  "approval": "approved",
   "contract": {
     "summary": "Look up a member by number or last name; return the member when the match is unique.",
     "inputs": {

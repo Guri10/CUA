@@ -54,9 +54,12 @@ export const signOnOutputs = z.object({});
 export function signOnCapability(): Capability {
   return {
     id: "sign-on",
-    version: 1,
+    // v2 against the engine fixed in #43 (#46). Its login flow is the same one
+    // session establishment runs ahead of every invoke, so every read-only replay
+    // that returns data has already exercised it end-to-end.
+    version: 2,
     surface: "meridian",
-    approval: "draft",
+    approval: "approved",
     contract: {
       summary: "Sign on as an operator and reach the MERIDIAN main menu.",
       inputs: jsonSchemaFor(signOnInputs),
