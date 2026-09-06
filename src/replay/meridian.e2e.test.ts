@@ -211,19 +211,13 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
   });
 
   it("reports a teller's hold attempt as SUPERVISOR_OVERRIDE_REQUIRED", async () => {
-    // The share is named the way the hold form lists it — id, type, and the
-    // current balance in parentheses — rebuilt from the lookup rather than
-    // assumed, because the option label carries the live balance and the select
-    // binds on the whole string. The lookup is read here, immediately before the
-    // hold, to keep that balance current (it drifts on this shared target, #50).
-    //
-    // Note the committed `hold.txt` capture still shows bare option labels with
-    // no balance — it predates the live form adding the parenthesised balance —
-    // so the fake unit tests bind a bare label while this live run binds a
-    // balance-bearing one. Refreshing the capture (`npm run capture:a11y`) would
-    // close that gap; until then this is the one place the balance-bearing shape
-    // is exercised. An OPEN share is chosen so the run is not turned back by an
-    // already-on-hold validation before it reaches the authorization check.
+    // The share is named the way the hold form lists it — id and type, with no
+    // balance. Unlike the transfer form (whose options embed a drifting balance,
+    // #50), the hold form's `<option>` labels are bare, as the committed
+    // `hold.txt` capture shows and a live run confirmed: a balance-bearing label
+    // misses the select. So this binds on `id - type` alone, which is stable and
+    // matches the fake. An OPEN share is chosen so the run is not turned back by
+    // an already-on-hold validation before it reaches the authorization check.
     const lookup = await replayCapability(
       surface,
       memberBalanceCapability(),
@@ -242,7 +236,7 @@ describe("replaying the MERIDIAN capabilities against the live target", () => {
       placeHoldCapability(),
       {
         memberNumber: CAPTURED_MEMBER,
-        shareId: `${share["shareId"]} - ${share["type"]} (${share["balance"]})`,
+        shareId: `${share["shareId"]} - ${share["type"]}`,
         reasonCode: "FRAUD - Suspected fraud",
         notes: "e2e teller hold attempt",
       },
