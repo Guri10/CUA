@@ -33,8 +33,17 @@ engine, the policy gate, and the escalation path.
 I did have to grow the core **two general skills**, because MERIDIAN exercises things ParaBank never
 did — and I added them as general abilities, not MERIDIAN hacks:
 
-1. **IDs in the URL** (`/members/42/...`) → `src/policy/route.ts` learned id-in-path matching.
-2. **List screens** → a new list-read verb threaded through the schema, discovery, and replay.
+1. **Classifying URLs that carry a record id** (`/members/42/...`). ParaBank's addresses were fixed, so
+   the allowlist matched them literally; MERIDIAN puts the member number in the path, which a literal
+   list can't cover without one entry per member. The allowlist gained **pattern segments** — a segment
+   written `:id` matches any value (`/members/:id/hold`) — so one rule covers every member and the gate
+   still decides read-only vs. mutating for the page. *File:* `src/policy/route.ts`.
+2. **Reading one value from every row of a list** (e.g. each share on a member's record). ParaBank never
+   read a repeating list, so the verb set had no way to say "read this field for every matching row."
+   Added a new **`readEach`** verb (ADR 0002's set) — defined once as a step in the capability schema,
+   offered to the model as a tool in discovery, and executed in replay — so a capability reads a whole
+   table without counting rows or hard-coding how many there are. *Files:* `src/capability/schema.ts`,
+   `src/discovery/tools.ts`, `src/replay/`.
 
 Two seams remain honestly coupled: **login is a hardcoded switch** (`src/surface/session.ts`) rather
 than config, and a few helpers still carry ParaBank's fingerprints. Both work for both apps today;
