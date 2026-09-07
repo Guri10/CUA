@@ -70,6 +70,12 @@ caller couples to *what* a capability does, never to the UI — which is what ma
 Under the hood each invoke runs the **same** `runCapability` routine a CLI replay runs; there is no
 second "API path."
 
+**Which outcome wins is a fixed order** (`replay.ts`): a gate **refusal** short-circuits mid-run to
+`hard-failure` before any screen is read (:286); otherwise the declared **success** predicate is tested
+first (:311 — ADR 0004, "steps ran out" is never success); if it misses, `interpret()` asks in order —
+**recoverable** condition (:356, which escalates if it recurs past its cap), then **business-outcome**
+(:361), then **hard-failure** as the fall-through (:367, "unknown = failure, never success").
+
 A thin **chatbot** (`src/chatbot/`) is the agent-facing form: an LLM router turns an utterance into
 capability calls, chains them, and reports in plain language. It enforces **no rules of its own** — it
 only calls the catalog and relays what comes back. A read-only **dashboard** (`src/dashboard/`) shows
