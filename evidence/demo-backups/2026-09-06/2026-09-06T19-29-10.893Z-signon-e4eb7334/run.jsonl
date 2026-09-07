@@ -1,0 +1,9 @@
+{"at":"2026-09-06T19:29:10.894Z","kind":"run-started","redaction":"on","about":{"baseUrl":"https://web-sample.interface-hiring.com","operator":"teller1"}}
+{"at":"2026-09-06T19:29:11.957Z","kind":"action","seq":0,"by":"agent","ms":475,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T19:29:12.078Z","kind":"action","seq":1,"by":"agent","ms":71,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T19:29:12.135Z","kind":"action","seq":2,"by":"agent","ms":53,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T19:29:12.145Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-06T19:29:12.274Z","kind":"action","seq":4,"by":"agent","ms":125,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-06T19:29:22.409Z","kind":"action","seq":5,"by":"agent","ms":10114,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"not-found","locator":{"role":"heading","name":"MAIN MENU"}}}
+{"at":"2026-09-06T19:29:22.455Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-06T19:29:22.481Z","kind":"run-finished","outcome":"hard-failure","about":{"step":"sign-on"}}
