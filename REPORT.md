@@ -82,7 +82,11 @@ never success.** Tested against a fake surface and the live target
 
 The guardrails hold because **there is one boundary, not three**. The API, chatbot, and dashboard add
 no rules; they run the same guarded, logged routine, and `no-ungated-surface.test.ts` proves at build
-time there is no un-guarded path to a browser.
+time there is no un-guarded path to a browser. The design principle throughout is **prevention over
+detection**: catastrophic failure modes are driven to low *likelihood by construction* — a
+deny-by-default gate decided before a browser opens, a static two-field mandate, a single-controller
+session type, recovery that refuses to re-run a mutation — rather than relying on catching them after
+the fact.
 
 - **Allowlist enforced live** — only permitted origins/routes/verbs; a disallowed route is refused and
   the browser never goes there (`policy-gate.e2e.test.ts`).
@@ -97,6 +101,14 @@ time there is no un-guarded path to a browser.
 Every run writes an evidence directory (`evidence/runs/`) — each action and result as one JSON line,
 plus a fault screenshot — which the dashboard reads.
 
+**The one gap inside the guardrails, stated plainly:** the gate decides *whether* a mutating capability
+may run, not *which record* it acts on. So if the chatbot maps an under-specified request to a valid
+input on the *wrong* share, that is a valid input — invisible to the gate. The fix therefore lives at
+the chatbot, the layer that turns language into inputs: an `ask_user` move plus a look-then-ask
+instruction and a confirm step on mutating actions. The residual is honest — the *plumbing* is
+deterministic and tested (the loop halts on an ask; no money moves), but whether the model *chooses* to
+ask is prompt-driven, a model-compliance boundary rather than a guaranteed one.
+
 ## 5. What I deliberately left out, and would build next
 
 Cut depth, not capabilities — all seven functions replay live; the API, chatbot, and dashboard are all
@@ -110,7 +122,20 @@ real. Kept thin, each at a genuine seam:
 - **Chatbot is minimal** — a bounded chain, no memory beyond the current request.
 - Some **helpers still carry ParaBank's fingerprints**.
 
+**Deliberate safety residuals** (known, held open with a reason, not oversights):
+
+- **Failure screenshots are unmasked** — you can't field-mask a balance out of an image without
+  destroying the evidence, so screenshots are the one place evidence holds a sensitive value (ADR
+  0006). Scoped by keeping evidence on loopback and filtering transcripts to actions-only.
+- **The allowlist's trust root is the profile being correct** — a mutating route mis-filed as
+  read-only is *allowed*, so deny-by-default can't catch it. Defence is a short, static, checked-in
+  profile reviewed as a diff; that's the honest limit of a config-driven safety model.
+- **The served endpoints are demo-scoped** — loopback-only, no auth on the resume/catalog routes.
+  Fine for a demo; a real deployment needs an auth story.
+
 Next, in priority order: (1) make login pluggable; (2) promote discovery output to first-class — teach
-the loop to capture terminal states and validation, then approve those recipes; (3) wire per-run
-snapshots into the dashboard; (4) broaden recoverable/validation coverage; (5) untangle the
-ParaBank-specific helpers so a third target is pure config + adapter.
+the loop to capture terminal states and validation, then approve those recipes; (3) an image-redaction
+pass for evidence and an auth story for the served endpoints; (4) wire per-run snapshots into the
+dashboard; (5) broaden recoverable/validation coverage; (6) untangle the ParaBank-specific helpers so a
+third target is pure config + adapter. Longer term, replace judgment-based risk estimates with real
+replay/failure data from a per-capability stability check.
