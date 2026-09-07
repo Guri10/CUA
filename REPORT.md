@@ -14,9 +14,15 @@ Added, not changed:
 
 - A **surface profile** — `surfaces/meridian.json`: base URL, allowed origins, permitted action verbs,
   and every route split read-only vs. mutating (an allowlist).
-- **Capabilities** for MERIDIAN's tasks under `capabilities/`, same typed format as ParaBank's.
-- **Adapter code** — `src/capability/meridian/` (the task executors) and `src/surface/meridian/`
-  (sign-on + a fake for tests).
+- **Capability sources** — hand-written typed modules in `src/capability/meridian/*.ts`, compiled by
+  `npm run capability:write` into the committed artifacts `capabilities/*/N.json` the runtime reads
+  (same seven tasks, source and built form). Hand-written on purpose as the complete reference set
+  (every business outcome, the weak-label login, secrets, the supervisor gate, volatile share labels) —
+  the whole map a lucky discovery run would only partly walk. Discovery doesn't consume them; deleting
+  them loses nothing structural: discovery regrows a *similar* member-lookup, same happy path but
+  different names and shape, and the failure outcomes only if the run happened to hit them.
+- **Surface adapter** — `src/surface/meridian/`: MERIDIAN's sign-on as a list of Actions, plus a test
+  fake so the suite runs without the live site. The one genuinely app-specific piece of glue code.
 - **Evidence fixtures** — accessibility trees under `evidence/accessibility-tree/meridian/`.
 
 The five load-bearing parts stayed generic: the capability schema, the discovery loop, the replay
