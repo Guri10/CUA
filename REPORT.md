@@ -23,7 +23,9 @@ Added, not changed:
   different names and shape, and the failure outcomes only if the run happened to hit them.
 - **Surface adapter** — `src/surface/meridian/`: MERIDIAN's sign-on as a list of Actions, plus a test
   fake so the suite runs without the live site. The one genuinely app-specific piece of glue code.
-- **Evidence fixtures** — accessibility trees under `evidence/accessibility-tree/meridian/`.
+- **Evidence fixtures** — accessibility trees under `evidence/accessibility-tree/meridian/`. Captured
+  from the real browser, not invented, so the test fake serves the actual screens and every
+  capability's locators are checked against them — the whole suite runs with no browser or network.
 
 The five load-bearing parts stayed generic: the capability schema, the discovery loop, the replay
 engine, the policy gate, and the escalation path.
