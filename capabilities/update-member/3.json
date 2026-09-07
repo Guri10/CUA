@@ -1,0 +1,229 @@
+{
+  "id": "update-member",
+  "version": 3,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Update a member's e-mail, phone, and mailing address in a single step, and confirm the change was saved.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "mailingAddress": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberNumber",
+        "email",
+        "phone",
+        "mailingAddress"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "MEMBER INFORMATION UPDATED"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-menu",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/menu"
+            }
+          }
+        },
+        {
+          "id": "click-link-update-member-information",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Update Member Information"
+              }
+            }
+          }
+        },
+        {
+          "id": "fill-textbox",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox"
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "click-button-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-link-select",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-textbox",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "fill-textbox-2",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 0
+            },
+            "value": {
+              "kind": "input",
+              "input": "email"
+            }
+          }
+        },
+        {
+          "id": "click-textbox-2",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            }
+          }
+        },
+        {
+          "id": "fill-textbox-3",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 1
+            },
+            "value": {
+              "kind": "input",
+              "input": "phone"
+            }
+          }
+        },
+        {
+          "id": "click-textbox-3",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 2
+            }
+          }
+        },
+        {
+          "id": "fill-textbox-4",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox",
+              "ordinal": 2
+            },
+            "value": {
+              "kind": "input",
+              "input": "mailingAddress"
+            }
+          }
+        },
+        {
+          "id": "click-button-save-changes",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Save Changes"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "wait-for-heading-member-information-updated",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER INFORMATION UPDATED"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

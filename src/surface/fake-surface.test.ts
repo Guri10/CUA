@@ -204,6 +204,64 @@ describe("FakeSurface", () => {
     });
   });
 
+  it("chooses an option by the stable id its label decorates, as the browser does", async () => {
+    // The share dropdown offers "<id> - <type> ($balance)". Replay substitutes
+    // the id alone, because the balance in the label drifts; the fake has to
+    // find the option by that id or it would fail a select the browser accepts.
+    const shares: Script = {
+      screens: [
+        {
+          name: "transfer",
+          url: "https://example.test/transfer.htm",
+          tree: [
+            `- heading "Funds Transfer"`,
+            `- combobox:`,
+            `  - option "100234-S0001-12 - Regular Shares ($50.00)"`,
+            `  - option "100234-S0001-13 - Regular Shares ($10.00)"`,
+          ].join("\n"),
+        },
+      ],
+    };
+    const surface = new FakeSurface(shares);
+    await surface.perform({ kind: "navigate", url: "https://example.test/transfer.htm" });
+
+    const chosen = await surface.perform({
+      kind: "select",
+      locator: { role: "combobox" },
+      option: "100234-S0001-12",
+    });
+
+    expect(chosen).toEqual({ kind: "ok" });
+  });
+
+  it("still refuses a select id that no option's label begins with", async () => {
+    const shares: Script = {
+      screens: [
+        {
+          name: "transfer",
+          url: "https://example.test/transfer.htm",
+          tree: [
+            `- heading "Funds Transfer"`,
+            `- combobox:`,
+            `  - option "100234-S0001-12 - Regular Shares ($50.00)"`,
+          ].join("\n"),
+        },
+      ],
+    };
+    const surface = new FakeSurface(shares);
+    await surface.perform({ kind: "navigate", url: "https://example.test/transfer.htm" });
+
+    // "S0001-12" sits in the middle of the label, not at its start, so it is not
+    // an id the option offers — the same not-found the browser would give.
+    const result = await surface.perform({
+      kind: "select",
+      locator: { role: "combobox" },
+      option: "S0001-12",
+    });
+
+    expect(result.kind).toBe("not-found");
+  });
+
   it("waits for a control that is there, and reports one that is not", async () => {
     const surface = new FakeSurface(SCRIPT);
     await surface.perform({ kind: "navigate", url: "https://example.test/overview.htm" });

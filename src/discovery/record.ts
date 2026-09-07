@@ -51,6 +51,7 @@ import {
   type TerminalState,
 } from "../capability/schema.js";
 import type { Locator } from "../surface/surface.js";
+import { optionMatches } from "../surface/option-match.js";
 import type { TakenStep } from "./discover.js";
 
 /**
@@ -277,7 +278,7 @@ function stepActionFor(step: TakenStep, plan: RecordingPlan): StepAction {
       return {
         kind: "select",
         locator: stepLocatorFor(action.locator, plan),
-        option: expressionFor(action.option, plan),
+        option: optionExpressionFor(action.option, plan),
       };
 
     case "read":
@@ -343,6 +344,31 @@ function expressionFor(text: string, plan: RecordingPlan): Expression {
     if (value !== "" && value === text) return { kind: "input", input: name };
   }
   return { kind: "literal", value: text };
+}
+
+/**
+ * The same parameterisation as `expressionFor`, for a select option, where the
+ * chosen option's label may decorate the id the caller declared —
+ * `100234-S0001-12 - Regular Shares ($50.00)` for a declared `100234-S0001-12`.
+ * Whole-value equality never recognises the id inside such a label, so a
+ * declared share would count as unused and the run would be refused.
+ *
+ * Exact equality is tried first, so an option whose label *is* the declared
+ * value keeps binding exactly as before; only when nothing matches exactly does
+ * `optionMatches` recognise the declared id at the front of a decorated label —
+ * the same rule the Surface uses to select the option at replay, so what binds
+ * here is what selects there. This looseness is safe because it is scoped to a
+ * control's own options, not to arbitrary text (the rewrite `expressionFor`
+ * refuses).
+ */
+function optionExpressionFor(optionText: string, plan: RecordingPlan): Expression {
+  for (const [name, value] of Object.entries(plan.inputs)) {
+    if (value !== "" && value === optionText) return { kind: "input", input: name };
+  }
+  for (const [name, value] of Object.entries(plan.inputs)) {
+    if (value !== "" && optionMatches(optionText, value)) return { kind: "input", input: name };
+  }
+  return { kind: "literal", value: optionText };
 }
 
 /**

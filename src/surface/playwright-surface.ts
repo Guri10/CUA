@@ -31,6 +31,7 @@ import { locatorForNode } from "./locator-for-node.js";
 import { readControlValue } from "./read-value.js";
 import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
+import { optionMatches } from "./option-match.js";
 
 export interface PlaywrightSurfaceOptions {
   /** How long to wait for a control before calling it absent. */
@@ -285,7 +286,17 @@ export class PlaywrightSurface implements Surface {
     timeoutMs: number,
   ): Promise<ActionResult> {
     try {
-      await handle.selectOption({ label: option }, { timeout: timeoutMs });
+      // The option is selected by its full on-offer label, but the value asked
+      // for may be a stable id the control decorates with a type and a live
+      // balance — `100234-S0001-12` against `100234-S0001-12 - Regular Shares
+      // ($50.00)`. So the on-offer labels are read (by role, ADR 0001) and the
+      // one the value identifies is chosen; an exact value still selects itself
+      // because `optionMatches` accepts equality first. When nothing matches,
+      // `selectOption` is left to reject the value it was given, which produces
+      // the same not-found the fake does.
+      const labels = await handle.getByRole("option").allTextContents();
+      const match = labels.map((label) => label.trim()).find((label) => optionMatches(label, option));
+      await handle.selectOption({ label: match ?? option }, { timeout: timeoutMs });
       return { kind: "ok" };
     } catch {
       // An option the control does not offer, reported as the Locator that

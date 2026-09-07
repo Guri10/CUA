@@ -490,6 +490,63 @@ describe("recording a Discovery Run", () => {
       locator: { name: { kind: "input", input: "accountId" } },
     });
   });
+
+  it("binds a select to the stable id its option label decorates with a balance", () => {
+    // The share dropdown offers "<id> - <type> ($balance)"; the caller declares
+    // the id alone, because the balance in the label drifts between runs. Whole-
+    // value equality would miss it and refuse the run as ignoring `fromShare`;
+    // the option is recognised by its id instead, and stored as the input.
+    const run = [
+      took({ kind: "navigate", url: `${BASE_URL}/transfer.htm` }),
+      took({
+        kind: "select",
+        locator: { role: "combobox", ordinal: 0 },
+        option: "100234-S0001-12 - Regular Shares ($50.00)",
+      }),
+      took(
+        { kind: "read", locator: balanceCell },
+        { bind: "done", result: { kind: "ok", value: "posted" } },
+      ),
+    ];
+
+    const steps = stepsOf(
+      recorded(
+        recordCapability(
+          plan({ inputs: { fromShare: "100234-S0001-12" }, outputs: ["done"] }),
+          run,
+        ),
+      ),
+    );
+
+    expect(steps[1]?.action).toMatchObject({
+      kind: "select",
+      option: { kind: "input", input: "fromShare" },
+    });
+  });
+
+  it("leaves a select a literal when no declared id identifies its option", () => {
+    const run = [
+      took({ kind: "navigate", url: `${BASE_URL}/transfer.htm` }),
+      took({
+        kind: "select",
+        locator: { role: "combobox", ordinal: 0 },
+        option: "SAVINGS",
+      }),
+      took(
+        { kind: "read", locator: balanceCell },
+        { bind: "accountType", result: { kind: "ok", value: "x" } },
+      ),
+    ];
+
+    const steps = stepsOf(
+      recorded(recordCapability(plan({ inputs: {}, outputs: ["accountType"] }), run)),
+    );
+
+    expect(steps[1]?.action).toMatchObject({
+      kind: "select",
+      option: { kind: "literal", value: "SAVINGS" },
+    });
+  });
 });
 
 /**

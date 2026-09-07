@@ -19,6 +19,7 @@ import { readAriaSnapshot, type AriaNode } from "./aria-snapshot.js";
 import { readControlValue } from "./read-value.js";
 import { resolveLocatorIndices, resolveLocatorIndicesWithin } from "./resolve-locator.js";
 import { optionLocator, type Action, type ActionResult, type Locator, type Snapshot, type Surface } from "./surface.js";
+import { optionMatches } from "./option-match.js";
 
 export interface Script {
   readonly screens: readonly ScriptedScreen[];
@@ -134,12 +135,19 @@ export class FakeSurface implements Surface {
       case "select": {
         // A browser refuses an option the control does not offer, so the fake
         // has to as well — a fake that accepts interactions the real Surface
-        // rejects is worse than no fake. Asking for the option as a Locator
-        // scoped by the control both performs the check and produces the thing
-        // a failure report needs to name.
-        const option = optionLocator(action.locator, action.option);
-        if (resolveLocatorIndices(this.#nodes, option).length === 0) {
-          return { kind: "not-found", locator: option };
+        // rejects is worse than no fake. The control's own options are gathered
+        // by role (an unnamed option Locator scoped to the control), then the
+        // one the value identifies is looked for with the same `optionMatches`
+        // the browser uses: an exact value still matches its own label, and a
+        // stable id matches the label that decorates it. Nothing matching is the
+        // not-found the browser reports, named as the option that was asked for.
+        const anyOption: Locator = { role: "option", within: action.locator };
+        const offered = resolveLocatorIndices(this.#nodes, anyOption);
+        const matched = offered.some((index) =>
+          optionMatches(this.#nodes[index]!.name ?? "", action.option),
+        );
+        if (!matched) {
+          return { kind: "not-found", locator: optionLocator(action.locator, action.option) };
         }
         this.#entered.set(target, action.option);
         break;
