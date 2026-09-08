@@ -1,5 +1,9 @@
 # Report
 
+> **Reviewers:** this report covers the **ParaBank** build. The **MERIDIAN adaptation** — pointing the
+> same core at a second, unrelated legacy target — has its own write-up in `REPORT.md` on the
+> **`worktree-meridian-adaptation`** branch. Check that branch for the adaptation work.
+
 The idea is simple: use a model to figure out how to drive an app once, then replay what it did
 without the model in the loop. I built it against ParaBank, Parasoft's self-hosted demo bank. It's a
 real server-rendered Java app with old markup and no test IDs, which is the kind of surface that makes
