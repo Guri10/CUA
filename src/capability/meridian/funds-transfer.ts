@@ -46,13 +46,18 @@ export const fundsTransferInputs = z.object({
     .string()
     .min(1)
     .describe(
-      `The share to debit, exactly as the transfer form's "From Share" combobox lists it — ` +
-        `for example "100234-S0001-14 - Regular Shares ($100.00)".`,
+      `The share to debit, given as its id — the code the "From Share" combobox label starts with, ` +
+        `for example "100234-S0001-14". The type and live balance that follow in the label ` +
+        `("… - Regular Shares ($100.00)") are ignored, so the share still matches after its balance ` +
+        `drifts. The full label is accepted too, but a stale one will miss — pass the id.`,
     ),
   toShare: z
     .string()
     .min(1)
-    .describe(`The share to credit, exactly as the "To Share" combobox lists it.`),
+    .describe(
+      `The share to credit, given as its id — the code the "To Share" combobox label starts with ` +
+        `(for example "100234-S0002-14"); the type and balance after it are ignored.`,
+    ),
   amount: z
     .string()
     .min(1)
