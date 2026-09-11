@@ -1,12 +1,28 @@
-# MERIDIAN adaptation — run & demo guide
+# Computer-Use Automation System
 
-This branch (`worktree-meridian-adaptation`) adapts the core to a second legacy target,
-**MERIDIAN CORE** (`https://web-sample.interface-hiring.com`). The core is unchanged in shape: an
-LLM **discovers** how to drive the app once, the flow is captured as a typed, versioned
-**capability**, and it **replays deterministically with no model in the loop** — now reachable over
-an HTTP API, a chatbot, and a read-only dashboard.
+An LLM works out how to drive a legacy web application **once**; what it learned is then replayed
+**deterministically, with no model in the loop.**
 
-For the *why* and the design write-up, see [`REPORT.md`](REPORT.md). This file is the *how to run it*.
+The unit that passes between those two phases is a **Capability** — a named, versioned thing an agent
+can call, made of a *Contract* (the typed inputs and outputs) and one or more *Recordings* (the steps
+to run). Three commands cover the lifecycle:
+
+- **`discover`** — put a model on the live app and let it reach a goal; save what worked as a new
+  Capability version.
+- **`replay`** — re-run a saved Capability against the app, deterministically, with no model involved.
+- **`serve`** — expose the approved Capabilities over HTTP so a calling agent can discover and invoke
+  them by name, plus a plain-language **chatbot** and a read-only **dashboard** over the same routine.
+
+The targeting is the accessibility tree (role + name + ordinal), never CSS or XPath, so it survives a
+messy legacy UI; every action passes one deny-by-default policy gate; every run writes an evidence
+trail. The design reasoning — and the decisions behind that shape — is in [`REPORT.md`](REPORT.md);
+the vocabulary is in [`CONTEXT.md`](CONTEXT.md) and the decisions in [`docs/adr/`](docs/adr/).
+
+**This build runs against MERIDIAN CORE** (`https://web-sample.interface-hiring.com`), a hosted legacy
+credit-union app — the concrete target for every command and demo below. (The system is
+target-neutral: a target is a checked-in Surface profile plus a small adapter, not a rewrite; the
+ParaBank path it was first built on still lives beside this one.) The rest of this file is *how to run
+it*.
 
 ---
 

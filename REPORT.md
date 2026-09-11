@@ -1,9 +1,100 @@
-# MERIDIAN adaptation — write-up
+# Computer-Use Automation System — design write-up
 
-Adapting the core from ParaBank to a second legacy target (**MERIDIAN CORE**,
+The idea is simple: use a model to work out how to drive a legacy web app **once**, then replay what it
+did **without the model in the loop.** This write-up is about the reasoning; the vocabulary is in
+[`CONTEXT.md`](CONTEXT.md), the decisions behind each choice are ADRs in [`docs/adr/`](docs/adr/), and
+[`README.md`](README.md) is how to run it. The system is **target-neutral** — a new legacy target is a
+checked-in Surface profile plus a small adapter, not a rewrite. It was first built against ParaBank and
+now runs against MERIDIAN CORE; **Part I** describes the system, **Part II** the second target it was
+pointed at.
+
+---
+
+## Part I — the system
+
+### Architecture
+
+There are **two phases with one seam between them.** A *Discovery Run* is the only place a model runs:
+it looks at the screen, decides what to do, and acts, over and over, until the goal is met. *Replay*
+then re-runs what discovery produced, with nothing left for a model to decide. The thing that passes
+between them is a **Capability**: a named, versioned unit an agent can call, made of a *Contract* and
+one or more *Recordings*. Three commands cover it — `discover`, `replay`, and `serve` (a catalog an
+agent calls over HTTP, plus a plain-language chatbot and a read-only dashboard over the same routine).
+
+Discovery runs on `claude-opus-5`; the whole thing is TypeScript on Node. Each turn the model gets the
+accessibility tree of the current screen, a screenshot of that same screen to tell apart controls that
+share a name, and the result of its last action, and it answers with **typed tool calls** — our own
+verb set, not a pixel-coordinate computer-use tool, because a coordinate can't be a stable way to find
+a control later, and typed calls mean there's no free-text transcript to parse back into steps. Because
+the model only runs during discovery, its unpredictability is spent once, up front, never in
+production.
+
+The load-bearing decision is **how a control is pointed at**: its accessibility role and accessible
+name, optionally narrowed by a parent — never a CSS or XPath selector ([ADR 0001](docs/adr/)). A
+selector is meaningless the moment you leave the DOM; the accessibility tree is the one description of
+a screen that exists on both browsers and desktop apps, so the choice survives moving to a non-browser
+surface. And every way of touching a screen goes through a stack of wrappers that **gate and log** it,
+so "can't act off the allowlist" and "everything is recorded" hold **by construction** rather than by
+remembering — a test proves there is no unwrapped way in.
+
+### The Capability artifact
+
+A Capability is a single JSON file, one per version, with git as the version store, so any change is a
+normal diff. It has two halves. The **Contract** is what a calling agent reads: a one-line summary,
+typed inputs and outputs as JSON Schema, whether it only reads or also mutates, and the terminal states
+that can end a run. The **Recordings** are the ordered steps the caller never needs to see. The whole
+thing is declared once in Zod and everything else is generated from it — the static types, the runtime
+validation, the tool schema the model sees, and the JSON Schema the catalog publishes — so the document
+a caller reads and the code that runs can't quietly disagree. Where a real value would go, a step holds
+an **expression** (a literal or a reference to an input), resolved at replay time — which is what lets
+one Recording work for any record instead of only the one it was recorded against. Each step has a
+**stable id**, so a per-tenant override or a failure report can point at it even as the list changes
+around it. And success is a **condition checked against the screen**, not a boolean someone sets.
+
+### Determinism & error handling
+
+Replay is deterministic for a boring reason: **there is nothing left to decide while it runs.** Same
+inputs, same steps, same outputs; no model choosing a control or judging whether it worked. Endings are
+**declared up front**, not discovered through exceptions. A Capability names exactly one success plus
+any number of named **business outcomes**, each a condition over the screen, and replay moves forward
+until it matches one. A named outcome like "no such record" comes back as a *legitimate answer*, not
+something caught in a catch block — the fix for the classic mistake of treating a normal business result
+as a crash. The three kinds of runtime condition sit at three levels, each where the knowledge to
+recognize it lives: a **business outcome** belongs to a single Capability; a **recoverable** condition
+(a session expiring, a login screen reappearing) belongs to the surface; a **hard failure** — carrying
+the step it was on, what it expected, and what it saw — is whatever's left. On a mutating flow,
+recoverable means *stop, not silently retry*, because re-running an irreversible post could double it.
+
+### Safety, evidence, escalation
+
+Two guardrails, both static, both owned by us rather than by the model. The first is a **policy gate**
+reading a checked-in allowlist: which origins are reachable, which action verbs are allowed, and every
+route sorted by whether reaching it can change anything — anything not on the list is refused (an
+allowlist, not a blocklist with holes). Whether a run is even allowed is decided from two declared
+fields — a Capability's effects and its approval — *before a browser opens*, so a mutating Capability
+nobody approved never reaches a screen. The model is never asked to label its own actions as safe. The
+second guardrail is **redaction**: data is sorted into secrets (password, session token — never written,
+no flag to turn that off), sensitive values (account numbers, balances, names — masked in stored
+evidence but always returned to the caller in full), and everything else. Redaction governs what gets
+*stored*, never what comes *back* — the whole reason for a lookup is to return the balance.
+
+Every run writes an **evidence** directory (`evidence/runs/`) — each action and result as one JSON
+line, plus a fault screenshot — written by a second wrapper over the same Surface interface the gate
+wraps, so there is no way to reach a screen without being recorded. **Escalation** keeps exactly one
+controller on the live session at a time: when the gate refuses a step in an attended run, the system
+hands the *same* live browser to a person with the four things they need (which Capability, the step,
+the state, and why it stopped), records what they do into the same step list, and takes control back so
+the run continues — and their fix lands in the Recording, so it isn't figured out again next time.
+
+---
+
+## Part II — the MERIDIAN adaptation (v2)
+
+Pointing the core at a second legacy target (**MERIDIAN CORE**,
 `https://web-sample.interface-hiring.com`) was a **configuration + adapter job, not a rewrite**. The
-whole ParaBank path is untouched; MERIDIAN was added beside it. The branch is overwhelmingly additive
-— new folders next to old ones, not edits inside shared machinery.
+whole ParaBank path is untouched; MERIDIAN was added beside it — new folders next to old ones, not edits
+inside shared machinery. This part also adds the served interfaces (API, chatbot, dashboard) that v2
+introduced.
 
 *(This is the short version. A longer, plain-English treatment for a non-technical reader lives in
 `scratch/core-portability-parabank-to-meridian.md`; the run/demo guide is in `README.md`.)*
