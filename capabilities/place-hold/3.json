@@ -1,0 +1,277 @@
+{
+  "id": "place-hold",
+  "version": 3,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Place a hold on one of a member's shares, walking form → review → post, and return the confirmation number.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string"
+        },
+        "shareId": {
+          "type": "string"
+        },
+        "reasonCode": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberNumber",
+        "shareId",
+        "reasonCode",
+        "notes"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "confirmationNumber": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "confirmationNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "mutating",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "cell",
+                "ordinal": 2,
+                "within": {
+                  "role": "row",
+                  "name": {
+                    "kind": "literal",
+                    "value": "Confirmation:"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-menu",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/menu"
+            }
+          }
+        },
+        {
+          "id": "click-link-place-account-hold",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Place Account Hold"
+              }
+            }
+          }
+        },
+        {
+          "id": "fill-textbox",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox"
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "click-button-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-link-select",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-combobox",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "select-combobox",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            },
+            "option": {
+              "kind": "input",
+              "input": "shareId"
+            }
+          }
+        },
+        {
+          "id": "click-combobox-2",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 0
+            }
+          }
+        },
+        {
+          "id": "click-combobox-3",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            }
+          }
+        },
+        {
+          "id": "select-combobox-2",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            },
+            "option": {
+              "kind": "input",
+              "input": "reasonCode"
+            }
+          }
+        },
+        {
+          "id": "click-combobox-4",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "combobox",
+              "ordinal": 1
+            }
+          }
+        },
+        {
+          "id": "click-textbox",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "textbox"
+            }
+          }
+        },
+        {
+          "id": "fill-textbox-2",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox"
+            },
+            "value": {
+              "kind": "input",
+              "input": "notes"
+            }
+          }
+        },
+        {
+          "id": "click-button-continue",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Continue"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "click-button-apply-hold",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Apply Hold"
+              },
+              "exact": true
+            }
+          }
+        },
+        {
+          "id": "read-confirmation-number",
+          "action": {
+            "kind": "read",
+            "locator": {
+              "role": "cell",
+              "ordinal": 2,
+              "within": {
+                "role": "row",
+                "name": {
+                  "kind": "literal",
+                  "value": "Confirmation:"
+                }
+              }
+            },
+            "bind": "confirmationNumber"
+          }
+        }
+      ]
+    }
+  ]
+}

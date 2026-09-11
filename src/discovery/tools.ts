@@ -1,12 +1,12 @@
 /**
  * The tools the model acts through during a Discovery Run.
  *
- * Six verbs, per ADR 0002: `click`, `fill`, `select`, `read`, `wait_for`, and
- * `done`. The first five are the Step vocabulary of a Recording exactly, so that
- * turning a Discovery Run into a Recording is a filter over the successful calls
- * rather than a translation of a transcript into some other shape — which is
- * what #10 does with them. `tools.test.ts` holds that correspondence to the
- * `Action` union mechanically rather than by eye.
+ * Seven verbs, per ADR 0002: `click`, `fill`, `select`, `read`, `read_each`,
+ * `wait_for`, and `done`. The first six are the Step vocabulary of a Recording
+ * exactly, so that turning a Discovery Run into a Recording is a filter over the
+ * successful calls rather than a translation of a transcript into some other
+ * shape — which is what #10 does with them. `tools.test.ts` holds that
+ * correspondence to the `Action` union mechanically rather than by eye.
  *
  * Declared in Zod and generated with the same `jsonSchemaFor` the Contract uses,
  * so the one declaration serves the static types, the runtime validation of what
@@ -102,6 +102,29 @@ export const readInput = z.object({
     .optional()
     .describe("The name of the return value this read is for, exactly as it was given."),
 });
+/**
+ * Read a whole table at once, one record per row. This is the verb for a return
+ * value that is a list — a member's shares, the lines of a statement. `read`
+ * takes one control's value and calls several matches an error; this expects
+ * many rows and keeps each row's columns together, so a value is only ever read
+ * beside the others on its own row.
+ */
+export const readEachInput = z.object({
+  reason,
+  rows: locator.describe(
+    "The rows to read — one record per matching row. Matching several is the point, not an error.",
+  ),
+  columns: z
+    .record(z.string(), locator)
+    .describe(
+      "The columns to read from each row, keyed by the field name each becomes. Every Locator is " +
+        "resolved inside the row, so `{ role: cell, ordinal: 2 }` is that row's third cell.",
+    ),
+  bind: z
+    .string()
+    .optional()
+    .describe("The name of the list return value these rows are for, exactly as it was given."),
+});
 export const waitForInput = z.object({
   reason,
   locator,
@@ -123,6 +146,10 @@ export const DISCOVERY_TOOLS = {
   fill: { input: fillInput, description: "Type text into a control." },
   select: { input: selectInput, description: "Choose an option from a control that offers several." },
   read: { input: readInput, description: "Read the current value or label of a control." },
+  read_each: {
+    input: readEachInput,
+    description: "Read a table's rows into a list, one record per row — for a return value that is a list.",
+  },
   wait_for: { input: waitForInput, description: "Wait until a control is on the screen." },
   done: {
     input: doneInput,

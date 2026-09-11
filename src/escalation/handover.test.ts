@@ -57,9 +57,25 @@ function humanWho(...actions: Action[]): {
       for (const action of actions) onAction(action);
       return async () => {
         wasStopped = true;
+        return [];
       };
     },
     stopped: () => wasStopped,
+  };
+}
+
+/**
+ * A person who changed some controls live and left others on the form, played
+ * by a capture whose `stop` returns the form's final state — the reading the
+ * real Surface takes when the session comes back.
+ */
+function humanWhoLeaves(options: {
+  changed: readonly Action[];
+  finalState: readonly Action[];
+}): (onAction: (action: Action) => void) => Promise<StopCapture> {
+  return async (onAction) => {
+    for (const action of options.changed) onAction(action);
+    return async () => options.finalState;
   };
 }
 
@@ -102,6 +118,52 @@ describe("handing the live session to a person", () => {
     ]);
     // Nobody is left recording a session the agent is driving.
     expect(human.stopped()).toBe(true);
+  });
+
+  it("folds in a default option the person left, and does not double one they changed", async () => {
+    const control = new SessionControl();
+    const evidence = await startRun();
+    const announced: string[] = [];
+
+    // The person changed the source share (a change event fired, captured live)
+    // and left the reason on its default `FRAUD` — no change fired, so only the
+    // final-state snapshot carries it.
+    const changedShare: Action = {
+      kind: "select",
+      locator: { role: "combobox", name: "Share", exact: true },
+      option: "100234-S0001-12 - Regular Shares",
+    };
+    const leftReason: Action = {
+      kind: "select",
+      locator: { role: "combobox", name: "Reason Code", exact: true },
+      option: "FRAUD - Suspected fraud",
+    };
+
+    const handover = handOverToHuman({
+      control,
+      evidence,
+      request: REQUEST,
+      capture: humanWhoLeaves({
+        changed: [changedShare],
+        // The final state has both controls; the share is already captured.
+        finalState: [changedShare, leftReason],
+      }),
+      port: 0,
+      announce: (message) => announced.push(message),
+    });
+
+    await resumeThrough(announced);
+    const { actions } = await handover;
+
+    // The changed share once, the left-on-default reason folded in after it, and
+    // no duplicate for the share the final state also reported.
+    expect(actions).toEqual([changedShare, leftReason]);
+
+    // And the folded-in Step is in the audit trail as the person's, so it is
+    // there for the recorder to bind an input to.
+    const logged = (await recordsOf(evidence)).filter((record) => record.kind === "action");
+    expect(logged).toHaveLength(2);
+    expect(logged[1]).toMatchObject({ by: "human", action: { kind: "select" } });
   });
 
   it("tells the operator what stopped and how to give control back", async () => {

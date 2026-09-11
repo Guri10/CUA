@@ -17,6 +17,7 @@ const ACTION_KINDS: Action["kind"][] = [
   "fill",
   "select",
   "read",
+  "readEach",
   "waitFor",
 ];
 

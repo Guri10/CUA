@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { actionFrom, capturingScript, injectableCaptureScript, CAPTURE_BINDING } from "./human-actions.js";
+import {
+  actionFrom,
+  actionsFromSnapshot,
+  capturingScript,
+  injectableCaptureScript,
+  mergeFinalState,
+  snapshotExpression,
+  CAPTURE_BINDING,
+} from "./human-actions.js";
+import type { Action } from "./surface.js";
 
 /**
  * The half of the capture that runs here.
@@ -78,6 +87,105 @@ describe("turning what a person did into an Action", () => {
     expect(script).toContain("addEventListener");
     expect(script).not.toContain("actionFrom");
     expect(CAPTURE_BINDING).toBe("__cuaHumanAction");
+  });
+});
+
+/**
+ * The final-state snapshot: what the form still showed when the person handed
+ * the session back, for the option they picked but left on its default — no
+ * change event fires for that, so the change-driven capture never sees it.
+ */
+describe("turning the form's final state into Actions", () => {
+  it("records a value-carrying select for an option left on its default", () => {
+    // The reason combobox the human left on the default `FRAUD` option: no
+    // change fired, so only the final-state snapshot has it.
+    expect(
+      actionsFromSnapshot([
+        { kind: "select", role: "combobox", name: "Reason Code", matches: 1, ordinal: 0, value: "FRAUD - Suspected fraud" },
+      ]),
+    ).toEqual([
+      {
+        kind: "select",
+        locator: { role: "combobox", name: "Reason Code", exact: true },
+        option: "FRAUD - Suspected fraud",
+      },
+    ]);
+  });
+
+  it("keeps only value-carrying controls, dropping clicks and empty fields", () => {
+    expect(
+      actionsFromSnapshot([
+        // A button is not a form value; the snapshot never reports one, but a
+        // click payload must not become a Step here either.
+        { kind: "click", role: "button", name: "Apply Hold", matches: 1, ordinal: 0 },
+        // An empty optional field contributes no Step (see the empty-optional
+        // guard) — the snapshot omits it, and a stray one is dropped.
+        { kind: "fill", role: "textbox", name: "Notes", matches: 1, ordinal: 0, value: "" },
+        { kind: "fill", role: "textbox", name: "Notes", matches: 1, ordinal: 0, value: "escalated" },
+      ]),
+    ).toEqual([{ kind: "fill", locator: { role: "textbox", name: "Notes", exact: true }, value: "escalated" }]);
+  });
+
+  it("drops a payload the page reported in a shape nobody expected", () => {
+    expect(actionsFromSnapshot([{ role: "combobox" }, "nonsense", 42])).toEqual([]);
+    expect(actionsFromSnapshot("not an array")).toEqual([]);
+  });
+
+  it("folds in a final-state control no change event announced", () => {
+    const captured: Action[] = [
+      { kind: "fill", locator: { role: "textbox", ordinal: 0 }, value: "100234" },
+    ];
+    const finalState = actionsFromSnapshot([
+      { kind: "select", role: "combobox", name: "Reason Code", matches: 1, ordinal: 0, value: "FRAUD - Suspected fraud" },
+    ]);
+
+    expect(mergeFinalState(captured, finalState)).toEqual([
+      {
+        kind: "select",
+        locator: { role: "combobox", name: "Reason Code", exact: true },
+        option: "FRAUD - Suspected fraud",
+      },
+    ]);
+  });
+
+  it("adds nothing for a control a change event already recorded", () => {
+    // The human changed the reason, so the change-driven capture already has it;
+    // the final-state snapshot must not record it a second time.
+    const captured: Action[] = [
+      {
+        kind: "select",
+        locator: { role: "combobox", name: "Reason Code", exact: true },
+        option: "LEGAL - Legal / levy",
+      },
+    ];
+    const finalState = actionsFromSnapshot([
+      { kind: "select", role: "combobox", name: "Reason Code", matches: 1, ordinal: 0, value: "LEGAL - Legal / levy" },
+    ]);
+
+    expect(mergeFinalState(captured, finalState)).toEqual([]);
+  });
+
+  it("does not double a control that gained a same-named twin between capture and snapshot", () => {
+    // Captured live when it was the only "Share" combobox, so no ordinal. By the
+    // time the snapshot runs a second same-named control has rendered, so the
+    // snapshot writes `ordinal: 0` for that same first control — still the one
+    // the change event already recorded.
+    const captured: Action[] = [
+      { kind: "select", locator: { role: "combobox", name: "Share", exact: true }, option: "Regular" },
+    ];
+    const finalState = actionsFromSnapshot([
+      { kind: "select", role: "combobox", name: "Share", matches: 2, ordinal: 0, value: "Regular" },
+    ]);
+
+    expect(mergeFinalState(captured, finalState)).toEqual([]);
+  });
+
+  it("is a page-ready expression that calls the stashed reader for the binding", () => {
+    const expression = snapshotExpression(CAPTURE_BINDING);
+    // Names the per-page reader installCapture stashes, and is safe when it is
+    // absent (a page the script never ran on returns no controls).
+    expect(expression).toContain(CAPTURE_BINDING);
+    expect(eval(expression.replace(JSON.stringify(CAPTURE_BINDING + "__snapshot"), "'__missing'"))).toEqual([]);
   });
 });
 

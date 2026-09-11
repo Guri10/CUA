@@ -21,7 +21,34 @@ export function resolveLocator(nodes: readonly AriaNode[], locator: Locator): Ar
  * into a box — against.
  */
 export function resolveLocatorIndices(nodes: readonly AriaNode[], locator: Locator): number[] {
-  const candidates = searchableIndices(nodes, locator.within);
+  return matchAmong(nodes, locator, searchableIndices(nodes, locator.within));
+}
+
+/**
+ * The same resolution, confined to one control's descendants — the scope a
+ * `readEach` reads a column in.
+ *
+ * It is `within` pinned to a specific match rather than to whatever a Locator
+ * names, which is the one thing a stored Locator cannot express. The rows a
+ * `readEach` iterates have no names to tell them apart, so a row is identified
+ * by its position and each column is resolved inside that row: a share's balance
+ * cell is `{ role: "cell", ordinal: 2 }` searched among that row's cells, never
+ * across the whole table. A column matching none or several of a row's controls
+ * is a miss on that row, the same way any other read is — not a silent shift of
+ * every field after it.
+ */
+export function resolveLocatorIndicesWithin(
+  nodes: readonly AriaNode[],
+  locator: Locator,
+  parent: number,
+): number[] {
+  const inside = new Set(descendantsOf(nodes, parent));
+  const candidates = searchableIndices(nodes, locator.within).filter((index) => inside.has(index));
+  return matchAmong(nodes, locator, candidates);
+}
+
+/** A candidate set narrowed by role and accessible name, then by ordinal. */
+function matchAmong(nodes: readonly AriaNode[], locator: Locator, candidates: number[]): number[] {
   const matched = candidates.filter((index) => {
     const node = nodes[index]!;
     return node.role === locator.role && matchesName(node, locator);

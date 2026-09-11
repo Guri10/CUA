@@ -2,25 +2,42 @@
  * The command line. Two commands — `discover` and `replay` — with `serve` to
  * follow.
  *
- * Everything about establishing a session lives here rather than in the
- * executor. Logging in is a property of the application, not of any one
- * Capability: the day ParaBank's form gains a field, one description changes
- * instead of every Recording. ADR 0005 puts the same event mid-run — an expired
- * session — in the Surface profile, which is where it is now declared; what
- * stays here is the one part a checked-in file cannot hold, the credentials.
- * So this command hands the executor both a signed-in Surface and the means of
- * signing in again.
+ * Establishing a session lives in the sign-on adapter (`surface/session.ts`),
+ * chosen by the Surface profile, rather than in the executor. Logging in is a
+ * property of the application, not of any one Capability: the day a sign-on form
+ * gains a field, one description changes instead of every Recording. ADR 0005
+ * puts the same event mid-run — an expired session — in the Surface profile,
+ * which is where it is declared; the one part a checked-in file cannot hold, the
+ * credentials, the adapter reads from the environment. So this command hands the
+ * executor both a signed-in Surface and the means of signing in again.
  *
  * Run with: npm run replay -- --capability account-lookup@1 --input accountId=12345
  */
-import { logInToParabank, type ParabankCredentials } from "./surface/parabank/login.js";
+import { sessionEstablisherFor, assertSignOnConfigured } from "./surface/session.js";
+import { secretStore } from "./surface/secret-store.js";
+import { LoginSession, type OperatorIdentity } from "./surface/login-session.js";
+import { startSignOnPortal, DEFAULT_SIGNON_PORT, type SignOnPortal } from "./portal/serve.js";
+import { browserSignOn } from "./portal/browser-sign-on.js";
+import { ensurePasswordInStore, terminalHiddenPrompt } from "./portal/password-prompt.js";
 import type { Surface } from "./surface/surface.js";
-import { capabilitiesDir, listVersions, loadCapabilityRef, saveCapability } from "./capability/storage.js";
+import {
+  capabilitiesDir,
+  listCapabilities,
+  listVersions,
+  loadCapabilityRef,
+  saveCapability,
+} from "./capability/storage.js";
 import type { Capability } from "./capability/schema.js";
 import { discover, type DiscoveryResult, type TakenStep } from "./discovery/discover.js";
 import { handOverToHuman } from "./escalation/handover.js";
 import { DEFAULT_RESUME_PORT } from "./escalation/resume-endpoint.js";
 import { startCatalog, DEFAULT_CATALOG_PORT, type InvokeCapability } from "./catalog/serve.js";
+import { startDashboard, DEFAULT_DASHBOARD_PORT } from "./dashboard/serve.js";
+import { catalogClient } from "./chatbot/catalog-client.js";
+import { createChatbot } from "./chatbot/chatbot.js";
+import { chatbotLogsDir, fileChatLogger } from "./chatbot/log.js";
+import { modelIntentRouter } from "./chatbot/intent-router.js";
+import { startChatUi, DEFAULT_CHAT_PORT, type ChatServer } from "./chatbot/serve.js";
 import { recordCapability, type RecordingPlan } from "./discovery/record.js";
 import { EvidenceRun, evidenceRunsDir } from "./evidence/run.js";
 import { discoveryMandate, mandateFor, type Mandate } from "./policy/mandate.js";
@@ -30,8 +47,9 @@ import { coerceTextValues, parseContractValues } from "./replay/contract-values.
 import { describeAction, describeMiss } from "./replay/describe.js";
 import { replayCapability, type ReplayResult } from "./replay/replay.js";
 
-const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $PARABANK_BASE_URL, then to the
-                         Surface profile's own. The profile's allowlist still governs it.
+const SHARED_USAGE = `  --base-url <url>       Where the application is. Defaults to $<SURFACE>_BASE_URL (e.g.
+                         $MERIDIAN_BASE_URL), then to the Surface profile's own. The profile's
+                         allowlist still governs it.
   --headed               Show the browser window.
   --evidence-redaction <on|off>
                          Whether to mask Sensitive values in this run's evidence. On by
@@ -42,6 +60,7 @@ const USAGE = `Usage:
   npm run discover -- --goal "..." [options]
   npm run replay -- --capability <id>[@<version>] --input <name>=<value> [options]
   npm run serve [-- --port <n>] [options]
+  npm run chat -- --message "..." [--catalog <url>]
 
 discover options:
   --goal <text>          What the run is trying to accomplish, in plain language.
@@ -73,6 +92,23 @@ serve options:
                          /capabilities/<id>/invoke with a JSON body of typed inputs.
                          Each invoke drives a real browser, exactly as replay does,
                          so --base-url and --evidence-redaction apply to it.
+  --dashboard-port <n>   Where the read-only dashboard listens, on loopback. Defaults
+                         to 8789. Open it in a browser to watch the catalog and the
+                         run history; it shows what the core emits and drives nothing.
+  --chat-port <n>        Where the chatbot page listens, on loopback. Defaults to 8790.
+                         Started only when CHATBOT_API_KEY is set; open it in a browser
+                         to ask in plain language. It calls the catalog, not a side door.
+  --signon-port <n>      Where the sign-on portal listens, on loopback. Defaults to 8791.
+                         Opened when a served Capability signs on with an operator
+                         password (MERIDIAN); enter the password there once per session.
+
+chat options:
+  --message <text>       The request, in plain language. The chatbot turns it into
+                         catalog invocation(s), chains them as needed, and prints the
+                         outcome. Calls only the catalog — it enforces no guardrails.
+  --catalog <url>        Where a running catalog (npm run serve) is listening. Defaults
+                         to http://127.0.0.1:8788. Needs CHATBOT_API_KEY in the
+                         environment for the intent router.
 
 All:
 ${SHARED_USAGE}`;
@@ -82,6 +118,7 @@ async function main(argv: string[]): Promise<number> {
   if (command === "discover") return await discoverCommand(parseArguments(rest, DISCOVER_OPTIONS));
   if (command === "replay") return await replayCommand(parseArguments(rest, REPLAY_OPTIONS));
   if (command === "serve") return await serveCommand(parseArguments(rest, SERVE_OPTIONS));
+  if (command === "chat") return await chatCommand(parseArguments(rest, CHAT_OPTIONS));
 
   const complaint = command === undefined ? "No command given." : `Unknown command "${command}".`;
   process.stderr.write(`${complaint}\n\n${USAGE}`);
@@ -122,7 +159,10 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
 
   const variant = single(args, "variant");
   const masking = maskingSetting(single(args, "evidence-redaction"));
-  const credentials = credentialsFromEnv();
+
+  // Ask for the operator password at a hidden prompt if the store has none, the
+  // same secret the portal supplies to a served run (#45) — before a browser opens.
+  await ensureSignedOn(profile);
 
   const { result } = await runCapability({
     capability,
@@ -133,7 +173,6 @@ async function replayCommand(args: Map<string, string[]>): Promise<number> {
     baseUrl,
     ...(variant === undefined ? {} : { variant }),
     masking,
-    credentials,
     headless: !args.has("headed"),
   });
 
@@ -178,8 +217,13 @@ interface RunCapabilityInput {
   readonly baseUrl: string;
   readonly variant?: string;
   readonly masking: "on" | "off";
-  readonly credentials: ParabankCredentials;
   readonly headless: boolean;
+  /**
+   * Who to sign on as, for a served MERIDIAN run (#51): operator and branch from
+   * the portal login. Omitted on the CLI path, which reads them from the
+   * environment instead.
+   */
+  readonly identity?: OperatorIdentity;
 }
 
 /**
@@ -198,8 +242,15 @@ interface RunCapabilityInput {
 async function runCapability(
   input: RunCapabilityInput,
 ): Promise<{ result: ReplayResult; evidenceDir: string }> {
-  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, credentials, headless } = input;
+  const { capability, inputs, given, profile, mandate, baseUrl, variant, masking, headless, identity } = input;
   const ident = `${capability.id}@${capability.version}`;
+
+  // How this installation is signed into, chosen from its profile. Resolved
+  // before the evidence run and the browser, so a missing credential costs a
+  // sentence rather than a Chromium — and so its Secret is known in time to
+  // redact it. A served MERIDIAN run passes the portal-chosen identity (#51); the
+  // CLI passes none and the establisher reads the environment.
+  const session = sessionEstablisherFor(profile, secretStore, identity);
 
   // Opened before the browser is, so that signing in is logged too. The login
   // form is the one place this run types the application password, which makes
@@ -217,9 +268,9 @@ async function runCapability(
     },
     redaction: {
       // ADR 0006's Secrets, in the only two forms this run holds them: the
-      // password it was handed, and the session token ParaBank puts in its URLs
+      // application password, and the session token the target puts in its URLs
       // — which `stripSecrets` matches by pattern rather than by value.
-      secrets: [credentials.password],
+      secrets: [session.secret],
       // This run's own inputs. They are substituted into Locators, so they turn
       // up in fields that are Plain by position.
       sensitive: Object.values(given),
@@ -231,7 +282,7 @@ async function runCapability(
   // for, here or anywhere else — `no-ungated-surface.test.ts` keeps that true.
   const { surface, close } = await openBrowserSurface(profile, mandate, evidence, { headless });
   try {
-    await establishSession(surface, baseUrl, credentials);
+    await session.establish(surface, baseUrl);
 
     const result = await replayCapability(surface, capability, inputs, {
       baseUrl,
@@ -240,11 +291,16 @@ async function runCapability(
       // says which screens are interruptions, and the caller — the one place
       // holding credentials — says how to answer the one that needs a session.
       recoverableConditions: profile.recoverableConditions,
-      reestablishSession: () => establishSession(surface, baseUrl, credentials),
+      reestablishSession: () => session.establish(surface, baseUrl),
     });
 
     if (result.kind === "success") {
-      await evidence.finish("success", {});
+      // A run that absorbed a Recoverable Condition on its way to success records
+      // which one, so the evidence — and the dashboard reading it — can mark the
+      // run as recovered rather than as a plain success. An ordinary success that
+      // never stumbled writes no marker.
+      const recovered = result.recovered ?? [];
+      await evidence.finish("success", recovered.length > 0 ? { recovered: recovered.join(", ") } : {});
     } else if (result.kind === "business-outcome") {
       // The screen is captured all the same, and by this branch rather than only
       // by the decorator underneath. An outcome recognised because a Step missed
@@ -301,11 +357,22 @@ async function runCapability(
  */
 async function serveCommand(args: Map<string, string[]>): Promise<number> {
   const port = wholeNumber(single(args, "port"), "--port", DEFAULT_CATALOG_PORT);
-  // Read once, at start, so a missing `.env` fails the whole server loudly
-  // rather than every invoke quietly — the same reason a replay reads them
-  // before launching a browser.
-  const credentials = credentialsFromEnv();
   const masking = maskingSetting(single(args, "evidence-redaction"));
+
+  // Fail on boot, not on the first invoke: check every surface this catalog will
+  // sign into has its credentials in the environment now, the same reason a
+  // replay reads them before launching a browser. serve is multi-surface, so it
+  // is the served Capabilities' own surfaces that are checked, not one
+  // hardcoded installation.
+  const servedSurfaces = await assertSignOnReady(capabilitiesDir());
+
+  // The served login gate (#51). MERIDIAN signs on per operator through the portal,
+  // so when it is among the served surfaces the catalog and chatbot are gated on a
+  // person having signed on, and every invoke acts as that operator. A serve with
+  // no MERIDIAN surface has no portal and stays open, as it was.
+  const loginSession = servedSurfaces.has("meridian")
+    ? new LoginSession({ idleMs: sessionIdleMs() })
+    : undefined;
 
   const invoke: InvokeCapability = async (capability, inputs, options) => {
     // The Capability names its Surface profile; the profile says where that
@@ -321,6 +388,16 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
     // this run's own Sensitive values are their string forms.
     const given = Object.fromEntries(Object.entries(inputs).map(([name, value]) => [name, String(value)]));
 
+    // Who to sign on as (#51): for a gated MERIDIAN run, the portal-chosen operator
+    // and branch, never the environment. The catalog gate admits only a live
+    // session, so this is set by the time an invoke runs; a defensive miss is a
+    // clean refusal rather than an env fallback that would bypass the login.
+    let identity: OperatorIdentity | undefined;
+    if (capability.surface === "meridian" && loginSession !== undefined) {
+      identity = loginSession.identity();
+      if (identity === undefined) throw new Error("Not signed in. Sign on at the portal before invoking.");
+    }
+
     const { result } = await runCapability({
       capability,
       inputs,
@@ -330,29 +407,168 @@ async function serveCommand(args: Map<string, string[]>): Promise<number> {
       baseUrl,
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       masking,
-      credentials,
       headless: !args.has("headed"),
+      ...(identity === undefined ? {} : { identity }),
     });
     return result;
   };
 
-  const server = await startCatalog({ root: capabilitiesDir(), invoke, port });
+  const server = await startCatalog({ root: capabilitiesDir(), invoke, ...(loginSession !== undefined ? { session: loginSession } : {}), port });
+
+  // The dashboard is the human-facing half of the same process: read-only, its
+  // own port, watching the catalog and the run history the core writes. It owns
+  // no risk — the catalog above is still the only place effects and approval are
+  // decided — so it is started here rather than behind a flag, and a person gets
+  // a window on the system without another command to run.
+  const dashboardPort = wholeNumber(single(args, "dashboard-port"), "--dashboard-port", DEFAULT_DASHBOARD_PORT);
+  let dashboard;
+  try {
+    dashboard = await startDashboard({
+      capabilitiesRoot: capabilitiesDir(),
+      runsDir: evidenceRunsDir(),
+      port: dashboardPort,
+    });
+  } catch (thrown) {
+    // The catalog already bound; if the dashboard cannot, close the catalog so a
+    // failed boot leaves no listening socket behind rather than half a server.
+    await server.close();
+    throw thrown;
+  }
+
+  // The chatbot page is the other human-facing half, on its own port. It is a
+  // caller of the catalog above, not a second boundary, so it is started here too
+  // — but only when the operator's model key is present, since a chatbot with no
+  // key can answer nothing. Its absence leaves the catalog and dashboard running
+  // and says so, rather than failing the whole boot for the one optional part.
+  const chatPort = wholeNumber(single(args, "chat-port"), "--chat-port", DEFAULT_CHAT_PORT);
+  const chatKey = process.env["CHATBOT_API_KEY"];
+  let chat: ChatServer | undefined;
+  if (chatKey !== undefined && chatKey !== "") {
+    const chatbot = createChatbot({
+      client: catalogClient(server.url),
+      router: modelIntentRouter(chatKey),
+      log: fileChatLogger(chatbotLogsDir()),
+      // Refuse in plain language until someone has signed on at the portal (#51).
+      ...(loginSession !== undefined ? { session: loginSession } : {}),
+    });
+    try {
+      chat = await startChatUi({ chatbot, port: chatPort, dashboardUrl: dashboard.url });
+    } catch (thrown) {
+      // Same reason the dashboard closes the catalog on a bind failure: a failed
+      // boot should leave no listening socket behind.
+      await Promise.all([server.close(), dashboard.close()]);
+      throw thrown;
+    }
+  }
+
+  // The sign-on portal, for a surface whose password comes from an operator
+  // rather than the environment (MERIDIAN, #44). It fills the same in-memory
+  // store the invokes above read (#42), so a person signs on once here and every
+  // catalog invoke that follows has the secret — without it ever touching a
+  // command line or a checked-out file. ParaBank needs no portal, so it opens
+  // only when MERIDIAN is among the served surfaces.
+  const signOnPort = wholeNumber(single(args, "signon-port"), "--signon-port", DEFAULT_SIGNON_PORT);
+  let portal: SignOnPortal | undefined;
+  if (servedSurfaces.has("meridian")) {
+    const profile = await loadSurfaceProfile(surfacesDir(), "meridian");
+    try {
+      portal = await startSignOnPortal({
+        signOn: browserSignOn({
+          profile,
+          baseUrl: resolveBaseUrl(args, profile),
+          evidenceRoot: evidenceRunsDir(),
+          masking,
+          headless: !args.has("headed"),
+        }),
+        store: secretStore,
+        // The served login session (#51): a good sign-on marks it live and records
+        // the operator, unlocking the catalog and chatbot and setting who every
+        // following invoke acts as; it also enforces one operator per boot.
+        ...(loginSession !== undefined ? { session: loginSession } : {}),
+        port: signOnPort,
+      });
+    } catch (thrown) {
+      // Same reason the dashboard closes the catalog on a bind failure: a failed
+      // boot should leave no listening socket behind.
+      await Promise.all([server.close(), dashboard.close(), ...(chat !== undefined ? [chat.close()] : [])]);
+      throw thrown;
+    }
+  }
+
   process.stdout.write(
     [
       `Capability catalog on ${server.url}`,
       `  list:   GET  ${server.url}/capabilities`,
       `  invoke: POST ${server.url}/capabilities/<id>/invoke`,
+      `Dashboard (read-only) on ${dashboard.url}`,
+      chat !== undefined
+        ? `Chatbot on ${chat.url}`
+        : "Chatbot UI off — set CHATBOT_API_KEY in .env to enable it.",
+      portal !== undefined ? `Sign-on portal on ${portal.url}` : undefined,
       "",
-    ].join("\n"),
+    ]
+      .filter((line) => line !== undefined)
+      .join("\n"),
   );
 
-  // The server holds the process open; this settles when a signal asks it to
+  // The servers hold the process open; this settles when a signal asks it to
   // stop, which is the one way a long-running command ends cleanly.
   await new Promise<void>((resolve) => {
     process.once("SIGINT", resolve);
     process.once("SIGTERM", resolve);
   });
-  await server.close();
+  await Promise.all([
+    server.close(),
+    dashboard.close(),
+    ...(chat !== undefined ? [chat.close()] : []),
+    ...(portal !== undefined ? [portal.close()] : []),
+  ]);
+  return 0;
+}
+
+/**
+ * The chatbot: a plain-language request in, an answer out, and nothing between
+ * but calls to a running catalog.
+ *
+ * It is the demo layer, not a new boundary. The catalog (`npm run serve`) still
+ * owns risk, effects, and approval; this command turns a sentence into
+ * invocation(s) against that catalog, chains them (resolve a member, then act),
+ * and prints what came back in plain language. Its one credential is the chatbot
+ * API key, read from the environment and never defaulted — a separate key from
+ * the discovery path's, so a missing one fails here rather than borrowing
+ * another.
+ */
+async function chatCommand(args: Map<string, string[]>): Promise<number> {
+  const message = single(args, "message");
+  if (message === undefined || message.trim() === "") {
+    process.stderr.write(`--message is required and cannot be blank.\n\n${USAGE}`);
+    return 2;
+  }
+
+  const apiKey = process.env["CHATBOT_API_KEY"];
+  if (apiKey === undefined || apiKey === "") {
+    process.stderr.write("CHATBOT_API_KEY is not set. Add it to .env; it is the chatbot's own key.\n");
+    return 2;
+  }
+
+  const catalogUrl = single(args, "catalog") ?? `http://127.0.0.1:${DEFAULT_CATALOG_PORT}`;
+  const chatbot = createChatbot({
+    client: catalogClient(catalogUrl),
+    router: modelIntentRouter(apiKey),
+    log: fileChatLogger(chatbotLogsDir()),
+  });
+
+  // A refused connection is not an outcome the chatbot can phrase — there is no
+  // catalog to answer — so it surfaces here as a plain hint rather than a bare
+  // `fetch failed` from the top-level catch. Everything the catalog *can* answer,
+  // including a refusal, the chatbot has already turned into plain language.
+  try {
+    process.stdout.write(`${await chatbot.ask(message)}\n`);
+  } catch (thrown) {
+    const detail = thrown instanceof Error ? thrown.message : String(thrown);
+    process.stderr.write(`Couldn't reach the catalog at ${catalogUrl}. Is \`npm run serve\` running? (${detail})\n`);
+    return 1;
+  }
   return 0;
 }
 
@@ -391,7 +607,11 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   const outputs = args.get("output") ?? [];
   const plan = await recordingPlan(args, { goal, profile, baseUrl, inputs: given, outputs });
 
-  const credentials = credentialsFromEnv();
+  // As in replay: the operator password comes from the store or a hidden prompt,
+  // never a command-line argument (#45).
+  await ensureSignedOn(profile);
+
+  const session = sessionEstablisherFor(profile);
 
   const evidence = await EvidenceRun.start({
     root: evidenceRunsDir(),
@@ -416,7 +636,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
       ...Object.fromEntries(Object.entries(given).map(([name, value]) => [`input.${name}`, value])),
     },
     redaction: {
-      secrets: [credentials.password],
+      secrets: [session.secret],
       // This run's declared inputs, exactly as a replay's are. A Discovery Run
       // used to have none — it was the thing that worked out what the inputs
       // should be — and an account number the model picked off the screen and
@@ -446,7 +666,7 @@ async function discoverCommand(args: Map<string, string[]>): Promise<number> {
   );
 
   try {
-    await establishSession(surface, baseUrl, credentials);
+    await session.establish(surface, baseUrl);
 
     // Imported here rather than at the top of the file, and this is the whole
     // reason: `cli.ts` serves both commands, so a static import would load the
@@ -681,24 +901,6 @@ async function recordingPlan(
 }
 
 /**
- * Signing in before Step one.
- *
- * The executor is handed a Surface that already has a session and knows nothing
- * about how it got one — which is what keeps login out of every Recording.
- */
-async function establishSession(
-  surface: Surface,
-  baseUrl: string,
-  credentials: ParabankCredentials,
-): Promise<void> {
-  for (const action of logInToParabank(baseUrl, credentials)) {
-    const result = await surface.perform(action);
-    if (result.kind === "ok") continue;
-    throw new Error(`Could not sign in to ${baseUrl}: ${describeMiss(result)}`);
-  }
-}
-
-/**
  * `--evidence-redaction`, which is the only thing that moves ADR 0006's middle
  * kind. On unless told otherwise, and a value that is neither is refused rather
  * than read as "off" — the setting that writes real balances to disk is not one
@@ -711,29 +913,79 @@ function maskingSetting(value: string | undefined): "on" | "off" {
 }
 
 /**
- * Where the application is, normalised once for both commands.
- *
- * `absoluteUrl` strips a trailing slash and `logInToParabank` concatenates raw,
- * so a base URL ending in one would sign in at `//index.htm` and take Steps at
- * `/overview.htm`. An override still answers to the profile's allowed origins —
- * the gate refuses it otherwise, which is the point of the allowlist being
- * checked-in rather than passed in.
+ * How long a served sign-on stays valid with no activity before it times out
+ * (#51), from `MERIDIAN_SESSION_IDLE_MINUTES` and defaulting to 15. The brief's
+ * "sessions time out on idle": each served interaction resets the clock, and when
+ * it runs out the catalog and chatbot lock until a fresh portal sign-on. A value
+ * that is not a positive number is refused rather than read as "never expire".
  */
-function resolveBaseUrl(args: Map<string, string[]>, profile: SurfaceProfile): string {
-  const given = single(args, "base-url") ?? process.env["PARABANK_BASE_URL"] ?? profile.baseUrl;
-  return given.replace(/\/+$/, "");
+function sessionIdleMs(): number {
+  const raw = process.env["MERIDIAN_SESSION_IDLE_MINUTES"];
+  if (raw === undefined || raw.trim() === "") return 15 * 60_000;
+  const minutes = Number(raw);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    throw new Error(`MERIDIAN_SESSION_IDLE_MINUTES must be a positive number of minutes, not "${raw}".`);
+  }
+  return minutes * 60_000;
 }
 
 /**
- * Read before a browser launches, for the same reason inputs are checked there:
- * a missing `.env` should cost a sentence, not a Chromium.
+ * Every surface the catalog will invoke has its sign-on configured, checked at
+ * serve startup, so a missing piece throws here — before the server reports
+ * itself healthy — rather than on the invoke that first needs it. The non-secret
+ * config is what is checked: MERIDIAN's password arrives through the portal
+ * (#44), not the environment, so requiring it now would make the portal
+ * pointless. Returns the served surfaces, so the caller knows whether to open
+ * the portal.
  */
-function credentialsFromEnv(): ParabankCredentials {
-  return {
-    username: required("PARABANK_USERNAME"),
-    // ADR 0006 classes this a Secret: handed in at run time, never written.
-    password: required("PARABANK_PASSWORD"),
-  };
+async function assertSignOnReady(root: string): Promise<Set<string>> {
+  const surfaces = new Set<string>();
+  for (const id of await listCapabilities(root)) {
+    surfaces.add((await loadCapabilityRef(root, id)).surface);
+  }
+  for (const surface of surfaces) {
+    assertSignOnConfigured(await loadSurfaceProfile(surfacesDir(), surface));
+  }
+  return surfaces;
+}
+
+/**
+ * Put the MERIDIAN operator password in the store for a direct run — replay or
+ * discover — asking for it at a hidden prompt when the store has none (#45).
+ *
+ * Precedence is store, then prompt: a password already in the store, from an
+ * earlier run in this process, is used and the prompt is skipped. The password is
+ * never a command-line argument; it is typed at the prompt and read back from the
+ * store by `sessionEstablisherFor`, so it stays out of the process listing and
+ * shell history the way a `--password` flag never could. A non-MERIDIAN surface
+ * has no operator password to key, and a run with no terminal (a pipe, a CI job)
+ * cannot be prompted — both fall through to the establisher, which reads the
+ * environment or names what is missing.
+ */
+async function ensureSignedOn(profile: SurfaceProfile): Promise<void> {
+  if (profile.id !== "meridian") return;
+  const operator = process.env["MERIDIAN_OPERATOR"];
+  if (operator === undefined || operator === "") return;
+  if (secretStore.get(operator) !== undefined) return;
+  if (!process.stdin.isTTY) return;
+  await ensurePasswordInStore({ store: secretStore, operator, prompt: terminalHiddenPrompt() });
+}
+
+/**
+ * Where the application is, normalised once for both commands.
+ *
+ * The env default is keyed to the surface — `$MERIDIAN_BASE_URL` for the meridian
+ * profile, `$PARABANK_BASE_URL` for parabank — so pointing one target elsewhere
+ * does not move the other. The trailing slash is stripped because the login
+ * builders concatenate the path raw, so a base URL ending in one would sign in at
+ * `//signon`. An override still answers to the profile's allowed origins — the
+ * gate refuses it otherwise, which is the point of the allowlist being checked-in
+ * rather than passed in.
+ */
+function resolveBaseUrl(args: Map<string, string[]>, profile: SurfaceProfile): string {
+  const envVar = `${profile.id.replace(/[^a-z0-9]+/gi, "_").toUpperCase()}_BASE_URL`;
+  const given = single(args, "base-url") ?? process.env[envVar] ?? profile.baseUrl;
+  return given.replace(/\/+$/, "");
 }
 
 /** A count or a duration from the command line, refused rather than coerced. */
@@ -744,14 +996,6 @@ function wholeNumber(value: string | undefined, option: string, fallback: number
     throw new Error(`${option} takes a whole number of at least 1, not "${value}".`);
   }
   return parsed;
-}
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    throw new Error(`${name} is not set. Copy .env.example to .env and fill it in.`);
-  }
-  return value;
 }
 
 /**
@@ -782,6 +1026,16 @@ const REPLAY_OPTIONS = {
 const SERVE_OPTIONS = {
   ...SHARED,
   port: "value",
+  "dashboard-port": "value",
+  "chat-port": "value",
+  "signon-port": "value",
+} as const;
+
+// The chatbot calls only a running catalog over HTTP, so it shares none of the
+// browser-run options — no --base-url, no --headed, no --evidence-redaction.
+const CHAT_OPTIONS = {
+  message: "value",
+  catalog: "value",
 } as const;
 
 const DISCOVER_OPTIONS = {

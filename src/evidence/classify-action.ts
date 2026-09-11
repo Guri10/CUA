@@ -46,6 +46,20 @@ export function loggedAction(redaction: Redaction, action: Action): Record<strin
         locator: loggedLocator(redaction, action.locator),
         ...(action.timeoutMs === undefined ? {} : { timeoutMs: action.timeoutMs }),
       };
+    case "readEach":
+      // Only Locators here — the rows and each column — all Plain, like any
+      // other addressing. What it reads off the screen rides the result, and
+      // `loggedResult` masks that as Sensitive.
+      return {
+        kind: action.kind,
+        rows: loggedLocator(redaction, action.rows),
+        columns: Object.fromEntries(
+          Object.entries(action.columns).map(([field, column]) => [
+            field,
+            loggedLocator(redaction, column),
+          ]),
+        ),
+      };
     // Named rather than defaulted, so that an Action verb added later cannot be
     // logged by a catch-all that has no idea what its fields carry. This switch
     // is where ADR 0006 classifies a value, and a new verb arriving unclassified
@@ -66,6 +80,20 @@ export function loggedResult(redaction: Redaction, result: ActionResult): Record
         ...(result.value === undefined
           ? {}
           : { value: redact(redaction, "sensitive", result.value) }),
+        // Every value a `readEach` read off the screen, masked the same way a
+        // single read's is — Sensitive by position, whatever field it sat in.
+        ...(result.records === undefined
+          ? {}
+          : {
+              records: result.records.map((record) =>
+                Object.fromEntries(
+                  Object.entries(record).map(([field, value]) => [
+                    field,
+                    redact(redaction, "sensitive", value),
+                  ]),
+                ),
+              ),
+            }),
       };
     case "not-found":
       return { kind: result.kind, locator: loggedLocator(redaction, result.locator) };

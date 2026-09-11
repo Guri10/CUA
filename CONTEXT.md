@@ -33,6 +33,12 @@ A Capability's declared interface — what a caller must supply, what it gets ba
 terminal states are possible. The part a calling agent reads; the Recording is the part it doesn't.
 _Avoid_: signature, API, spec
 
+**Approval**:
+The promotion of a Capability from draft to approved by a named human, which is what lets a
+mutating Capability run at all. It is where accountability for a risky flow transfers to a person;
+the system never decides on its own that a risky action is safe to run.
+_Avoid_: sign-off, authorization, review
+
 ### Running
 
 **Discovery Run**:
@@ -55,6 +61,12 @@ _Avoid_: target, app, browser, page
 Who currently holds the right to act on a live session — the agent or a human operator. Exactly one
 at a time, with explicit transitions between them.
 _Avoid_: owner, driver, mode
+
+**Operator**:
+The human identity a Discovery Run or Replay signs on as to reach the back-office console — a teller
+or a supervisor. Which one is the target's assertion, read from the console after sign-on, never a
+role the system owns or maps from credentials.
+_Avoid_: user, login, account, role
 
 ### Targeting and verification
 

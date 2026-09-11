@@ -189,7 +189,9 @@ describe("handing a real session to a person and taking it back", () => {
 
 /** The captured Action as a check that its Locator still addresses one control. */
 function waitFor(action: Action): Action {
-  if (action.kind === "navigate") throw new Error("A capture never produces a navigate.");
+  if (action.kind === "navigate" || action.kind === "readEach") {
+    throw new Error("A capture never produces a navigate or a readEach.");
+  }
   return { kind: "waitFor", locator: action.locator };
 }
 

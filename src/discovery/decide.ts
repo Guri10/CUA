@@ -51,9 +51,16 @@ export function decisionFor(name: string, input: unknown): Decision {
   }
 
   const action = actionFor(name, call);
-  if (name !== "read") return { kind: "act", reason: call.reason, action };
+  if (name !== "read" && name !== "read_each") {
+    return { kind: "act", reason: call.reason, action };
+  }
 
-  const { bind } = call as z.infer<typeof DISCOVERY_TOOLS.read.input>;
+  // A `read` and a `read_each` both name the return value they take — a scalar
+  // or a whole list — and the recorder needs it from the model rather than
+  // inferring it. The Surface has no use for it, so it rides beside the Action.
+  const { bind } = call as
+    | z.infer<typeof DISCOVERY_TOOLS.read.input>
+    | z.infer<typeof DISCOVERY_TOOLS.read_each.input>;
   return {
     kind: "act",
     reason: call.reason,
@@ -90,6 +97,16 @@ function actionFor(name: Exclude<keyof typeof DISCOVERY_TOOLS, "done">, call: ob
     case "read": {
       const { locator } = call as z.infer<typeof DISCOVERY_TOOLS.read.input>;
       return { kind: "read", locator: locatorFrom(locator) };
+    }
+    case "read_each": {
+      const { rows, columns } = call as z.infer<typeof DISCOVERY_TOOLS.read_each.input>;
+      return {
+        kind: "readEach",
+        rows: locatorFrom(rows),
+        columns: Object.fromEntries(
+          Object.entries(columns).map(([field, column]) => [field, locatorFrom(column)]),
+        ),
+      };
     }
     case "wait_for": {
       const { locator, timeoutMs } = call as z.infer<typeof DISCOVERY_TOOLS.wait_for.input>;
@@ -133,12 +150,14 @@ export interface Report {
 
 export function reportOf(result: ActionResult): Report {
   if (result.kind === "ok") {
-    // A read's value goes back in full. It is Sensitive, and ADR 0006 masks a
-    // Sensitive value in what is stored, never in what is handed to the caller
-    // — and here the model is the caller. What it is not is written to
-    // evidence; the decorator underneath has already masked it there.
+    // A read's value — or a readEach's whole list of rows — goes back in full.
+    // It is Sensitive, and ADR 0006 masks a Sensitive value in what is stored,
+    // never in what is handed to the caller — and here the model is the caller.
+    // What it is not is written to evidence; the decorator underneath has
+    // already masked it there.
+    const read = result.records ?? result.value;
     return {
-      text: result.value === undefined ? "ok" : `ok: ${JSON.stringify(result.value)}`,
+      text: read === undefined ? "ok" : `ok: ${JSON.stringify(read)}`,
       isError: false,
     };
   }

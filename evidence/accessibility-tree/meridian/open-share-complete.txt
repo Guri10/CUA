@@ -1,0 +1,46 @@
+URL: https://web-sample.interface-hiring.com/members/100234/open-share/post
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "SHARE OPENED NEW SHARE ESTABLISHED Confirmation: CN480249 New Share ID: 100234-S0001-30 Type: Regular Shares Opening Balance: $5.00 Return to Member Record · Main Menu"':
+      - 'cell "SHARE OPENED NEW SHARE ESTABLISHED Confirmation: CN480249 New Share ID: 100234-S0001-30 Type: Regular Shares Opening Balance: $5.00 Return to Member Record · Main Menu"':
+        - heading "SHARE OPENED" [level=1]
+        - text: NEW SHARE ESTABLISHED
+        - table:
+          - rowgroup:
+            - 'row "Confirmation: CN480249"':
+              - cell "Confirmation:"
+              - cell "CN480249"
+            - 'row "New Share ID: 100234-S0001-30"':
+              - cell "New Share ID:"
+              - cell "100234-S0001-30"
+            - 'row "Type: Regular Shares"':
+              - cell "Type:"
+              - cell "Regular Shares"
+            - 'row "Opening Balance: $5.00"':
+              - cell "Opening Balance:"
+              - cell "$5.00"
+        - link "Return to Member Record":
+          - /url: /members/100234
+        - text: ·
+        - link "Main Menu":
+          - /url: /menu
+    - row "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:05 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:01:05 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

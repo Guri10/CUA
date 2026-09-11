@@ -22,6 +22,13 @@
  * shape a direct replay returns — success and Business Outcome as answers, a
  * Hard Failure as the screen the run could not interpret.
  *
+ * The refusal is not a bare error: it surfaces as an `escalated` terminal status
+ * carrying context — which Capability, where it stopped, and why — the
+ * Intervention Request an operator would read, minus the observed screen a
+ * refusal before a run never has. That is the deliberate difference from the
+ * CLI's live handover: over HTTP there is no browser to give a person, so the
+ * escalation is the status and its context, returned to the caller.
+ *
  * How the run happens is injected. In production it drives a real browser; in a
  * test it drives a Fake Surface. The server does not know which, which is what
  * lets its two guarantees be tested without a browser.
@@ -33,7 +40,33 @@ import { parseContractValues } from "../replay/contract-values.js";
 import { redactSessionIds } from "../evidence/redact-session-ids.js";
 import { mandateFor } from "../policy/mandate.js";
 import type { ReplayResult } from "../replay/replay.js";
-import { listCatalog } from "./catalog.js";
+import type { EscalationContext } from "../escalation/intervention-request.js";
+import type { LoginSession } from "../surface/login-session.js";
+import { listCatalog, UNSERVED_CAPABILITY_IDS } from "./catalog.js";
+
+/**
+ * How an invoke ended, as the catalog returns it: the Replay union plus the one
+ * terminal status the catalog can reach that a Replay cannot — an escalation.
+ *
+ * The spec asked whether the existing union already carries `escalated`. It does
+ * not, and should not: a gate refusal *during* a Replay is a Hard Failure — the
+ * run reached a screen it could not act on — while escalation as a terminal
+ * status is the *pre-run* gate refusing a mutating draft, which happens in this
+ * file, before any run. So the union widens here, at the boundary that owns the
+ * gate, rather than in `replay`.
+ */
+export interface Escalated {
+  readonly kind: "escalated";
+  /** Which Capability, where it stopped, and why. See `EscalationContext`. */
+  readonly context: EscalationContext;
+}
+
+/**
+ * Where a pre-run refusal "stopped". Not a Recording Step — the run never
+ * started — but the policy gate itself. The Intervention Request wants a place
+ * the operator can name, and for a refusal before a run this is the honest one.
+ */
+const POLICY_GATE_STEP = "the policy gate, before the run started";
 
 /**
  * A cap on the invoke body, so one caller streaming an endless request cannot
@@ -68,6 +101,13 @@ export interface CatalogServerOptions {
   readonly root: string;
   /** How to run one. Injected so the run can be a real browser or a fake. */
   readonly invoke: InvokeCapability;
+  /**
+   * The served login gate (#51). When present, both routes refuse until a person
+   * has signed on at the portal, and each admitted request resets the idle clock.
+   * Omitted where there is no portal (a ParaBank-only serve, and the tests that
+   * exercise the routes without a login), leaving the catalog open as before.
+   */
+  readonly session?: LoginSession;
   /** Zero asks the operating system for a free one, which is what tests use. */
   readonly port?: number;
 }
@@ -122,11 +162,13 @@ async function handle(
   const path = new URL(incoming.url ?? "/", "http://127.0.0.1").pathname;
 
   if (incoming.method === "GET" && path === "/capabilities") {
+    if (!admitted(options, outgoing)) return;
     return reply(outgoing, 200, await listCatalog(options.root));
   }
 
   const ref = invokeRef(path);
   if (incoming.method === "POST" && ref !== undefined) {
+    if (!admitted(options, outgoing)) return;
     return await invoke(incoming, outgoing, options, ref);
   }
 
@@ -135,6 +177,20 @@ async function handle(
     list: "GET /capabilities",
     invoke: "POST /capabilities/<id>[@<version>]/invoke",
   });
+}
+
+/**
+ * Whether this request may proceed past the login gate (#51). With no session
+ * configured the catalog is open, as it was before. With one, an admitted request
+ * resets the idle clock; a locked-out one gets a 401 and goes no further — the
+ * caller has not signed on, or the session timed out, so it names the portal.
+ */
+function admitted(options: CatalogServerOptions, outgoing: ServerResponse): boolean {
+  if (options.session === undefined || options.session.admit()) return true;
+  reply(outgoing, 401, {
+    error: "Not signed in. Open the sign-on portal and sign on before using the catalog.",
+  });
+  return false;
 }
 
 /** `/capabilities/<ref>/invoke` → the decoded `<ref>`, or undefined if not that shape. */
@@ -164,14 +220,31 @@ async function invoke(
   } catch (thrown) {
     return reply(outgoing, 404, { error: thrown instanceof Error ? thrown.message : String(thrown) });
   }
+
+  // Not on the served catalog (#52): hidden from the list, and refused here too so
+  // the two routes agree. sign-on is session establishment, not an invocable
+  // Capability, and it must never take a password over the wire (ADR 0006).
+  if (UNSERVED_CAPABILITY_IDS.has(capability.id)) {
+    return reply(outgoing, 404, { error: `No such Capability "${ref}" on the catalog.` });
+  }
+
   const named = `${capability.id}@${capability.version}`;
 
   // Decided before the runner is even called, from two declared fields (ADR
   // 0007): a mutating Capability nobody has signed off does not get as far as a
   // screen. The same decision `replay` makes, in the same place — before a
-  // browser exists.
+  // browser exists. The refusal surfaces as an escalated terminal status with
+  // context rather than a bare error, so a caller reads a stopped-with-context
+  // result the same shape it reads every other ending. Still a 403: the run was
+  // forbidden, and the body says why in a form the caller can act on.
   const mandate = mandateFor(capability);
-  if (!mandate.allowed) return reply(outgoing, 403, { error: mandate.reason });
+  if (!mandate.allowed) {
+    const escalated: Escalated = {
+      kind: "escalated",
+      context: { capability: named, step: POLICY_GATE_STEP, reason: mandate.reason },
+    };
+    return reply(outgoing, 403, escalated);
+  }
 
   const body = await readJson(incoming);
   if (body.kind === "invalid") return reply(outgoing, 400, { error: body.reason });

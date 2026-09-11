@@ -1,0 +1,27 @@
+[depth 8] combobox
+[depth 9] option "100234-S0001 - Regular Shares" [selected]
+[depth 9] option "100234-S0070 - Share Draft (Checking)"
+[depth 9] option "100234-MMKT-3 - Money Market"
+[depth 9] option "100234-MMKT-4 - Money Market"
+[depth 9] option "100234-S0001-5 - Regular Shares"
+[depth 9] option "100234-S0001-6 - Regular Shares"
+[depth 9] option "100234-MMKT-7 - Money Market"
+[depth 9] option "100234-MMKT-8 - Money Market"
+[depth 9] option "100234-MMKT-9 - Money Market"
+[depth 9] option "100234-MMKT-10 - Money Market"
+[depth 9] option "100234-MMKT-11 - Money Market"
+[depth 9] option "100234-S0001-12 - Regular Shares"
+[depth 9] option "100234-S0001-13 - Regular Shares"
+[depth 9] option "100234-S0001-14 - Regular Shares"
+[depth 9] option "100234-CERT-15 - Certificate"
+[depth 9] option "100234-MMKT-16 - Money Market"
+[depth 9] option "100234-S0070-17 - Share Draft (Checking)"
+[depth 9] option "100234-S0001-18 - Regular Shares"
+[depth 9] option "100234-S0001-19 - Regular Shares"
+[depth 9] option "100234-S0001-20 - Regular Shares"
+[depth 8] combobox
+[depth 9] option "FRAUD - Suspected fraud" [selected]
+[depth 9] option "LEGAL - Legal / levy"
+[depth 9] option "DECEASED - Member deceased"
+[depth 8] textbox
+[depth 8] button "Continue"

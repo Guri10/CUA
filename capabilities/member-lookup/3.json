@@ -1,0 +1,148 @@
+{
+  "id": "member-lookup",
+  "version": 3,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "From the main menu, open Member Inquiry and look up a member by member number, then open that member's record.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "by": {
+          "type": "string"
+        },
+        "q": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "by",
+        "q"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {},
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "MEMBER RECORD"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-menu",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/menu"
+            }
+          }
+        },
+        {
+          "id": "click-link-member-inquiry-selection",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Member Inquiry / Selection"
+              }
+            }
+          }
+        },
+        {
+          "id": "select-combobox",
+          "action": {
+            "kind": "select",
+            "locator": {
+              "role": "combobox"
+            },
+            "option": {
+              "kind": "input",
+              "input": "by"
+            }
+          }
+        },
+        {
+          "id": "fill-textbox",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox"
+            },
+            "value": {
+              "kind": "input",
+              "input": "q"
+            }
+          }
+        },
+        {
+          "id": "click-button-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-link-select",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-heading-member-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

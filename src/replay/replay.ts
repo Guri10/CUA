@@ -55,17 +55,31 @@ export interface ReplayOptions {
    * failing to recognise a screen it can in fact name.
    */
   reestablishSession?(): Promise<void>;
-  /** How many times one run may absorb a condition. Defaults to two. */
+  /**
+   * How many times one run may absorb each condition before it escalates.
+   * Defaults to one: a Recoverable Condition that recurs after it was already
+   * absorbed is a loop, not a recovery, because Replay re-runs the whole
+   * Recording from Step one each time — nothing is carried past the
+   * interruption, so meeting the same condition again means the re-establish or
+   * the retry moved the run nowhere. Counted per condition, which also bounds
+   * the run: there are finitely many declared conditions, each absorbable this
+   * many times, so a run cannot recover forever — not even one flapping between
+   * two conditions.
+   */
   readonly maxRecoveries?: number;
 }
 
 /**
- * A run that kept meeting the same interruption is not recovering, it is
- * looping. Two, because a session expiring once mid-run is ordinary and a
- * second one is bad luck, but a run still being interrupted after it has twice
- * re-established a session is not making progress and should say so.
+ * How many times one run may absorb each condition before it is escalating a
+ * loop rather than recovering from a blip. One, because a session that expires
+ * once mid-run is ordinary and is absorbed — but a run that meets that same
+ * condition again, after it re-established or retried and re-ran from the start,
+ * has been moved nowhere by the recovery and should say so rather than absorb it
+ * a second time. Per condition (ADR 0005), so this also caps the whole run:
+ * finitely many declared conditions, each absorbable a fixed number of times,
+ * cannot recover forever.
  */
-const DEFAULT_MAX_RECOVERIES = 2;
+const DEFAULT_MAX_RECOVERIES = 1;
 
 /**
  * How a run ended.
@@ -77,7 +91,22 @@ const DEFAULT_MAX_RECOVERIES = 2;
  * correctly, and a caller reads which outcome it was rather than catching it.
  */
 export type ReplayResult =
-  | { readonly kind: "success"; readonly outputs: Record<string, unknown> }
+  | {
+      readonly kind: "success";
+      readonly outputs: Record<string, unknown>;
+      /**
+       * The Recoverable Conditions this run absorbed before it succeeded, by name
+       * and in the order first met — `["SESSION_EXPIRED"]` for the common case.
+       * Absent when the run never hit one, which is the ordinary success.
+       *
+       * The outputs are still the answer; this is annotation beside it. A run that
+       * recovered produced exactly what it was asked for, but *that* it had to
+       * recover is worth surfacing — the evidence marks it, and the dashboard shows
+       * it as recovered rather than as a plain success that hides the blip it rode
+       * through. Absorbing a condition is no longer invisible in the result.
+       */
+      readonly recovered?: readonly string[];
+    }
   | {
       readonly kind: "business-outcome";
       /** As the Contract declares it: `ACCOUNT_NOT_FOUND`. */
@@ -141,20 +170,43 @@ export async function replayCapability(
 
   const steps = resolveRecording(capability, options.variant);
 
-  for (let recovered = 0; ; recovered += 1) {
-    const attempt = await runOnce(surface, capability, steps, values, options, ref);
-    if (attempt.kind !== "interrupted") return attempt;
+  // How many times each condition has been absorbed this run. A budget kept per
+  // condition rather than as one shared total: a session that expires once and a
+  // maintenance page shown once are two ordinary blips, not a loop. It also
+  // bounds the run — finitely many declared conditions, each absorbable a fixed
+  // number of times — so a run flapping between two conditions still terminates
+  // rather than recovering forever.
+  const absorbed = new Map<string, number>();
 
-    const refusal = whyNotAbsorbed(capability, attempt.condition, recovered, options);
+  for (;;) {
+    const attempt = await runOnce(surface, capability, steps, values, options, ref);
+    if (attempt.kind !== "interrupted") {
+      // A success reached after absorbing one or more conditions carries their
+      // names, so the run that recovered can be told from the run that never
+      // stumbled. The budget map already holds exactly the conditions absorbed,
+      // in the order first met.
+      if (attempt.kind === "success" && absorbed.size > 0) {
+        return { ...attempt, recovered: [...absorbed.keys()] };
+      }
+      return attempt;
+    }
+
+    const already = absorbed.get(attempt.condition.name) ?? 0;
+    const refusal = whyNotAbsorbed(capability, attempt.condition, already, options);
     if (refusal !== undefined) {
       return { ...attempt.failure, observed: `${attempt.failure.observed}; ${refusal}` };
     }
 
-    // The session is re-established, and then the whole Recording runs again
-    // from its first Step. Re-running rather than resuming, because the Steps
-    // already taken were taken in a session that no longer exists — the screen
-    // they left the run on went with it.
-    await options.reestablishSession?.();
+    // Absorbed, and then the whole Recording runs again from its first Step.
+    // Re-running rather than resuming, because the screen the run was left
+    // standing on is not one any Step expected to be on. A `re-establish-session`
+    // condition means the old session is gone, so a new one is signed in first;
+    // a `retry` condition (MERIDIAN's transient maintenance page) leaves the
+    // session intact, so the run is simply attempted again.
+    absorbed.set(attempt.condition.name, already + 1);
+    if (attempt.condition.recover === "re-establish-session") {
+      await options.reestablishSession?.();
+    }
   }
 }
 
@@ -170,21 +222,31 @@ export async function replayCapability(
 function whyNotAbsorbed(
   capability: Capability,
   condition: RecoverableCondition,
-  recovered: number,
+  alreadyAbsorbed: number,
   options: ReplayOptions,
 ): string | undefined {
   const met = `the "${condition.name}" Recoverable Condition matched`;
 
-  if (options.reestablishSession === undefined) {
+  // Only re-establishing needs credentials the caller may not have handed over;
+  // a `retry` condition is absorbed with nothing but another pass.
+  if (condition.recover === "re-establish-session" && options.reestablishSession === undefined) {
     return `${met}, and this run was given no way to re-establish a session`;
   }
   if (capability.contract.effects !== "read-only") {
     return `${met}, and a mutating Capability is not re-run from the start`;
   }
 
+  // This condition matching after it was already absorbed as many times as it
+  // may be. Kept per condition, so a different interruption does not spend this
+  // one's budget.
   const budget = options.maxRecoveries ?? DEFAULT_MAX_RECOVERIES;
-  if (recovered >= budget) {
-    return `${met} again, and this run may absorb ${budget === 0 ? "none" : `only ${budget}`}`;
+  if (alreadyAbsorbed >= budget) {
+    // "again" only when it truly recurred: a budget of zero refuses the very
+    // first sighting, and saying "again" then would report a recurrence that did
+    // not happen.
+    const recurred = alreadyAbsorbed > 0 ? " again" : "";
+    const allowance = budget === 0 ? "none" : `only ${budget}`;
+    return `${met}${recurred}, and this run may absorb ${allowance}`;
   }
   return undefined;
 }
@@ -199,6 +261,10 @@ async function runOnce(
   ref: string,
 ): Promise<Attempt> {
   const extracted: Record<string, string> = {};
+  // A `readEach` binds a structured list, not a scalar, so it is kept apart from
+  // the text reads: `coerceTextValues` turns text into a declared type and would
+  // reject an array, which this list already is.
+  const extractedRecords: Record<string, unknown> = {};
 
   for (const step of steps) {
     const action = substituteAction(step.action, values, options.baseUrl);
@@ -232,6 +298,9 @@ async function runOnce(
     // is described by the Recording rather than by a second list of Locators
     // hanging off the Terminal State.
     if (step.action.kind === "read") extracted[step.action.bind] = result.value ?? "";
+    // A `readEach` binds the whole list of rows. An empty list is a real value —
+    // a table with no data rows — so it is bound as `[]`, not skipped.
+    if (step.action.kind === "readEach") extractedRecords[step.action.bind] = result.records ?? [];
   }
 
   // The Steps running out is not success. ADR 0004: success is a declared
@@ -255,8 +324,12 @@ async function runOnce(
     outputs: parseContractValues(
       capability.contract.outputs,
       // A read returns the text of a control; the Contract says what that text
-      // means.
-      coerceTextValues(capability.contract.outputs, extracted, `An output of ${ref}`),
+      // means. A `readEach` already produced structured rows, so those join the
+      // coerced scalars rather than passing through the text coercion.
+      {
+        ...coerceTextValues(capability.contract.outputs, extracted, `An output of ${ref}`),
+        ...extractedRecords,
+      },
       `This run's outputs for ${ref}`,
     ),
   };

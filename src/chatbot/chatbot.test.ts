@@ -1,0 +1,373 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fundsTransferCapability } from "../capability/meridian/funds-transfer.js";
+import { memberLookupCapability } from "../capability/meridian/member-lookup.js";
+import type { Capability } from "../capability/schema.js";
+import { saveCapability } from "../capability/storage.js";
+import { startCatalog, type CatalogServer, type InvokeCapability } from "../catalog/serve.js";
+import { loadSurfaceProfile, surfacesDir, type RecoverableCondition } from "../policy/profile.js";
+import { replayCapability } from "../replay/replay.js";
+import { FakeSurface } from "../surface/fake-surface.js";
+import {
+  MERIDIAN_CAPTURED_BASE_URL as BASE,
+  meridianMemberLookupScript,
+  meridianTransferScript,
+} from "../surface/meridian/fake-script.js";
+import { catalogClient, type CatalogClient } from "./catalog-client.js";
+import { createChatbot } from "./chatbot.js";
+import { LoginSession } from "../surface/login-session.js";
+import type { IntentRouter, NextAction } from "./types.js";
+
+/**
+ * The chatbot end to end, against a real in-process catalog backed by the
+ * FakeSurface — the same Replay the CLI runs, over the same HTTP the catalog
+ * serves — with only the LLM intent-router stubbed. So everything the ticket
+ * asks about is exercised for real: the invocation crosses the wire and drives a
+ * run, the chain is two live invokes with the second holding the first's result,
+ * and the plain-language answer is shaped from the structured result that came
+ * back. The router is the one thing faked, because a mocked model is the only way
+ * to make the test deterministic; the boundary it stands behind is exact.
+ *
+ * The shares and amount are the funds-transfer Capability's own known-good inputs
+ * (they drive the captured `posted` script through to its confirmation); the
+ * member number in the chain is not hard-coded but taken from what the lookup
+ * returned, which is the whole point of "resolve, then act".
+ */
+const TRANSFER = {
+  fromShare: "100234-S0001-14 - Regular Shares ($100.00)",
+  toShare: "100234-S0001-6 - Regular Shares ($40.00)",
+  amount: "1.00",
+  memo: "rent",
+} as const;
+
+describe("the chatbot over the catalog", () => {
+  let root = "";
+  let server: CatalogServer | undefined;
+  let recoverableConditions: readonly RecoverableCondition[] = [];
+
+  const approved = (capability: Capability): Capability => ({ ...capability, approval: "approved" });
+
+  /** A one-shot router that plays a fixed sequence of actions, then stops. */
+  function scriptedRouter(actions: readonly NextAction[]): IntentRouter {
+    let turn = 0;
+    return async () => actions[turn++] ?? { kind: "done" };
+  }
+
+  /**
+   * The run itself: the real Replay against a FakeSurface, the script chosen from
+   * what was asked, exactly as a live catalog would reach one of these endings.
+   */
+  const invoke: InvokeCapability = async (capability, inputs) => {
+    if (capability.id === "member-lookup") {
+      const q = String(inputs["q"] ?? "");
+      const outcome = q === "999999" ? "none" : q === "o" ? "multiple" : "unique";
+      return replayCapability(new FakeSurface(meridianMemberLookupScript(outcome)), capability, inputs, {
+        baseUrl: BASE,
+        recoverableConditions,
+      });
+    }
+    if (capability.id === "funds-transfer") {
+      return replayCapability(new FakeSurface(meridianTransferScript("posted")), capability, inputs, {
+        baseUrl: BASE,
+        recoverableConditions,
+      });
+    }
+    throw new Error(`the test invoke does not drive "${capability.id}"`);
+  };
+
+  async function chatbotAsking(router: IntentRouter): Promise<(utterance: string) => Promise<string>> {
+    server = await startCatalog({ root, invoke, port: 0 });
+    const bot = createChatbot({ client: catalogClient(server.url), router });
+    return (utterance) => bot.ask(utterance);
+  }
+
+  /** The chatbot itself, for the structured `run` the served UI calls. */
+  async function chatbotFor(router: IntentRouter): Promise<ReturnType<typeof createChatbot>> {
+    server = await startCatalog({ root, invoke, port: 0 });
+    return createChatbot({ client: catalogClient(server.url), router });
+  }
+
+  /** Returns the transfer while nothing has run yet, then stops — idempotent across
+   * the two stateless requests a confirm makes. */
+  const transferThenDone: IntentRouter = async (_utterance, _catalog, history) =>
+    history.length === 0
+      ? { kind: "invoke", invocation: { ref: "funds-transfer", inputs: { memberNumber: "100234", ...TRANSFER } } }
+      : { kind: "done" };
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), "cua-chatbot-"));
+    await saveCapability(root, approved(memberLookupCapability()));
+    await saveCapability(root, approved(fundsTransferCapability()));
+    recoverableConditions = (await loadSurfaceProfile(surfacesDir(), "meridian")).recoverableConditions;
+  });
+
+  afterEach(async () => {
+    await server?.close();
+    server = undefined;
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("turns a request into one invocation with typed args and reports the result", async () => {
+    const ask = await chatbotAsking(
+      scriptedRouter([
+        { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } } },
+      ]),
+    );
+
+    const answer = await ask("look up member 100234");
+
+    expect(answer).toMatch(/done/i);
+    expect(answer).toContain("memberNumber: 100234");
+    expect(answer).toContain("name: Lovelace, Ada");
+  });
+
+  it("chains resolve-then-act, carrying the resolved member number into the transfer", async () => {
+    // The second action reads the first's result from history — a real chain, not
+    // a pre-baked member number. This is "resolve a member, then act on them".
+    const router: IntentRouter = async (_utterance, _catalog, history) => {
+      if (history.length === 0) {
+        return { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Last Name", q: "Lovelace" } } };
+      }
+      const resolved = history[0]!.outcome;
+      if (history.length === 1 && resolved.kind === "success") {
+        return {
+          kind: "invoke",
+          invocation: { ref: "funds-transfer", inputs: { memberNumber: resolved.outputs["memberNumber"], ...TRANSFER } },
+        };
+      }
+      return { kind: "done" };
+    };
+
+    const answer = await (await chatbotAsking(router))("transfer $1 for Lovelace from shares 14 to 6");
+
+    // The act's confirmation, not the resolve's member — the chain reports where
+    // it ended.
+    expect(answer).toContain("confirmationNumber: CN480243");
+  });
+
+  it("stops the chain and asks the caller to narrow when a name matches several", async () => {
+    const router: IntentRouter = async (_utterance, _catalog, history) => {
+      if (history.length === 0) {
+        return { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Last Name", q: "o" } } };
+      }
+      // Would act next, but the resolve was ambiguous, so the loop never gets here.
+      return { kind: "invoke", invocation: { ref: "funds-transfer", inputs: { memberNumber: "x", ...TRANSFER } } };
+    };
+
+    const answer = await (await chatbotAsking(router))("transfer $1 for someone called o");
+
+    expect(answer).toMatch(/narrow/i);
+    expect(answer).toMatch(/member number/i);
+  });
+
+  it("stops and asks rather than invoking when the router asks the caller to disambiguate", async () => {
+    // The router resolves the member (read-only), sees the share was named only by
+    // type with several matching, and asks which one instead of guessing — the loop
+    // must return the question and invoke no mutating step.
+    let invoked = 0;
+    const router: IntentRouter = async (_utterance, _catalog, history) => {
+      if (history.length === 0) {
+        return { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } } };
+      }
+      return { kind: "ask", question: "You have several Regular Shares. Which one — S0001-14 ($67) or S0001-20 ($5)?" };
+    };
+    const countingRouter: IntentRouter = async (u, c, h) => {
+      const action = await router(u, c, h);
+      if (action.kind === "invoke" && action.invocation.ref === "funds-transfer") invoked++;
+      return action;
+    };
+
+    const result = await (await chatbotFor(countingRouter)).run("transfer $1 from member 100234's Regular Shares");
+
+    expect(invoked).toBe(0);
+    expect(result.asked).toMatch(/which one/i);
+    expect(result.answer).toBe(result.asked);
+    // The read-only lookup still ran; only the mutating step was withheld.
+    expect(result.steps.map((s) => s.invocation.ref)).toEqual(["member-lookup"]);
+    expect(result.pending).toBeUndefined();
+  });
+
+  it("reports a clean 'no such member' when the lookup misses", async () => {
+    const ask = await chatbotAsking(
+      scriptedRouter([
+        { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "999999" } } },
+      ]),
+    );
+
+    expect(await ask("look up member 999999")).toMatch(/couldn't find/i);
+  });
+
+  it("says it couldn't finish rather than passing off a mid-chain success as the answer", async () => {
+    // A router that keeps invoking and never says "done": each lookup succeeds,
+    // so the loop runs to its cap. The answer must not be the last success dressed
+    // up as "Done" — it must own that the request wasn't finished.
+    const forever = scriptedRouter(
+      Array.from({ length: 10 }, (): NextAction => ({
+        kind: "invoke",
+        invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } },
+      })),
+    );
+
+    const answer = await (await chatbotAsking(forever))("keep looking that up forever");
+
+    expect(answer).toMatch(/couldn't finish/i);
+    expect(answer).not.toMatch(/done/i);
+    expect(answer).not.toContain("memberNumber: 100234");
+  });
+
+  it("reports the success when a chain finishes exactly at the step cap", async () => {
+    // Exactly MAX_STEPS (6) successful invocations, then the scripted router is
+    // done. The chain fills the cap but does not want to cross it, so its final
+    // result is the answer — not the "couldn't finish" a chain that wanted more
+    // earns. Before the fix, the 6th success set ranOut unconditionally and this
+    // legitimate completion was reported as a failure.
+    const exactlyAtCap = scriptedRouter(
+      Array.from({ length: 6 }, (): NextAction => ({
+        kind: "invoke",
+        invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } },
+      })),
+    );
+
+    const answer = await (await chatbotAsking(exactlyAtCap))("look that up right up to the limit");
+
+    expect(answer).toMatch(/done/i);
+    expect(answer).toContain("memberNumber: 100234");
+    expect(answer).not.toMatch(/couldn't finish/i);
+  });
+
+  it("relays the catalog's escalation for a mutating draft, enforcing no guardrail of its own", async () => {
+    // A mutating draft on disk, invoked by ref — bypassing catalog discovery,
+    // which lists approved-only. The chatbot does not refuse it; it invokes it
+    // and relays serve's 403, which is the point of "serve is the only boundary".
+    await saveCapability(root, { ...fundsTransferCapability(), id: "transfer-draft", approval: "draft" });
+    const ask = await chatbotAsking(
+      scriptedRouter([
+        {
+          kind: "invoke",
+          invocation: { ref: "transfer-draft", inputs: { memberNumber: "100234", ...TRANSFER } },
+        },
+      ]),
+    );
+
+    const answer = await ask("post this draft transfer");
+
+    expect(answer).toMatch(/sign off/i);
+    expect(answer).toMatch(/draft/i);
+  });
+
+  it("previews a mutating step — the plan, with nothing invoked", async () => {
+    const bot = await chatbotFor(transferThenDone);
+
+    const result = await bot.run("transfer $1 for 100234", { preview: true });
+
+    expect(result.steps).toHaveLength(0);
+    expect(result.pending).toBeDefined();
+    expect(result.pending!.reason).toBe("preview");
+    expect(result.pending!.ref).toBe("funds-transfer");
+    expect(result.answer).toMatch(/preview/i);
+  });
+
+  it("holds a mutating step for confirmation, then posts exactly what was shown", async () => {
+    const bot = await chatbotFor(transferThenDone);
+
+    const held = await bot.run("transfer $1 for 100234", { confirmMutating: true });
+    expect(held.steps).toHaveLength(0);
+    expect(held.pending!.reason).toBe("confirm");
+
+    // Proceed with the exact invocation the pause reported — the post binds to
+    // what the caller confirmed, not to whatever the router would say now.
+    const posted = await bot.run("transfer $1 for 100234", {
+      confirmMutating: true,
+      proceed: true,
+      confirmed: held.pending!.invocation,
+    });
+    expect(posted.pending).toBeUndefined();
+    expect(posted.steps).toHaveLength(1);
+    expect(posted.steps[0]!.invocation).toEqual(held.pending!.invocation);
+    expect(posted.answer).toContain("confirmationNumber: CN480243");
+  });
+
+  it("runs the confirmed invocation as-is, not one the router re-derives", async () => {
+    // The router is done — it would invoke nothing. A confirmed proceed must still
+    // run the action the caller clicked, which is what binds the confirm to the
+    // screen rather than to a second model call.
+    const bot = await chatbotFor(scriptedRouter([]));
+    const confirmed = { ref: "funds-transfer", inputs: { memberNumber: "100234", ...TRANSFER } };
+
+    const posted = await bot.run("post it", { proceed: true, confirmed });
+
+    expect(posted.steps).toHaveLength(1);
+    expect(posted.steps[0]!.invocation).toEqual(confirmed);
+    expect(posted.steps[0]!.outcome.kind).toBe("success");
+  });
+
+  it("never holds a read-only step — preview only pauses a mutating one", async () => {
+    const bot = await chatbotFor(
+      scriptedRouter([
+        { kind: "invoke", invocation: { ref: "member-lookup", inputs: { by: "Member Number", q: "100234" } } },
+      ]),
+    );
+
+    const result = await bot.run("look up 100234", { preview: true });
+
+    expect(result.pending).toBeUndefined();
+    expect(result.steps).toHaveLength(1);
+    expect(result.steps[0]!.outcome.kind).toBe("success");
+  });
+});
+
+/**
+ * The served login gate (#51): the chatbot refuses in plain language until a
+ * person has signed on at the portal, reaching nothing until it is admitted. A
+ * recording fake catalog client stands in — the point here is what the chatbot
+ * does before it ever reaches the catalog, not the run.
+ */
+describe("the chatbot login gate", () => {
+  function recordingClient(): { client: CatalogClient; calls: string[] } {
+    const calls: string[] = [];
+    const client: CatalogClient = {
+      async list() {
+        calls.push("list");
+        return [];
+      },
+      async invoke(invocation) {
+        calls.push(`invoke:${invocation.ref}`);
+        return { kind: "success", outputs: {} };
+      },
+    };
+    return { client, calls };
+  }
+
+  const doneRouter: IntentRouter = async () => ({ kind: "done" });
+
+  it("refuses in plain language and reaches nothing until someone is signed on", async () => {
+    const { client, calls } = recordingClient();
+    const session = new LoginSession({ idleMs: 60_000 });
+    const bot = createChatbot({ client, router: doneRouter, session });
+
+    const result = await bot.run("check the balance for 100234");
+
+    expect(result.steps).toEqual([]);
+    expect(result.answer).toMatch(/sign on/i);
+    expect(calls).toEqual([]); // never reached the catalog
+  });
+
+  it("lets a query through once signed on, and refuses again after sign-off", async () => {
+    const { client, calls } = recordingClient();
+    const session = new LoginSession({ idleMs: 60_000 });
+    const bot = createChatbot({ client, router: doneRouter, session });
+
+    session.signOn({ operator: "teller1", branch: "MAIN-001 - Main Office" });
+    const admitted = await bot.run("anything");
+    expect(admitted.answer).not.toMatch(/sign on/i);
+    expect(calls).toContain("list"); // the gate let it read the catalog
+
+    session.signOff();
+    calls.length = 0;
+    const locked = await bot.run("anything again");
+    expect(locked.answer).toMatch(/sign on/i);
+    expect(calls).toEqual([]);
+  });
+});

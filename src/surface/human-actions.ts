@@ -66,7 +66,16 @@ export type CapturedControl = z.infer<typeof capturedControlSchema>;
  * desktop Surface would return one too. A type whose implementors all live
  * somewhere else is a type in the wrong place.
  */
-export type StopCapture = () => Promise<void>;
+/**
+ * Stops a capture, and hands back the form's final state.
+ *
+ * The returned Actions are what every form control carried when the session
+ * came back — the value-carrying reading the change-driven capture cannot give
+ * for an option left on its default. They are not yet de-duplicated against what
+ * was captured live; `mergeFinalState` does that, at the point that knows what
+ * was already recorded.
+ */
+export type StopCapture = () => Promise<readonly Action[]>;
 
 const KNOWN_ROLES = new Set<string>(ARIA_ROLES);
 
@@ -102,6 +111,98 @@ export function actionFrom(captured: unknown): Action | undefined {
   if (kind === "click") return { kind: "click", locator };
   if (value === undefined) return undefined;
   return kind === "fill" ? { kind: "fill", locator, value } : { kind: "select", locator, option: value };
+}
+
+/**
+ * The form's final state, as the value-carrying Actions a Recording could carry.
+ *
+ * The change-driven capture only ever sees a control the person *changed*: a
+ * `<select>` fires `change` when its value moves, so an option picked but left
+ * on the one already selected fires nothing and is never reported. That is the
+ * whole gap — a mutating form whose default is the right answer records no
+ * `select`, and the recorder then refuses to save because the input "was never
+ * used". The snapshot closes it by reading every control's value as it stands
+ * when the session comes back, and this turns those readings into Actions.
+ *
+ * It keeps only the value-carrying verbs (`fill`, `select`): the snapshot never
+ * reports a click, and a field left empty contributes no Step — there is
+ * nothing to bind an input to. It de-duplicates within one snapshot by Locator,
+ * so a form that somehow reported the same control twice yields one Step.
+ */
+export function actionsFromSnapshot(captured: unknown): Action[] {
+  if (!Array.isArray(captured)) return [];
+
+  const actions: Action[] = [];
+  for (const one of captured) {
+    const action = actionFrom(one);
+    if (action === undefined) continue;
+    if (action.kind !== "fill" && action.kind !== "select") continue;
+    // An empty field binds to nothing. The page reader already omits empties;
+    // this drops one that arrives any other way, so it never shadows the real
+    // value in the de-duplication below.
+    if (action.kind === "fill" && action.value === "") continue;
+    if (actions.some((seen) => sameControl(seen, action))) continue;
+    actions.push(action);
+  }
+  return actions;
+}
+
+/**
+ * The final-state Actions that no change event already recorded.
+ *
+ * A control the person actually changed is captured live, in the order it
+ * happened, and that Step is the authoritative one — it carries the option they
+ * moved *to*, which is also where the form ends up, so the snapshot would only
+ * report it again. So the merge keeps a final-state Action only when nothing
+ * already captured addresses the same control, which is exactly the
+ * default-left-untouched case the snapshot exists for.
+ */
+export function mergeFinalState(already: readonly Action[], finalState: readonly Action[]): Action[] {
+  return finalState.filter((action) => !already.some((seen) => sameControl(seen, action)));
+}
+
+/**
+ * Whether two Actions address the same control. Same role, same name, same
+ * ordinal — the fields a capture sets. An Action with no Locator at all (a
+ * `navigate`) addresses no control and matches nothing.
+ *
+ * The ordinal is compared as `ordinal ?? 0`, because a control the live capture
+ * saw when it was the only one of its name carries no ordinal, while the
+ * snapshot — taken later, when a second same-named control may have rendered —
+ * writes `ordinal: 0` for that same first control. Both mean "the first match",
+ * so treating a missing ordinal as `0` keeps the de-duplication from folding in
+ * a control a change event already recorded. A genuinely different control
+ * (`ordinal: 2`) still differs from the first.
+ */
+function sameControl(a: Action, b: Action): boolean {
+  const one = "locator" in a ? a.locator : undefined;
+  const two = "locator" in b ? b.locator : undefined;
+  if (one === undefined || two === undefined) return false;
+  return (
+    one.role === two.role &&
+    one.name === two.name &&
+    one.exact === two.exact &&
+    (one.ordinal ?? 0) === (two.ordinal ?? 0) &&
+    one.within?.role === two.within?.role &&
+    one.within?.name === two.within?.name
+  );
+}
+
+/**
+ * A page-ready expression that reads the form's final state through the reader
+ * `installCapture` stashes on the page.
+ *
+ * It calls the stashed reader rather than serialising a fresh one, so the whole
+ * role/name/ordinal derivation lives in exactly one place — the listeners
+ * already injected through the transpiler-proof wrapper — and cannot drift from
+ * what the live capture reports. A page the capture never ran on has no reader;
+ * the `|| (function () { return []; })` makes that return no controls rather
+ * than throw. It serialises no function of this module's, so the esbuild
+ * `__name` hazard `injectableCaptureScript` guards against does not arise here.
+ */
+export function snapshotExpression(binding: string): string {
+  const reader = JSON.stringify(binding + "__snapshot");
+  return `((globalThis[${reader}] || (function () { return []; }))())`;
 }
 
 /**
@@ -371,4 +472,57 @@ function installCapture(binding: string): void {
     },
     true,
   );
+
+  // The final-state reader, stashed for `snapshotExpression` to call when the
+  // session comes back. It reports the value every form control carries *now*,
+  // not only the ones a change event announced — the point of the whole thing is
+  // the option a person picked but left on its default, which fires no change.
+  // It reuses the same role/name/ordinal derivation the listeners use, so a
+  // Locator it reports is one the live capture would have reported too.
+  //
+  // Stashed here, after the `report === undefined` guard above, only because the
+  // helpers it closes over are defined in this scope — it does not use `report`
+  // itself. The binding is exposed before this init script ever runs, so `report`
+  // is present in practice and the reader is always installed; if it somehow were
+  // not, `snapshotExpression` reads no controls rather than throwing.
+  //
+  // It walks the whole document, not one form: MERIDIAN's intervention pages
+  // (Place Account Hold, Funds Transfer, …) each show a single mutating form, so
+  // "every visible value-carrying control" is that form. A page that also carried
+  // an unrelated pre-filled field — a header search box, a nav dropdown — would
+  // have it folded in as a spurious Step; the empty-field and placeholder-option
+  // guards below drop the common cases, and the operator reads the Steps before
+  // they are folded into anything.
+  page[binding + "__snapshot"] = (): unknown[] => {
+    const controls: unknown[] = [];
+    for (const element of Array.from(document.getElementsByTagName("*"))) {
+      const role = roleOf(element);
+      if (role !== "combobox" && role !== "listbox" && role !== "textbox" && role !== "searchbox") {
+        continue;
+      }
+      if (!visible(element)) continue;
+
+      const tag = element.tagName.toLowerCase();
+      let value: string;
+      if (tag === "select") {
+        // A select sitting on a placeholder option — one whose value is empty,
+        // e.g. "-- Select --" — has nothing chosen to bind an input to, so it
+        // contributes no Step, the same rule an empty text field follows. The
+        // recorded value is still the option's label, not its value attribute.
+        if ((element.value ?? "") === "") continue;
+        const chosen = element.selectedOptions?.[0];
+        // The label, not the value, exactly as the change listener records it.
+        value = text(chosen?.textContent ?? element.value ?? "");
+      } else {
+        // A field left empty binds to nothing, so it contributes no Step.
+        value = element.value ?? "";
+        if (value === "") continue;
+      }
+
+      const name = nameOf(element, role);
+      const [matches, ordinal] = positionOf(element, role, name);
+      controls.push({ kind: tag === "select" ? "select" : "fill", role, name, matches, ordinal, value });
+    }
+    return controls;
+  };
 }

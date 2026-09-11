@@ -71,6 +71,23 @@ describe("readAriaSnapshot", () => {
     ]);
   });
 
+  it("strips the quotes YAML puts around a number-like inline value", () => {
+    // Playwright's snapshot YAML wraps a number-like value in double quotes
+    // (`- textbox: "100234"`); the read wants the bare value, or an exact read
+    // of 100234 would mismatch the quoted string. A plain value is left as-is,
+    // and a value that only looks quoted at one end is not touched.
+    const nodes = readAriaSnapshot(
+      [`- textbox: "100234"`, `- textbox: some-user`, `- textbox: "say \\"hi\\""`, `- textbox: "5`].join("\n"),
+    );
+
+    expect(nodes).toEqual([
+      { role: "textbox", name: undefined, depth: 0, text: "100234" },
+      { role: "textbox", name: undefined, depth: 0, text: "some-user" },
+      { role: "textbox", name: undefined, depth: 0, text: `say "hi"` },
+      { role: "textbox", name: undefined, depth: 0, text: `"5` },
+    ]);
+  });
+
   it("leaves the name undefined on an unnamed node, and skips property lines", () => {
     // ParaBank's login form, verbatim: the textboxes carry no accessible name,
     // and `/url:` is a property of the link above it rather than a node.

@@ -89,6 +89,20 @@ export function substituteAction(
       // executor's business and not the Surface's.
       return { kind: "read", locator: substituteLocator(action.locator, inputs) };
 
+    case "readEach":
+      // Same as `read`: `bind` is the executor's, not the Surface's. Both the
+      // rows and every column may carry an input reference, so both are filled.
+      return {
+        kind: "readEach",
+        rows: substituteLocator(action.rows, inputs),
+        columns: Object.fromEntries(
+          Object.entries(action.columns).map(([field, column]) => [
+            field,
+            substituteLocator(column, inputs),
+          ]),
+        ),
+      };
+
     case "waitFor":
       return {
         kind: "waitFor",

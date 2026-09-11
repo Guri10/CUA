@@ -1,0 +1,194 @@
+{
+  "id": "member-balance",
+  "version": 3,
+  "surface": "meridian",
+  "approval": "draft",
+  "contract": {
+    "summary": "Look up a member by member number and open their record. Confirm you are on the MEMBER RECORD screen, then read every share's id, type, balance, and status.",
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "memberNumber"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "shares": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "balance": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "balance",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "shares"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "additionalProperties": false
+    },
+    "effects": "read-only",
+    "terminalStates": [
+      {
+        "kind": "success",
+        "when": {
+          "kind": "all",
+          "of": [
+            {
+              "kind": "present",
+              "locator": {
+                "role": "heading",
+                "name": {
+                  "kind": "literal",
+                  "value": "MEMBER RECORD"
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "variant": "base",
+      "steps": [
+        {
+          "id": "navigate-menu",
+          "action": {
+            "kind": "navigate",
+            "url": {
+              "kind": "literal",
+              "value": "/menu"
+            }
+          }
+        },
+        {
+          "id": "click-link-member-inquiry-selection",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Member Inquiry / Selection"
+              }
+            }
+          }
+        },
+        {
+          "id": "fill-textbox",
+          "action": {
+            "kind": "fill",
+            "locator": {
+              "role": "textbox"
+            },
+            "value": {
+              "kind": "input",
+              "input": "memberNumber"
+            }
+          }
+        },
+        {
+          "id": "click-button-search",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "button",
+              "name": {
+                "kind": "literal",
+                "value": "Search"
+              }
+            }
+          }
+        },
+        {
+          "id": "click-link-select",
+          "action": {
+            "kind": "click",
+            "locator": {
+              "role": "link",
+              "name": {
+                "kind": "literal",
+                "value": "Select"
+              }
+            }
+          }
+        },
+        {
+          "id": "wait-for-heading-member-record",
+          "action": {
+            "kind": "waitFor",
+            "locator": {
+              "role": "heading",
+              "name": {
+                "kind": "literal",
+                "value": "MEMBER RECORD"
+              }
+            }
+          }
+        },
+        {
+          "id": "read-each-shares",
+          "action": {
+            "kind": "readEach",
+            "rows": {
+              "role": "row",
+              "name": {
+                "kind": "literal",
+                "value": "100234-"
+              }
+            },
+            "columns": {
+              "id": {
+                "role": "cell",
+                "ordinal": 0
+              },
+              "type": {
+                "role": "cell",
+                "ordinal": 1
+              },
+              "balance": {
+                "role": "cell",
+                "ordinal": 2
+              },
+              "status": {
+                "role": "cell",
+                "ordinal": 3
+              }
+            },
+            "bind": "shares"
+          }
+        }
+      ]
+    }
+  ]
+}

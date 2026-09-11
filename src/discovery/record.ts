@@ -51,6 +51,7 @@ import {
   type TerminalState,
 } from "../capability/schema.js";
 import type { Locator } from "../surface/surface.js";
+import { optionMatches } from "../surface/option-match.js";
 import type { TakenStep } from "./discover.js";
 
 /**
@@ -164,7 +165,7 @@ export function recordCapability(plan: RecordingPlan, taken: readonly TakenStep[
     contract: {
       summary: plan.summary,
       inputs: textSchemaFor(Object.keys(plan.inputs)),
-      outputs: textSchemaFor(plan.outputs),
+      outputs: outputsSchemaFor(plan.outputs, identified),
       effects: effectsOf(plan, taken),
       terminalStates: [success],
     },
@@ -202,12 +203,15 @@ function keptSteps(taken: readonly TakenStep[], outputs: readonly string[]): Tak
   const declared = new Set(outputs);
   const lastReadFor = new Map<string, TakenStep>();
   for (const step of succeeded) {
-    if (step.action.kind !== "read") continue;
+    if (step.action.kind !== "read" && step.action.kind !== "readEach") continue;
     if (step.bind === undefined || !declared.has(step.bind)) continue;
     lastReadFor.set(step.bind, step);
   }
   const bound = new Set(lastReadFor.values());
-  const useful = succeeded.filter((step) => step.action.kind !== "read" || bound.has(step));
+  const useful = succeeded.filter(
+    (step) =>
+      (step.action.kind !== "read" && step.action.kind !== "readEach") || bound.has(step),
+  );
 
   return withoutSupersededSteps(useful);
 }
@@ -274,7 +278,7 @@ function stepActionFor(step: TakenStep, plan: RecordingPlan): StepAction {
       return {
         kind: "select",
         locator: stepLocatorFor(action.locator, plan),
-        option: expressionFor(action.option, plan),
+        option: optionExpressionFor(action.option, plan),
       };
 
     case "read":
@@ -283,6 +287,19 @@ function stepActionFor(step: TakenStep, plan: RecordingPlan): StepAction {
         locator: stepLocatorFor(action.locator, plan),
         // `keptSteps` drops every read without one, so this is a formality the
         // type system needs rather than a case that happens.
+        bind: step.bind ?? "",
+      };
+
+    case "readEach":
+      return {
+        kind: "readEach",
+        rows: stepLocatorFor(action.rows, plan),
+        columns: Object.fromEntries(
+          Object.entries(action.columns).map(([field, column]) => [
+            field,
+            stepLocatorFor(column, plan),
+          ]),
+        ),
         bind: step.bind ?? "",
       };
 
@@ -314,12 +331,44 @@ function stepLocatorFor(locator: Locator, plan: RecordingPlan): StepLocator {
  * "$1,231.10", in "Bill Pay", in a URL path. Whole-value equality either
  * recognises the caller's value or does not, and when it does not the run is
  * refused rather than half-parameterised — see `unusedInputs`.
+ *
+ * An empty input value never binds. Empty equals empty, so without this an
+ * optional field the caller left blank would capture the first empty text any
+ * Step happened to carry — a blank select default, an empty fill — and bind it
+ * arbitrarily, dropping any other blank optional. That is the same arbitrary
+ * pick `ambiguousInputs` refuses, and skipping "" here is what lets both guards
+ * treat a blank optional as genuinely unused rather than merely assume it.
  */
 function expressionFor(text: string, plan: RecordingPlan): Expression {
   for (const [name, value] of Object.entries(plan.inputs)) {
-    if (value === text) return { kind: "input", input: name };
+    if (value !== "" && value === text) return { kind: "input", input: name };
   }
   return { kind: "literal", value: text };
+}
+
+/**
+ * The same parameterisation as `expressionFor`, for a select option, where the
+ * chosen option's label may decorate the id the caller declared —
+ * `100234-S0001-12 - Regular Shares ($50.00)` for a declared `100234-S0001-12`.
+ * Whole-value equality never recognises the id inside such a label, so a
+ * declared share would count as unused and the run would be refused.
+ *
+ * Exact equality is tried first, so an option whose label *is* the declared
+ * value keeps binding exactly as before; only when nothing matches exactly does
+ * `optionMatches` recognise the declared id at the front of a decorated label —
+ * the same rule the Surface uses to select the option at replay, so what binds
+ * here is what selects there. This looseness is safe because it is scoped to a
+ * control's own options, not to arbitrary text (the rewrite `expressionFor`
+ * refuses).
+ */
+function optionExpressionFor(optionText: string, plan: RecordingPlan): Expression {
+  for (const [name, value] of Object.entries(plan.inputs)) {
+    if (value !== "" && value === optionText) return { kind: "input", input: name };
+  }
+  for (const [name, value] of Object.entries(plan.inputs)) {
+    if (value !== "" && optionMatches(optionText, value)) return { kind: "input", input: name };
+  }
+  return { kind: "literal", value: optionText };
 }
 
 /**
@@ -397,6 +446,10 @@ function describeForId(action: StepAction): string {
       // failure would have picked.
       return slug(`read ${action.bind}`);
 
+    case "readEach":
+      // The list it produces, by the output it binds — `read-each-shares`.
+      return slug(`read each ${action.bind}`);
+
     default: {
       // Role and name, and the name only when it is a literal: a reference
       // resolves to a different string on every run, so an id built from one
@@ -471,6 +524,12 @@ function successState(steps: readonly Step[]): TerminalState | undefined {
 function ambiguousInputs(plan: RecordingPlan): string[] {
   const byValue = new Map<string, string[]>();
   for (const [name, value] of Object.entries(plan.inputs)) {
+    // Empty optionals left blank are not "the same value": `expressionFor`
+    // refuses to bind an empty value, so neither can be referenced by a Step and
+    // there is nothing a Step could confuse between them. Grouping them here
+    // would refuse a run that declared two blank optionals — the very thing
+    // exempting the empty value from `unusedInputs` is meant to allow.
+    if (value === "") continue;
     byValue.set(value, [...(byValue.get(value) ?? []), name]);
   }
 
@@ -496,7 +555,17 @@ function unusedInputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
   const referenced = new Set(steps.flatMap((step) => inputReferencesInAction(step.action)));
 
   return Object.entries(plan.inputs)
-    .filter(([name]) => !referenced.has(name))
+    // An input given an empty value is an optional field the caller left blank.
+    // The Contract has no required/optional flag — every input is a string — so
+    // emptiness is the only signal, and `expressionFor` never binds an empty
+    // value, so a blank input is genuinely unusable by any Step. Only a value
+    // that was supplied and then ignored is the quiet bug this guard catches.
+    //
+    // The tradeoff of using emptiness as the signal: a required input a caller
+    // mistakenly passed as "" is exempted too, so a fat-fingered `accountId=""`
+    // records rather than being caught here. Accepted — there is no other signal
+    // to tell "deliberately blank optional" from "required, left empty by error".
+    .filter(([name, value]) => value !== "" && !referenced.has(name))
     .map(
       ([name, value]) =>
         `No Step used input "${name}", so the Recording would ignore whatever a caller supplies ` +
@@ -517,7 +586,9 @@ function unusedInputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
  */
 function unreadOutputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
   const bound = new Set(
-    steps.flatMap((step) => (step.action.kind === "read" ? [step.action.bind] : [])),
+    steps.flatMap((step) =>
+      step.action.kind === "read" || step.action.kind === "readEach" ? [step.action.bind] : [],
+    ),
   );
 
   return plan.outputs
@@ -541,4 +612,36 @@ function unreadOutputs(plan: RecordingPlan, steps: readonly Step[]): string[] {
  */
 function textSchemaFor(names: readonly string[]) {
   return jsonSchemaFor(z.object(Object.fromEntries(names.map((name) => [name, z.string()]))));
+}
+
+/**
+ * The output schema, shaped by the Step that reads each value.
+ *
+ * A value taken by a `read` is text, which the Contract coerces to its declared
+ * type at replay. A value taken by a `readEach` is a list — one record per row,
+ * a string field per column the Step read. The recorder knows which is which
+ * because the reading Step carries the shape, so the schema follows the
+ * Recording rather than a guess about what a name ought to mean. The column
+ * names are the record's fields, which is why the model is asked to key them.
+ */
+function outputsSchemaFor(outputs: readonly string[], steps: readonly Step[]) {
+  const listColumns = new Map<string, readonly string[]>();
+  for (const step of steps) {
+    if (step.action.kind === "readEach") {
+      listColumns.set(step.action.bind, Object.keys(step.action.columns));
+    }
+  }
+
+  return jsonSchemaFor(
+    z.object(
+      Object.fromEntries(
+        outputs.map((name) => {
+          const columns = listColumns.get(name);
+          if (columns === undefined) return [name, z.string()];
+          const record = z.object(Object.fromEntries(columns.map((field) => [field, z.string()])));
+          return [name, z.array(record)];
+        }),
+      ),
+    ),
+  );
 }

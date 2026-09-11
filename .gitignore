@@ -14,6 +14,7 @@ credentials.json
 # Scratch state for the coding agent, not part of the submission.
 .agent/
 .scratch/
+scratch/
 flow.md
 .claude/settings.local.json
 
@@ -46,6 +47,13 @@ playwright-report/
 blob-report/
 .playwright/
 playwright/.cache/
+
+# --- Chatbot query logs ----------------------------------------------------------
+# Per-utterance debug log of what the chatbot invoked (src/chatbot/log.ts). A
+# debugging aid, not a deliverable, and written UNREDACTED so it can be trusted
+# for what was invoked — so it must never be committed. (Distinct from /evidence,
+# which is a required, redacted deliverable — see the note at the bottom.)
+chatbot-logs/
 
 # --- OS / editor -----------------------------------------------------------------
 .DS_Store

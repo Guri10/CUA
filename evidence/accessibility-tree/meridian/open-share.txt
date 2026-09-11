@@ -1,0 +1,48 @@
+URL: https://web-sample.interface-hiring.com/members/100234/open-share
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "OPEN NEW SHARE Member 100234 - Lovelace, Ada * Share Type: S0001 - Regular Shares * Initial Deposit: $ Continue Cancel"':
+      - 'cell "OPEN NEW SHARE Member 100234 - Lovelace, Ada * Share Type: S0001 - Regular Shares * Initial Deposit: $ Continue Cancel"':
+        - heading "OPEN NEW SHARE" [level=1]
+        - text: Member 100234 - Lovelace, Ada
+        - table:
+          - rowgroup:
+            - 'row "* Share Type: S0001 - Regular Shares"':
+              - cell "* Share Type:"
+              - cell "S0001 - Regular Shares":
+                - combobox:
+                  - option "S0001 - Regular Shares" [selected]
+                  - option "S0070 - Share Draft (Checking)"
+                  - option "MMKT - Money Market"
+                  - option "CERT - Certificate"
+            - 'row "* Initial Deposit: $"':
+              - cell "* Initial Deposit:"
+              - cell "$":
+                - text: $
+                - textbox
+            - row "Continue Cancel":
+              - cell
+              - cell "Continue Cancel":
+                - button "Continue"
+                - link "Cancel":
+                  - /url: /members/100234
+    - row "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:00:58 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/05/2026 01:00:58 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

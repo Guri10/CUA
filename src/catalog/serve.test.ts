@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { accountLookupCapability } from "../capability/parabank/account-lookup.js";
+import { signOnCapability } from "../capability/meridian/sign-on.js";
 import type { Capability } from "../capability/schema.js";
 import { saveCapability } from "../capability/storage.js";
 import type { ReplayResult } from "../replay/replay.js";
+import { LoginSession } from "../surface/login-session.js";
 import { startCatalog, type CatalogServer, type InvokeCapability } from "./serve.js";
 
 /**
@@ -59,8 +61,11 @@ describe("Capability catalog server", () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it("lists every Capability with its Contract as JSON Schema", async () => {
-    await saveCapability(root, accountLookupCapability());
+  /** A signed-off Capability: the only kind the catalog lists. */
+  const approved = (capability: Capability): Capability => ({ ...capability, approval: "approved" });
+
+  it("lists every approved Capability with its Contract as JSON Schema", async () => {
+    await saveCapability(root, approved(accountLookupCapability()));
     const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
 
     const response = await fetch(`${url}/capabilities`);
@@ -71,6 +76,18 @@ describe("Capability catalog server", () => {
     expect(body[0].id).toBe("account-lookup");
     expect(body[0].contract.inputs.type).toBe("object");
     expect(body[0].contract.inputs.properties.accountId.type).toBe("string");
+  });
+
+  it("does not expose a draft over GET /capabilities", async () => {
+    // On disk but not signed off: the catalog the agent reads leaves it out, so
+    // the agent never invokes a Capability nobody has reviewed.
+    await saveCapability(root, accountLookupCapability());
+    const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
+
+    const response = await fetch(`${url}/capabilities`);
+
+    expect(response.status).toBe(200);
+    expect(await bodyOf(response)).toEqual([]);
   });
 
   it("invokes by name with typed arguments and returns the result", async () => {
@@ -151,7 +168,7 @@ describe("Capability catalog server", () => {
     expect(invoke.calls).toEqual([]);
   });
 
-  it("refuses a mutating draft before any run starts", async () => {
+  it("refuses a mutating draft before any run, as an escalated status with context", async () => {
     await saveCapability(root, openAccountDraft());
     const invoke = recordingInvoke({ kind: "success", outputs: {} });
     const url = await serve(invoke);
@@ -160,9 +177,18 @@ describe("Capability catalog server", () => {
       method: "POST",
       body: JSON.stringify({ inputs: {} }),
     });
+    const body = await bodyOf(response);
 
+    // A structured stopped-with-context result, not a live handover: the run
+    // never started, so there is no screen to observe and no session to hand
+    // over — only which Capability, where it stopped, and why.
     expect(response.status).toBe(403);
-    expect((await bodyOf(response)).error).toMatch(/draft/i);
+    expect(body.kind).toBe("escalated");
+    expect(body.context.capability).toBe("open-account@1");
+    expect(body.context.reason).toMatch(/draft/i);
+    expect(typeof body.context.step).toBe("string");
+    expect(body.context).not.toHaveProperty("observed");
+    // Refused before the runner was ever called.
     expect(invoke.calls).toEqual([]);
   });
 
@@ -206,5 +232,64 @@ describe("Capability catalog server", () => {
     const url = await serve(recordingInvoke({ kind: "success", outputs: {} }));
 
     expect((await fetch(`${url}/`)).status).toBe(404);
+  });
+
+  it("does not serve sign-on — invoking it is refused as not on the catalog (#52)", async () => {
+    // On disk and approved, but not served: a password must never ride an invoke
+    // payload (ADR 0006), so the route treats it as if it were not there, and the
+    // run is never reached.
+    await saveCapability(root, signOnCapability());
+    const invoke = recordingInvoke({ kind: "success", outputs: {} });
+    const url = await serve(invoke);
+
+    const response = await fetch(`${url}/capabilities/sign-on/invoke`, {
+      method: "POST",
+      body: JSON.stringify({ inputs: { operator: "teller1", password: "hunter2", branch: "MAIN-001 - Main Office" } }),
+    });
+
+    expect(response.status).toBe(404);
+    expect(invoke.calls).toEqual([]);
+  });
+
+  describe("with a login gate (#51)", () => {
+    async function serveGated(invoke: InvokeCapability, session: LoginSession): Promise<string> {
+      server = await startCatalog({ root, invoke, session, port: 0 });
+      return server.url;
+    }
+
+    it("refuses both routes with a 401 until someone has signed on", async () => {
+      await saveCapability(root, approved(accountLookupCapability()));
+      const invoke = recordingInvoke({ kind: "success", outputs: {} });
+      const url = await serveGated(invoke, new LoginSession({ idleMs: 60_000 }));
+
+      const list = await fetch(`${url}/capabilities`);
+      expect(list.status).toBe(401);
+      expect((await bodyOf(list)).error).toMatch(/sign/i);
+
+      const run = await fetch(`${url}/capabilities/account-lookup/invoke`, {
+        method: "POST",
+        body: JSON.stringify({ inputs: { accountId: "12345" } }),
+      });
+      expect(run.status).toBe(401);
+      // The gate is before the run: the invoke was never called.
+      expect(invoke.calls).toEqual([]);
+    });
+
+    it("lists and invokes once signed on, and refuses again after sign-off", async () => {
+      await saveCapability(root, approved(accountLookupCapability()));
+      const session = new LoginSession({ idleMs: 60_000 });
+      const url = await serveGated(recordingInvoke({ kind: "success", outputs: {} }), session);
+
+      session.signOn({ operator: "teller1", branch: "MAIN-001 - Main Office" });
+      expect((await fetch(`${url}/capabilities`)).status).toBe(200);
+      const run = await fetch(`${url}/capabilities/account-lookup/invoke`, {
+        method: "POST",
+        body: JSON.stringify({ inputs: { accountId: "12345" } }),
+      });
+      expect(run.status).toBe(200);
+
+      session.signOff();
+      expect((await fetch(`${url}/capabilities`)).status).toBe(401);
+    });
   });
 });

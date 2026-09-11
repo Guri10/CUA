@@ -1,0 +1,54 @@
+URL: https://web-sample.interface-hiring.com/members?by=number&q=100234
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "MEMBER INQUIRY / SELECTION Search by: Member Number Value: 100234 Search Member No. Name Shares 100234 Lovelace, Ada 24 Select Try member numbers 100234, 100987, 101555, 102777, 103001."':
+      - 'cell "MEMBER INQUIRY / SELECTION Search by: Member Number Value: 100234 Search Member No. Name Shares 100234 Lovelace, Ada 24 Select Try member numbers 100234, 100987, 101555, 102777, 103001."':
+        - heading "MEMBER INQUIRY / SELECTION" [level=1]
+        - table:
+          - rowgroup:
+            - 'row "Search by: Member Number"':
+              - cell "Search by:"
+              - cell "Member Number":
+                - combobox:
+                  - option "Member Number" [selected]
+                  - option "Last Name"
+            - 'row "Value: 100234 Search"':
+              - cell "Value:"
+              - cell "100234 Search":
+                - textbox: "100234"
+                - button "Search"
+        - table:
+          - rowgroup:
+            - row "Member No. Name Shares":
+              - cell "Member No."
+              - cell "Name"
+              - cell "Shares"
+              - cell
+            - row "100234 Lovelace, Ada 24 Select":
+              - cell "100234"
+              - cell "Lovelace, Ada"
+              - cell "24"
+              - cell "Select":
+                - link "Select":
+                  - /url: /members/100234
+        - text: Try member numbers 100234, 100987, 101555, 102777, 103001.
+    - row "OPR TELLER1 | BR MAIN-001 | 09/04/2026 16:02:38 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/04/2026 16:02:38 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

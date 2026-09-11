@@ -1,0 +1,70 @@
+URL: https://web-sample.interface-hiring.com/members/100234/hold
+
+- table:
+  - rowgroup:
+    - row "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™":
+      - cell "MERIDIAN CORE Member Services Platform v4.2.1 Cornerstone Financial Systems™"
+    - row "Main Menu · Member Inquiry · System Settings · Sign Off":
+      - cell "Main Menu · Member Inquiry · System Settings · Sign Off":
+        - link "Main Menu":
+          - /url: /menu
+        - text: ·
+        - link "Member Inquiry":
+          - /url: /members
+        - text: ·
+        - link "System Settings":
+          - /url: /settings
+        - text: ·
+        - link "Sign Off":
+          - /url: /signoff
+    - 'row "PLACE ACCOUNT HOLD RESTRICTED FUNCTION - SUPERVISOR OVERRIDE REQUIRED * Share: 100234-S0001 - Regular Shares * Reason Code: FRAUD - Suspected fraud Notes: Continue Cancel"':
+      - 'cell "PLACE ACCOUNT HOLD RESTRICTED FUNCTION - SUPERVISOR OVERRIDE REQUIRED * Share: 100234-S0001 - Regular Shares * Reason Code: FRAUD - Suspected fraud Notes: Continue Cancel"':
+        - heading "PLACE ACCOUNT HOLD" [level=1]
+        - text: RESTRICTED FUNCTION - SUPERVISOR OVERRIDE REQUIRED
+        - table:
+          - rowgroup:
+            - 'row "* Share: 100234-S0001 - Regular Shares"':
+              - cell "* Share:"
+              - cell "100234-S0001 - Regular Shares":
+                - combobox:
+                  - option "100234-S0001 - Regular Shares" [selected]
+                  - option "100234-S0070 - Share Draft (Checking)"
+                  - option "100234-MMKT-3 - Money Market"
+                  - option "100234-MMKT-4 - Money Market"
+                  - option "100234-S0001-5 - Regular Shares"
+                  - option "100234-S0001-6 - Regular Shares"
+                  - option "100234-MMKT-7 - Money Market"
+                  - option "100234-MMKT-8 - Money Market"
+                  - option "100234-MMKT-9 - Money Market"
+                  - option "100234-MMKT-10 - Money Market"
+                  - option "100234-MMKT-11 - Money Market"
+                  - option "100234-S0001-12 - Regular Shares"
+                  - option "100234-S0001-13 - Regular Shares"
+                  - option "100234-S0001-14 - Regular Shares"
+                  - option "100234-CERT-15 - Certificate"
+                  - option "100234-MMKT-16 - Money Market"
+                  - option "100234-S0070-17 - Share Draft (Checking)"
+                  - option "100234-S0001-18 - Regular Shares"
+                  - option "100234-S0001-19 - Regular Shares"
+                  - option "100234-S0001-20 - Regular Shares"
+            - 'row "* Reason Code: FRAUD - Suspected fraud"':
+              - cell "* Reason Code:"
+              - cell "FRAUD - Suspected fraud":
+                - combobox:
+                  - option "FRAUD - Suspected fraud" [selected]
+                  - option "LEGAL - Legal / levy"
+                  - option "DECEASED - Member deceased"
+            - row "Notes:":
+              - cell "Notes:"
+              - cell:
+                - textbox
+            - row "Continue Cancel":
+              - cell
+              - cell "Continue Cancel":
+                - button "Continue"
+                - link "Cancel":
+                  - /url: /members/100234
+    - row "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:35 | SID [REDACTED]":
+      - cell "OPR TELLER1 | BR MAIN-001 | 09/03/2026 17:49:35 | SID [REDACTED]"
+    - row "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel":
+      - cell "F3=Sign Off F5=Main Menu F7=Member Inquiry F12=Cancel"

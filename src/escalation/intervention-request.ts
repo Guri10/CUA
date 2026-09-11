@@ -42,3 +42,17 @@ export interface ObservedState {
   /** The accessibility tree, as the snapshot YAML. */
   readonly tree: string;
 }
+
+/**
+ * The context an escalation carries to a caller that is not holding a browser.
+ *
+ * The CLI hands a person the live session and the whole Intervention Request,
+ * observed screen and all. The catalog cannot: it refuses a mutating draft
+ * before a run exists (ADR 0007), so there is no screen to observe and no
+ * session to hand over. What it still carries is the rest of the Intervention
+ * Request — which Capability, where it stopped, and why — which is what a caller
+ * reading a stopped-with-context result over HTTP needs. It is that type minus
+ * `observed` on purpose, so the two cannot drift: a field added to the live
+ * request is a field this context carries too.
+ */
+export type EscalationContext = Omit<InterventionRequest, "observed">;
