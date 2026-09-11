@@ -1,0 +1,29 @@
+{"at":"2026-09-07T00:18:10.604Z","kind":"run-started","redaction":"on","about":{"goal":"Open Funds Transfer for the member. Set the from-share, to-share, amount, and memo from the given inputs, continue to the review screen, and post the transfer. Confirm the TRANSFER POSTED screen.","entry":"/menu","baseUrl":"https://web-sample.interface-hiring.com","surface":"meridian","maxSteps":"25","capability":"funds-transfer@3","input.memberNumber":"[SENSITIVE]","input.fromShare":"[SENSITIVE]-S0001-12","input.toShare":"[SENSITIVE]-S0001-14","input.amount":"[SENSITIVE]","input.memo":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:18:12.538Z","kind":"action","seq":0,"by":"agent","ms":264,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.643Z","kind":"action","seq":1,"by":"agent","ms":28,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.667Z","kind":"action","seq":2,"by":"agent","ms":13,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.680Z","kind":"action","seq":3,"by":"agent","ms":9,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.815Z","kind":"action","seq":4,"by":"agent","ms":132,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.848Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:12.908Z","kind":"action","seq":6,"by":"agent","ms":50,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/menu"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:17.044Z","kind":"action","seq":7,"by":"agent","ms":110,"action":{"kind":"click","locator":{"role":"link","name":"Funds Transfer"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:21.444Z","kind":"action","seq":8,"by":"agent","ms":8,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:25.651Z","kind":"action","seq":9,"by":"agent","ms":82,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:28.874Z","kind":"action","seq":10,"by":"agent","ms":96,"action":{"kind":"click","locator":{"role":"link","name":"Select"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:18:36.007Z","kind":"intervention-request","capability":"funds-transfer@3","step":"select of combobox within row \"* From Share:\"","reason":"\"/members/100234/transfer\" can change data, and this run has no mandate to.","screen":"https://web-sample.interface-hiring.com/members/100234/transfer"}
+{"at":"2026-09-07T00:18:36.008Z","kind":"control","to":"human"}
+{"at":"2026-09-07T00:19:01.939Z","kind":"action","seq":11,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:07.169Z","kind":"action","seq":12,"by":"human","action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:07.171Z","kind":"action","seq":13,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:15.580Z","kind":"action","seq":14,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":1}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:18.328Z","kind":"action","seq":15,"by":"human","action":{"kind":"select","locator":{"role":"combobox","ordinal":1},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:18.330Z","kind":"action","seq":16,"by":"human","action":{"kind":"click","locator":{"role":"combobox","ordinal":1}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:21.520Z","kind":"action","seq":17,"by":"human","action":{"kind":"click","locator":{"role":"textbox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:26.126Z","kind":"action","seq":18,"by":"human","action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:26.220Z","kind":"action","seq":19,"by":"human","action":{"kind":"click","locator":{"role":"textbox","ordinal":1}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:35.508Z","kind":"action","seq":20,"by":"human","action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:35.602Z","kind":"action","seq":21,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Continue","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:19:38.254Z","kind":"action","seq":22,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Post Transfer","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:20:02.767Z","kind":"control","to":"agent"}
+{"at":"2026-09-07T00:20:09.324Z","kind":"action","seq":23,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"TRANSFER POSTED","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:20:16.375Z","kind":"run-finished","outcome":"stopped","about":{"steps":"19","because":"unrecordable"}}

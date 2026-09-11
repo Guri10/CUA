@@ -1,0 +1,15 @@
+{"at":"2026-09-07T00:08:55.567Z","kind":"run-started","redaction":"on","about":{"goal":"From the main menu, open Member Inquiry and look up a member by member number, then open that member's record.","entry":"/menu","baseUrl":"https://web-sample.interface-hiring.com","surface":"meridian","maxSteps":"25","capability":"member-lookup@3","input.by":"[SENSITIVE]","input.q":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:08:56.434Z","kind":"action","seq":0,"by":"agent","ms":238,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.582Z","kind":"action","seq":1,"by":"agent","ms":97,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.636Z","kind":"action","seq":2,"by":"agent","ms":50,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.647Z","kind":"action","seq":3,"by":"agent","ms":7,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.771Z","kind":"action","seq":4,"by":"agent","ms":121,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.797Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:08:56.894Z","kind":"action","seq":6,"by":"agent","ms":29,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/menu"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:02.791Z","kind":"action","seq":7,"by":"agent","ms":54,"action":{"kind":"click","locator":{"role":"link","name":"Member Inquiry / Selection"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:08.127Z","kind":"action","seq":8,"by":"agent","ms":10,"action":{"kind":"select","locator":{"role":"combobox"},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:12.744Z","kind":"action","seq":9,"by":"agent","ms":15,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:16.982Z","kind":"action","seq":10,"by":"agent","ms":146,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:20.969Z","kind":"action","seq":11,"by":"agent","ms":78,"action":{"kind":"click","locator":{"role":"link","name":"Select"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:25.343Z","kind":"action","seq":12,"by":"agent","ms":11,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:09:30.749Z","kind":"run-finished","outcome":"success","about":{"steps":"7","capability":"member-lookup@3"}}

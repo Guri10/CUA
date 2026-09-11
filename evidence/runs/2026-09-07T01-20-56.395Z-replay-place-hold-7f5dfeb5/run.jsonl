@@ -1,0 +1,24 @@
+{"at":"2026-09-07T01:20:56.398Z","kind":"run-started","redaction":"on","about":{"capability":"place-hold@3","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.shareId":"[SENSITIVE]-MMKT-40","input.reasonCode":"[SENSITIVE]","input.notes":"[SENSITIVE]"}}
+{"at":"2026-09-07T01:20:57.130Z","kind":"action","seq":0,"by":"agent","ms":258,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.216Z","kind":"action","seq":1,"by":"agent","ms":40,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.271Z","kind":"action","seq":2,"by":"agent","ms":51,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.297Z","kind":"action","seq":3,"by":"agent","ms":23,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.415Z","kind":"action","seq":4,"by":"agent","ms":115,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.440Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.473Z","kind":"action","seq":6,"by":"agent","ms":30,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/menu"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.552Z","kind":"action","seq":7,"by":"agent","ms":59,"action":{"kind":"click","locator":{"role":"link","name":"Place Account Hold"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.578Z","kind":"action","seq":8,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.661Z","kind":"action","seq":9,"by":"agent","ms":80,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.749Z","kind":"action","seq":10,"by":"agent","ms":67,"action":{"kind":"click","locator":{"role":"link","name":"Select"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.806Z","kind":"action","seq":11,"by":"agent","ms":35,"action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.833Z","kind":"action","seq":12,"by":"agent","ms":22,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.870Z","kind":"action","seq":13,"by":"agent","ms":33,"action":{"kind":"click","locator":{"role":"combobox","ordinal":0}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.903Z","kind":"action","seq":14,"by":"agent","ms":29,"action":{"kind":"click","locator":{"role":"combobox","ordinal":1}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.913Z","kind":"action","seq":15,"by":"agent","ms":6,"action":{"kind":"select","locator":{"role":"combobox","ordinal":1},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.952Z","kind":"action","seq":16,"by":"agent","ms":35,"action":{"kind":"click","locator":{"role":"combobox","ordinal":1}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.987Z","kind":"action","seq":17,"by":"agent","ms":32,"action":{"kind":"click","locator":{"role":"textbox"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:57.995Z","kind":"action","seq":18,"by":"agent","ms":5,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:58.087Z","kind":"action","seq":19,"by":"agent","ms":88,"action":{"kind":"click","locator":{"role":"button","name":"Continue","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:58.177Z","kind":"action","seq":20,"by":"agent","ms":70,"action":{"kind":"click","locator":{"role":"button","name":"Apply Hold","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T01:20:58.200Z","kind":"action","seq":21,"by":"agent","ms":3,"action":{"kind":"read","locator":{"role":"cell","ordinal":2,"within":{"role":"row","name":"Confirmation:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-07T01:20:58.203Z","kind":"run-finished","outcome":"success","about":{}}

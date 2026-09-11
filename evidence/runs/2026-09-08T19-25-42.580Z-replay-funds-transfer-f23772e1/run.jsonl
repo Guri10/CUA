@@ -1,0 +1,26 @@
+{"at":"2026-09-08T19:25:42.582Z","kind":"run-started","redaction":"on","about":{"capability":"funds-transfer@4","baseUrl":"https://web-sample.interface-hiring.com","input.memberNumber":"[SENSITIVE]","input.fromShare":"[SENSITIVE]-MMKT-21 - Money Market ($33.00)","input.toShare":"[SENSITIVE]-MMKT-43 - Money Market ($25.01)","input.amount":"[SENSITIVE]","input.memo":""}}
+{"at":"2026-09-08T19:25:43.055Z","kind":"action","seq":0,"by":"agent","ms":257,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.102Z","kind":"action","seq":1,"by":"agent","ms":22,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.158Z","kind":"action","seq":2,"by":"agent","ms":53,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.182Z","kind":"action","seq":3,"by":"agent","ms":21,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.375Z","kind":"action","seq":4,"by":"agent","ms":191,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.400Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.479Z","kind":"action","seq":6,"by":"agent","ms":78,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.518Z","kind":"action","seq":7,"by":"agent","ms":20,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.527Z","kind":"action","seq":8,"by":"agent","ms":7,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.671Z","kind":"action","seq":9,"by":"agent","ms":142,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.696Z","kind":"action","seq":10,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.794Z","kind":"action","seq":11,"by":"agent","ms":94,"action":{"kind":"click","locator":{"role":"link","name":"Select","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.830Z","kind":"action","seq":12,"by":"agent","ms":9,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MEMBER RECORD","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.945Z","kind":"action","seq":13,"by":"agent","ms":105,"action":{"kind":"click","locator":{"role":"link","name":"Funds Transfer","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:43.974Z","kind":"action","seq":14,"by":"agent","ms":6,"action":{"kind":"waitFor","locator":{"role":"heading","name":"FUNDS TRANSFER","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.002Z","kind":"action","seq":15,"by":"agent","ms":23,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.015Z","kind":"action","seq":16,"by":"agent","ms":8,"action":{"kind":"select","locator":{"role":"combobox","ordinal":1},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.026Z","kind":"action","seq":17,"by":"agent","ms":6,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.041Z","kind":"action","seq":18,"by":"agent","ms":10,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.167Z","kind":"action","seq":19,"by":"agent","ms":121,"action":{"kind":"click","locator":{"role":"button","name":"Continue"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.190Z","kind":"action","seq":20,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"CONFIRM FUNDS TRANSFER","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.312Z","kind":"action","seq":21,"by":"agent","ms":119,"action":{"kind":"click","locator":{"role":"button","name":"Post Transfer"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.335Z","kind":"action","seq":22,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"TRANSFER POSTED","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:25:44.341Z","kind":"action","seq":23,"by":"agent","ms":3,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Confirmation:","within":{"role":"table","ordinal":1}}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-08T19:25:44.344Z","kind":"run-finished","outcome":"success","about":{}}

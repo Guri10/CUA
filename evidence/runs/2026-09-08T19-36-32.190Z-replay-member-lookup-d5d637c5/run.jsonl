@@ -1,0 +1,14 @@
+{"at":"2026-09-08T19:36:32.192Z","kind":"run-started","redaction":"on","about":{"capability":"member-lookup@4","baseUrl":"https://web-sample.interface-hiring.com","input.by":"[SENSITIVE]","input.q":"[SENSITIVE]"}}
+{"at":"2026-09-08T19:36:33.370Z","kind":"action","seq":0,"by":"agent","ms":526,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.516Z","kind":"action","seq":1,"by":"agent","ms":92,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.568Z","kind":"action","seq":2,"by":"agent","ms":48,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.593Z","kind":"action","seq":3,"by":"agent","ms":22,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.820Z","kind":"action","seq":4,"by":"agent","ms":225,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.847Z","kind":"action","seq":5,"by":"agent","ms":3,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.940Z","kind":"action","seq":6,"by":"agent","ms":91,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/members"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.981Z","kind":"action","seq":7,"by":"agent","ms":20,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:33.991Z","kind":"action","seq":8,"by":"agent","ms":7,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:34.148Z","kind":"action","seq":9,"by":"agent","ms":154,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-08T19:36:44.237Z","kind":"action","seq":10,"by":"agent","ms":10065,"action":{"kind":"waitFor","locator":{"role":"cell","name":"Member No.","exact":true}},"result":{"kind":"not-found","locator":{"role":"cell","name":"Member No.","exact":true}}}
+{"at":"2026-09-08T19:36:44.332Z","kind":"failure-screenshot","file":"failure.png"}
+{"at":"2026-09-08T19:36:44.390Z","kind":"run-finished","outcome":"business-outcome","about":{"outcome":"NOT_FOUND","step":"wait-for-results"}}

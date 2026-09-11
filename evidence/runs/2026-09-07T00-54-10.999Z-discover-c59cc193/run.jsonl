@@ -1,0 +1,26 @@
+{"at":"2026-09-07T00:54:11.002Z","kind":"run-started","redaction":"on","about":{"goal":"Open a new share for a member, walking form → review → post, and return the confirmation number and new share id.","entry":"/menu","baseUrl":"https://web-sample.interface-hiring.com","surface":"meridian","maxSteps":"25","capability":"open-share@3","input.memberNumber":"[SENSITIVE]","input.shareType":"[SENSITIVE]","input.initialDeposit":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:54:13.060Z","kind":"action","seq":0,"by":"agent","ms":279,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/signon"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.136Z","kind":"action","seq":1,"by":"agent","ms":26,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":0},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.209Z","kind":"action","seq":2,"by":"agent","ms":60,"action":{"kind":"fill","locator":{"role":"textbox","ordinal":1},"value":"[REDACTED]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.238Z","kind":"action","seq":3,"by":"agent","ms":25,"action":{"kind":"select","locator":{"role":"combobox","ordinal":0},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.374Z","kind":"action","seq":4,"by":"agent","ms":133,"action":{"kind":"click","locator":{"role":"button","name":"Sign On"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.403Z","kind":"action","seq":5,"by":"agent","ms":4,"action":{"kind":"waitFor","locator":{"role":"heading","name":"MAIN MENU"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:13.465Z","kind":"action","seq":6,"by":"agent","ms":50,"action":{"kind":"navigate","url":"https://web-sample.interface-hiring.com/menu"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:18.839Z","kind":"action","seq":7,"by":"agent","ms":115,"action":{"kind":"click","locator":{"role":"link","name":"Open New Share"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:22.153Z","kind":"action","seq":8,"by":"agent","ms":12,"action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:25.281Z","kind":"action","seq":9,"by":"agent","ms":106,"action":{"kind":"click","locator":{"role":"button","name":"Search"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:28.901Z","kind":"action","seq":10,"by":"agent","ms":142,"action":{"kind":"click","locator":{"role":"link","name":"Select"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:33.009Z","kind":"intervention-request","capability":"open-share@3","step":"select of combobox","reason":"\"/members/100234/open-share\" can change data, and this run has no mandate to.","screen":"https://web-sample.interface-hiring.com/members/100234/open-share"}
+{"at":"2026-09-07T00:54:33.010Z","kind":"control","to":"human"}
+{"at":"2026-09-07T00:54:46.967Z","kind":"action","seq":11,"by":"human","action":{"kind":"click","locator":{"role":"combobox"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:48.706Z","kind":"action","seq":12,"by":"human","action":{"kind":"select","locator":{"role":"combobox"},"option":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:48.709Z","kind":"action","seq":13,"by":"human","action":{"kind":"click","locator":{"role":"combobox"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:51.544Z","kind":"action","seq":14,"by":"human","action":{"kind":"click","locator":{"role":"textbox"}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:59.312Z","kind":"action","seq":15,"by":"human","action":{"kind":"fill","locator":{"role":"textbox"},"value":"[SENSITIVE]"},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:54:59.425Z","kind":"action","seq":16,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Continue","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:55:02.327Z","kind":"action","seq":17,"by":"human","action":{"kind":"click","locator":{"role":"button","name":"Open Share","exact":true}},"result":{"kind":"ok"}}
+{"at":"2026-09-07T00:55:10.391Z","kind":"control","to":"agent"}
+{"at":"2026-09-07T00:55:15.662Z","kind":"action","seq":18,"by":"agent","ms":4,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Confirmation:"}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:55:24.684Z","kind":"action","seq":19,"by":"agent","ms":4,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"Confirmation:","ordinal":1}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:55:28.662Z","kind":"action","seq":20,"by":"agent","ms":5,"action":{"kind":"read","locator":{"role":"cell","ordinal":1,"within":{"role":"row","name":"New Share ID:","ordinal":1}}},"result":{"kind":"ok","value":"[SENSITIVE]"}}
+{"at":"2026-09-07T00:55:32.970Z","kind":"run-finished","outcome":"success","about":{"steps":"16","capability":"open-share@3","effects":"mutating"}}
